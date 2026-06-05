@@ -63,13 +63,13 @@ export function aggregate(commits, branchCount) {
 
   const uniqueAuthors = new Set();
 
-  // date key → { date, count, authors: Map<name, count> }
+  // date key → { date, count, authors: Map<name, { count, additions, deletions }> }
   const contributionsMap = new Map();
 
   // date key → { additions, deletions }
   const frequencyMap = new Map();
 
-  // author name → { name, email, totalCommits, additions, deletions, firstCommit, lastCommit }
+  // email → { name, email, totalCommits, additions, deletions, firstCommit, lastCommit, names }
   const contributorsMap = new Map();
 
   const dayOfWeekCounts = new Array(7).fill(0); // index: Mon-Sun
@@ -97,8 +97,12 @@ export function aggregate(commits, branchCount) {
       contributionsMap.set(dateKey, dayEntry);
     }
     dayEntry.count++;
-    const prevAuthorCount = dayEntry.authors.get(name) ?? 0;
-    dayEntry.authors.set(name, prevAuthorCount + 1);
+    const prev = dayEntry.authors.get(name) ?? { count: 0, additions: 0, deletions: 0 };
+    dayEntry.authors.set(name, {
+      count: prev.count + 1,
+      additions: prev.additions + (commit.stats?.additions ?? 0),
+      deletions: prev.deletions + (commit.stats?.deletions ?? 0),
+    });
 
     // -- frequency (additions / deletions per day) --------------------------
     let freq = frequencyMap.get(dateKey);
@@ -110,7 +114,7 @@ export function aggregate(commits, branchCount) {
     freq.deletions += commit.stats?.deletions ?? 0;
 
     // -- contributors -------------------------------------------------------
-    let contributor = contributorsMap.get(name);
+    let contributor = contributorsMap.get(email);
     if (!contributor) {
       contributor = {
         name,
@@ -120,16 +124,14 @@ export function aggregate(commits, branchCount) {
         deletions: 0,
         firstCommit: commit.date,
         lastCommit: commit.date,
+        names: new Map(),
       };
-      contributorsMap.set(name, contributor);
+      contributorsMap.set(email, contributor);
     }
     contributor.totalCommits++;
     contributor.additions += commit.stats?.additions ?? 0;
     contributor.deletions += commit.stats?.deletions ?? 0;
-    // If this author uses multiple emails, keep the most recent one.
-    if (commit.date >= contributor.lastCommit) {
-      contributor.email = email;
-    }
+    contributor.names.set(name, (contributor.names.get(name) ?? 0) + 1);
     if (commit.date < contributor.firstCommit) contributor.firstCommit = commit.date;
     if (commit.date > contributor.lastCommit) contributor.lastCommit = commit.date;
 
@@ -151,15 +153,33 @@ export function aggregate(commits, branchCount) {
       date: day.date,
       count: day.count,
       authorDetails: Array.from(day.authors.entries())
-        .map(([author, count]) => ({ author, count }))
+        .map(([author, { count, additions, deletions }]) => ({ author, count, additions, deletions }))
         .sort((a, b) => b.count - a.count || a.author.localeCompare(b.author)),
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   // Contributors: sort by total commits descending, then by name
-  const contributors = Array.from(contributorsMap.values()).sort(
-    (a, b) => b.totalCommits - a.totalCommits || a.name.localeCompare(b.name)
-  );
+  const contributors = Array.from(contributorsMap.values())
+    .map((c) => {
+      let bestName = c.name;
+      let bestCount = 0;
+      for (const [n, count] of c.names) {
+        if (count > bestCount || (count === bestCount && n < bestName)) {
+          bestName = n;
+          bestCount = count;
+        }
+      }
+      return {
+        name: bestName,
+        email: c.email,
+        totalCommits: c.totalCommits,
+        additions: c.additions,
+        deletions: c.deletions,
+        firstCommit: c.firstCommit,
+        lastCommit: c.lastCommit,
+      };
+    })
+    .sort((a, b) => b.totalCommits - a.totalCommits || a.name.localeCompare(b.name));
 
   // Frequency: sort by date ascending
   const frequency = Array.from(frequencyMap.entries())

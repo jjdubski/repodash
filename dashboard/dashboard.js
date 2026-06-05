@@ -439,7 +439,7 @@
     var top10 = contributors.slice(0, 10);
 
     createChart('chart-top-contributors', 'bar', {
-      labels: top10.map(function (c) { return c.name; }),
+      labels: top10.map(function (c) { return c.name || c.email; }),
       datasets: [{
         label: 'Commits',
         data: top10.map(function (c) { return c.totalCommits; }),
@@ -508,7 +508,7 @@
     d.contributors.forEach(function (c) {
       var tr = document.createElement('tr');
       tr.innerHTML =
-        '<td>' + escapeHtml(c.name) + '</td>' +
+        '<td>' + escapeHtml(c.name || c.email) + '</td>' +
         '<td class="num-col">' + formatNumber(c.totalCommits) + '</td>' +
         '<td class="num-col">' + formatNumber(c.additions) + '</td>' +
         '<td class="num-col">' + formatNumber(c.deletions) + '</td>' +
@@ -521,7 +521,7 @@
     var list = d.contributors.slice().reverse();
 
     createChart('chart-contributor-distribution', 'bar', {
-      labels: list.map(function (c) { return c.name; }),
+      labels: list.map(function (c) { return c.name || c.email; }),
       datasets: [{
         label: 'Commits',
         data: list.map(function (c) { return c.totalCommits; }),

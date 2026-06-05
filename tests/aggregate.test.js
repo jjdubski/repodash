@@ -112,6 +112,8 @@ describe('aggregate (pure function)', () => {
         'Test User',
       );
       assert.strictEqual(result.contributions[0].authorDetails[0].count, 1);
+      assert.strictEqual(result.contributions[0].authorDetails[0].additions, 10);
+      assert.strictEqual(result.contributions[0].authorDetails[0].deletions, 5);
     });
 
     it('should have contributors with 1 entry and correct stats', () => {
@@ -241,14 +243,20 @@ describe('aggregate (pure function)', () => {
       // Alice has 2 commits, Bob has 1 → Alice first
       assert.strictEqual(day1.authorDetails[0].author, 'Alice');
       assert.strictEqual(day1.authorDetails[0].count, 2);
+      assert.strictEqual(day1.authorDetails[0].additions, 15);
+      assert.strictEqual(day1.authorDetails[0].deletions, 3);
       assert.strictEqual(day1.authorDetails[1].author, 'Bob');
       assert.strictEqual(day1.authorDetails[1].count, 1);
+      assert.strictEqual(day1.authorDetails[1].additions, 20);
+      assert.strictEqual(day1.authorDetails[1].deletions, 3);
 
       const day2 = result.contributions[1]; // 2025-01-16
       assert.strictEqual(day2.count, 1);
       assert.strictEqual(day2.authorDetails.length, 1);
       assert.strictEqual(day2.authorDetails[0].author, 'Alice');
       assert.strictEqual(day2.authorDetails[0].count, 1);
+      assert.strictEqual(day2.authorDetails[0].additions, 3);
+      assert.strictEqual(day2.authorDetails[0].deletions, 0);
     });
 
     it('should have 2 contributors sorted by commit count desc', () => {
@@ -498,7 +506,7 @@ describe('aggregate (pure function)', () => {
       assert.strictEqual(result.activity.topFiles[0].changes, 1);
     });
 
-    it('should merge same author name with different emails', () => {
+    it('should keep different emails as separate contributors', () => {
       const commits = [
         makeCommit({
           hash: 'c1',
@@ -513,12 +521,40 @@ describe('aggregate (pure function)', () => {
       ];
       const result = aggregate(commits, 1);
 
-      // Only one contributor (same name)
-      assert.strictEqual(result.summary.totalContributors, 1);
+      // Two contributors (different emails)
+      assert.strictEqual(result.contributors.length, 2);
+      assert.strictEqual(result.contributors[0].totalCommits, 1);
+      assert.strictEqual(result.contributors[1].totalCommits, 1);
+      const emails = result.contributors.map(function (c) { return c.email; }).sort();
+      assert.deepStrictEqual(emails, ['new@test.com', 'old@test.com']);
+    });
+
+    it('should merge same email with different names preferring most-used name', () => {
+      const commits = [
+        makeCommit({
+          hash: 'c1',
+          author: { name: 'Bob', email: 'bob@test.com' },
+          date: '2025-01-15T10:00:00Z',
+        }),
+        makeCommit({
+          hash: 'c2',
+          author: { name: 'Robert', email: 'bob@test.com' },
+          date: '2025-01-16T10:00:00Z',
+        }),
+        makeCommit({
+          hash: 'c3',
+          author: { name: 'Bob', email: 'bob@test.com' },
+          date: '2025-01-17T10:00:00Z',
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      // One contributor (same email)
       assert.strictEqual(result.contributors.length, 1);
-      // The most recent email should be kept
-      assert.strictEqual(result.contributors[0].email, 'new@test.com');
-      assert.strictEqual(result.contributors[0].totalCommits, 2);
+      assert.strictEqual(result.contributors[0].totalCommits, 3);
+      // Most-used name is Bob (2 commits) vs Robert (1 commit)
+      assert.strictEqual(result.contributors[0].name, 'Bob');
+      assert.strictEqual(result.contributors[0].email, 'bob@test.com');
     });
 
     it('should handle branchCount = 0 with commits present', () => {
