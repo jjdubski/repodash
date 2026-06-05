@@ -103,7 +103,14 @@
 
       <!-- Contribution stacked bar chart -->
       <div class="chart-card">
-        <h2 class="chart-title">Contribution Graph</h2>
+        <div class="chart-header">
+          <h2 class="chart-title">Contribution Graph</h2>
+          <select id="contribution-mode" class="chart-select" aria-label="Contribution graph mode">
+            <option value="author">Author</option>
+            <option value="commits">Commits</option>
+            <option value="lines">Lines</option>
+          </select>
+        </div>
         <div class="chart-wrap">
           <canvas id="chart-contribution"></canvas>
         </div>

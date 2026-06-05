@@ -333,6 +333,34 @@ body {
   text-wrap: balance;
 }
 
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.chart-header .chart-title {
+  margin-bottom: 0;
+}
+
+.chart-select {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.chart-select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .chart-wrap {
   position: relative;
   width: 100%;

@@ -18,9 +18,10 @@
     activeTab: 'overview',
     timeFilter: 'last3months',
     theme: 'light',
-    charts: {},     // Map<canvasId, ChartInstance>
+    charts: {},
     customStartDate: null,
     customEndDate: null,
+    contributionMode: 'author',
   };
 
   // ═════════════════════════════════════════════════════════════════════
@@ -431,17 +432,27 @@
       return;
     }
 
-    renderContributionChart(d.contributions);
+    renderContributionChart(d.contributions, d.frequency, state.contributionMode);
     renderTopContributorsChart(d.contributors);
     renderFrequencyMiniChart(d.frequency);
   }
 
-  // -- Contribution stacked bar chart ------------------------------------
+  // -- Contribution chart (multi-mode) -----------------------------------
 
-  function renderContributionChart(contributions) {
+  function renderContributionChart(contributions, frequency, mode) {
     if (!contributions || !contributions.length) return;
+    mode = mode || 'author';
 
-    // Aggregate per-author totals across the filtered date range
+    if (mode === 'commits') {
+      renderContributionCommits(contributions);
+    } else if (mode === 'lines') {
+      renderContributionLines(frequency);
+    } else {
+      renderContributionAuthor(contributions);
+    }
+  }
+
+  function renderContributionAuthor(contributions) {
     var totals = {};
     contributions.forEach(function (day) {
       (day.authorDetails || []).forEach(function (a) {
@@ -449,7 +460,6 @@
       });
     });
 
-    // Sort by commits descending; keep top 7 + group rest as "Others"
     var sorted = Object.keys(totals).sort(function (a, b) {
       return totals[b] - totals[a];
     });
@@ -457,7 +467,6 @@
     var topAuthors = sorted.slice(0, TOP);
     var hasOthers  = sorted.length > TOP;
 
-    // Build an index: author -> date -> count (avoids O(n×m) filtering)
     var authorDayIndex = {};
     topAuthors.forEach(function (author) {
       authorDayIndex[author] = {};
@@ -519,6 +528,69 @@
       plugins: {
         legend: { display: true, position: 'bottom', labels: { boxWidth: 12, padding: 12 } },
       },
+    });
+  }
+
+  function renderContributionCommits(contributions) {
+    createChart('chart-contribution', 'bar', {
+      labels: contributions.map(function (d) { return d.date; }),
+      datasets: [{
+        label: 'Commits',
+        data: contributions.map(function (d) { return d.count; }),
+        backgroundColor: window.COLORS.blue,
+        borderWidth: 0,
+        borderRadius: 2,
+      }],
+    }, {
+      scales: {
+        x: {
+          stacked: false,
+          maxTicksLimit: contributions.length > 90 ? 12 : undefined,
+        },
+        y: {
+          stacked: false,
+          beginAtZero: true,
+          title: { display: true, text: 'Commits' },
+        },
+      },
+      plugins: {
+        legend: { display: false },
+      },
+    });
+  }
+
+  function renderContributionLines(frequency) {
+    if (!frequency || !frequency.length) {
+      destroyChart('chart-contribution');
+      return;
+    }
+
+    createChart('chart-contribution', 'line', {
+      labels: frequency.map(function (d) { return d.date; }),
+      datasets: [
+        {
+          label: 'Additions',
+          data: frequency.map(function (d) { return d.additions; }),
+          borderColor:     window.COLORS.green,
+          backgroundColor: window.COLORS.green + '20',
+          fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2,
+        },
+        {
+          label: 'Deletions',
+          data: frequency.map(function (d) { return d.deletions; }),
+          borderColor:     window.COLORS.red,
+          backgroundColor: window.COLORS.red + '20',
+          fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2,
+        },
+      ],
+    }, {
+      scales: {
+        x: { maxTicksLimit: frequency.length > 90 ? 12 : undefined },
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12, usePointStyle: true } },
+      },
+      interaction: { mode: 'nearest', axis: 'x', intersect: false },
     });
   }
 
@@ -771,6 +843,16 @@
         setTimeFilter(btn.getAttribute('data-filter'));
       });
     });
+
+    var contributionSelect = document.getElementById('contribution-mode');
+    if (contributionSelect) {
+      contributionSelect.addEventListener('change', function () {
+        state.contributionMode = contributionSelect.value;
+        if (state.activeTab === 'overview') {
+          renderCurrentTab();
+        }
+      });
+    }
 
     var dateStart = document.getElementById('date-start');
     var dateEnd = document.getElementById('date-end');
