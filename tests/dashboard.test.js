@@ -179,7 +179,13 @@ describe('Dashboard — file structure', () => {
     it('should have time filter pills', () => {
       const pills = html.match(/data-filter="\w+"/g);
       assert.ok(pills, 'No data-filter attributes found');
-      assert.strictEqual(pills.length, 4, 'Expected 4 time filter pills');
+      assert.strictEqual(pills.length, 5, 'Expected 5 time filter pills');
+    });
+
+    it('should have custom date range inputs', () => {
+      assert.ok(html.includes('id="custom-date-range"'), 'Missing custom date range container');
+      assert.ok(html.includes('id="date-start"'), 'Missing date-start input');
+      assert.ok(html.includes('id="date-end"'), 'Missing date-end input');
     });
 
     it('should have loading / error / empty state elements', () => {
@@ -464,23 +470,28 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       assert.strictEqual(getCutoffDate('allTime'), null);
     });
 
-    it('should return a YYYY-MM-DD string for "thisWeek"', () => {
+    it('should return bounds object with YYYY-MM-DD start for "thisWeek"', () => {
       const result = getCutoffDate('thisWeek');
-      assert.match(result, /^\d{4}-\d{2}-\d{2}$/);
+      assert.ok(result, 'Expected truthy bounds object');
+      assert.match(result.start, /^\d{4}-\d{2}-\d{2}$/);
+      assert.strictEqual(result.end, null);
     });
 
-    it('should return a YYYY-MM-DD string for "last3months"', () => {
+    it('should return bounds object with YYYY-MM-DD start for "last3months"', () => {
       const result = getCutoffDate('last3months');
-      assert.match(result, /^\d{4}-\d{2}-\d{2}$/);
+      assert.ok(result, 'Expected truthy bounds object');
+      assert.match(result.start, /^\d{4}-\d{2}-\d{2}$/);
+      assert.strictEqual(result.end, null);
     });
 
-    it('should return a YYYY-MM-DD string for "pastYear"', () => {
+    it('should return bounds object with YYYY-MM-DD start for "pastYear"', () => {
       const result = getCutoffDate('pastYear');
-      assert.match(result, /^\d{4}-\d{2}-\d{2}$/);
+      assert.ok(result, 'Expected truthy bounds object');
+      assert.match(result.start, /^\d{4}-\d{2}-\d{2}$/);
+      assert.strictEqual(result.end, null);
     });
 
     it('should return null for unknown filter values', () => {
-      // No matching case in switch — falls through to default
       assert.strictEqual(getCutoffDate('unknown'), null);
     });
   });
@@ -494,40 +505,58 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       { date: '2024-12-31', val: 3 },
     ];
 
-    it('should return the same array when cutoff is null', () => {
+    it('should return the same array when bounds is null', () => {
       const result = filterByDate(data, null);
       assert.strictEqual(result, data);   // same reference
     });
 
-    it('should filter out items before the cutoff', () => {
-      const result = filterByDate(data, '2024-06-01');
+    it('should filter out items before the start bound', () => {
+      const result = filterByDate(data, { start: '2024-06-01', end: null });
       assert.strictEqual(result.length, 2);
       assert.strictEqual(result[0].val, 2);
       assert.strictEqual(result[1].val, 3);
     });
 
-    it('should filter out all items when cutoff is after all dates', () => {
-      const result = filterByDate(data, '2099-01-01');
+    it('should filter out items after the end bound', () => {
+      const result = filterByDate(data, { start: null, end: '2024-06-30' });
+      assert.strictEqual(result.length, 2);
+      assert.strictEqual(result[0].val, 1);
+      assert.strictEqual(result[1].val, 2);
+    });
+
+    it('should filter both bounds when start and end are set', () => {
+      const result = filterByDate(data, { start: '2024-02-01', end: '2024-11-30' });
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].val, 2);
+    });
+
+    it('should return all items when both bounds are null', () => {
+      const result = filterByDate(data, { start: null, end: null });
+      assert.strictEqual(result.length, 3);
+    });
+
+    it('should filter out all items when start is after all dates', () => {
+      const result = filterByDate(data, { start: '2099-01-01', end: null });
       assert.strictEqual(result.length, 0);
     });
 
-    it('should keep all items when cutoff is before all dates', () => {
-      const result = filterByDate(data, '2023-01-01');
-      assert.strictEqual(result.length, 3);
+    it('should filter out all items when end is before all dates', () => {
+      const result = filterByDate(data, { start: null, end: '2020-01-01' });
+      assert.strictEqual(result.length, 0);
     });
 
     it('should return the same array for empty input', () => {
       const empty = [];
-      const result = filterByDate(empty, '2024-01-01');
+      const result = filterByDate(empty, { start: '2024-01-01', end: null });
       assert.strictEqual(result, empty);
     });
 
     it('should return null for null input', () => {
-      assert.strictEqual(filterByDate(null, '2024-01-01'), null);
+      assert.strictEqual(filterByDate(null, { start: '2024-01-01', end: null }), null);
     });
 
     it('should return undefined for undefined input', () => {
-      assert.strictEqual(filterByDate(undefined, '2024-01-01'), undefined);
+      assert.strictEqual(filterByDate(undefined, { start: '2024-01-01', end: null }), undefined);
     });
 
     it('should use a custom field name when provided', () => {
@@ -535,7 +564,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
         { created: '2023-01-01' },
         { created: '2024-06-01' },
       ];
-      const result = filterByDate(d, '2024-01-01', 'created');
+      const result = filterByDate(d, { start: '2024-01-01', end: null }, 'created');
       assert.strictEqual(result.length, 1);
       assert.strictEqual(result[0].created, '2024-06-01');
     });
@@ -545,7 +574,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
         { date: '2023-01-01' },
         { date: '2024-06-01' },
       ];
-      const result = filterByDate(d, '2024-01-01');
+      const result = filterByDate(d, { start: '2024-01-01', end: null });
       assert.strictEqual(result.length, 1);
     });
   });

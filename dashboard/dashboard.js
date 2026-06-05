@@ -19,6 +19,8 @@
     timeFilter: 'last3months',
     theme: 'light',
     charts: {},     // Map<canvasId, ChartInstance>
+    customStartDate: null,
+    customEndDate: null,
   };
 
   // ═════════════════════════════════════════════════════════════════════
@@ -56,6 +58,12 @@
   // ── Time filter helpers ──────────────────────────────────────────────
 
   function getCutoffDate(filter) {
+    if (filter === 'custom') {
+      return {
+        start: state.customStartDate || null,
+        end: state.customEndDate || null,
+      };
+    }
     var now = new Date();
     var d = new Date(now);
     switch (filter) {
@@ -64,13 +72,79 @@
       case 'pastYear':     d.setFullYear(now.getFullYear() - 1); break;
       default:             return null; // allTime
     }
-    return d.toISOString().slice(0, 10);
+    return { start: d.toISOString().slice(0, 10), end: null };
   }
 
-  function filterByDate(arr, cutoff, field) {
-    if (!arr || !arr.length || !cutoff) return arr;
+  function filterByDate(arr, bounds, field) {
+    if (!arr || !arr.length || !bounds) return arr;
     field = field || 'date';
-    return arr.filter(function (item) { return item[field] >= cutoff; });
+    return arr.filter(function (item) {
+      if (bounds.start && item[field] < bounds.start) return false;
+      if (bounds.end && item[field] > bounds.end) return false;
+      return true;
+    });
+  }
+
+  function computeFilteredSummary(contributions, frequency) {
+    var totalCommits = contributions.reduce(function (sum, d) { return sum + d.count; }, 0);
+    var totalAdditions = frequency.reduce(function (sum, d) { return sum + d.additions; }, 0);
+    var totalDeletions = frequency.reduce(function (sum, d) { return sum + d.deletions; }, 0);
+
+    var authorSet = {};
+    contributions.forEach(function (day) {
+      (day.authorDetails || []).forEach(function (a) {
+        authorSet[a.author] = true;
+      });
+    });
+    var totalContributors = Object.keys(authorSet).length;
+
+    return {
+      totalCommits: totalCommits,
+      totalContributors: totalContributors,
+      totalAdditions: totalAdditions,
+      totalDeletions: totalDeletions,
+      firstCommit: state.data.summary.firstCommit,
+      lastCommit: state.data.summary.lastCommit,
+      activeBranches: state.data.summary.activeBranches,
+    };
+  }
+
+  function computeFilteredContributors(contributions, allContributors) {
+    var authorStats = {};
+    contributions.forEach(function (day) {
+      (day.authorDetails || []).forEach(function (a) {
+        if (!authorStats[a.author]) {
+          authorStats[a.author] = { totalCommits: 0, additions: 0, deletions: 0 };
+        }
+        authorStats[a.author].totalCommits += a.count;
+        authorStats[a.author].additions += a.additions;
+        authorStats[a.author].deletions += a.deletions;
+      });
+    });
+
+    var activeNames = Object.keys(authorStats);
+
+    return allContributors
+      .filter(function (c) {
+        var lookupKey = c.name || c.email;
+        return activeNames.indexOf(lookupKey) !== -1;
+      })
+      .map(function (c) {
+        var lookupKey = c.name || c.email;
+        var stats = authorStats[lookupKey];
+        return {
+          name: c.name,
+          email: c.email,
+          totalCommits: stats.totalCommits,
+          additions: stats.additions,
+          deletions: stats.deletions,
+          firstCommit: c.firstCommit,
+          lastCommit: c.lastCommit,
+        };
+      })
+      .sort(function (a, b) {
+        return b.totalCommits - a.totalCommits || (a.name || '').localeCompare(b.name || '');
+      });
   }
 
   // ═════════════════════════════════════════════════════════════════════
@@ -289,6 +363,12 @@
     try {
       var url = new URL(window.location.href);
       url.searchParams.set('filter', filter);
+      if (filter === 'custom') {
+        if (state.customStartDate) url.searchParams.set('start', state.customStartDate);
+        else url.searchParams.delete('start');
+        if (state.customEndDate) url.searchParams.set('end', state.customEndDate);
+        else url.searchParams.delete('end');
+      }
       window.history.replaceState(null, '', url);
     } catch (_) { /* ignore */ }
 
@@ -296,17 +376,29 @@
       btn.classList.toggle('active', btn.getAttribute('data-filter') === filter);
     });
 
+    var customRange = document.getElementById('custom-date-range');
+    if (customRange) {
+      customRange.classList.toggle('hidden', filter !== 'custom');
+    }
+
     renderCurrentTab();
   }
 
   function getFilteredData() {
     if (!state.data) return null;
-    var cutoff = getCutoffDate(state.timeFilter);
+    var bounds = getCutoffDate(state.timeFilter);
+
+    var filteredContributions = filterByDate(state.data.contributions, bounds);
+    var filteredFrequency = filterByDate(state.data.frequency, bounds);
+
+    var filteredSummary = computeFilteredSummary(filteredContributions, filteredFrequency);
+    var filteredContributors = computeFilteredContributors(filteredContributions, state.data.contributors);
+
     return {
-      summary:       state.data.summary,
-      contributions: filterByDate(state.data.contributions, cutoff),
-      contributors:  state.data.contributors,   // always full list
-      frequency:     filterByDate(state.data.frequency, cutoff),
+      summary:       filteredSummary,
+      contributions: filteredContributions,
+      contributors:  filteredContributors,
+      frequency:     filteredFrequency,
       activity:      state.data.activity,
     };
   }
@@ -328,13 +420,11 @@
 
   function renderOverview(d) {
     clearStates('overview');
-    var s = state.data.summary;
 
-    // Metric cards — always show summary totals (not time-filtered)
-    document.getElementById('metric-commits').textContent      = formatNumber(s.totalCommits);
-    document.getElementById('metric-contributors').textContent = formatNumber(s.totalContributors);
-    document.getElementById('metric-additions').textContent    = formatNumber(s.totalAdditions);
-    document.getElementById('metric-deletions').textContent    = formatNumber(s.totalDeletions);
+    document.getElementById('metric-commits').textContent      = formatNumber(d.summary.totalCommits);
+    document.getElementById('metric-contributors').textContent = formatNumber(d.summary.totalContributors);
+    document.getElementById('metric-additions').textContent    = formatNumber(d.summary.totalAdditions);
+    document.getElementById('metric-deletions').textContent    = formatNumber(d.summary.totalDeletions);
 
     if (!d.contributions || !d.contributions.length) {
       showEmpty('overview');
@@ -682,6 +772,21 @@
       });
     });
 
+    var dateStart = document.getElementById('date-start');
+    var dateEnd = document.getElementById('date-end');
+    if (dateStart) {
+      dateStart.addEventListener('change', function () {
+        state.customStartDate = dateStart.value || null;
+        setTimeFilter('custom');
+      });
+    }
+    if (dateEnd) {
+      dateEnd.addEventListener('change', function () {
+        state.customEndDate = dateEnd.value || null;
+        setTimeFilter('custom');
+      });
+    }
+
     // Arrow-key navigation within tabs
     var tabsBar = document.querySelector('.tabs');
     if (tabsBar) {
@@ -720,6 +825,10 @@
       if (filterParam && getCutoffDate(filterParam) !== undefined) {
         state.timeFilter = filterParam;
       }
+      var startParam = params.get('start');
+      var endParam = params.get('end');
+      if (startParam) state.customStartDate = startParam;
+      if (endParam) state.customEndDate = endParam;
     } catch (_) { /* ignore */ }
 
     applyTheme(detectTheme());
@@ -729,6 +838,17 @@
     document.querySelectorAll('.pill').forEach(function (btn) {
       btn.classList.toggle('active', btn.getAttribute('data-filter') === state.timeFilter);
     });
+
+    var customRange = document.getElementById('custom-date-range');
+    if (customRange) {
+      customRange.classList.toggle('hidden', state.timeFilter !== 'custom');
+    }
+    if (document.getElementById('date-start') && state.customStartDate) {
+      document.getElementById('date-start').value = state.customStartDate;
+    }
+    if (document.getElementById('date-end') && state.customEndDate) {
+      document.getElementById('date-end').value = state.customEndDate;
+    }
 
     // Sync active tab state with loaded activeTab
     document.querySelectorAll('.tab').forEach(function (btn) {

@@ -53,7 +53,14 @@
     <button class="pill" data-filter="pastYear" type="button">Past Year</button>
     <button class="pill active" data-filter="last3months" type="button">Last 3 Months</button>
     <button class="pill" data-filter="thisWeek" type="button">This Week</button>
+    <button class="pill" data-filter="custom" type="button">Custom</button>
   </nav>
+  <div class="custom-date-range hidden" id="custom-date-range">
+    <label for="date-start">From:</label>
+    <input type="date" id="date-start">
+    <label for="date-end">To:</label>
+    <input type="date" id="date-end">
+  </div>
 
   <!-- ── Tab navigation ── -->
   <nav class="tabs" role="tablist" aria-label="Dashboard sections">
