@@ -2,6 +2,8 @@ const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /**
  * Extract the date portion (YYYY-MM-DD) from an ISO 8601 string.
+ * Git's %ai format always produces ISO 8601, so slice(0,10) reliably
+ * yields the YYYY-MM-DD prefix.
  * @param {string} isoString
  * @returns {string}
  */

@@ -68,6 +68,9 @@ function parseCommit(lines) {
  */
 export function getAllCommits(repoPath) {
   // Validate upfront so the error is synchronous and descriptive
+  if (typeof repoPath !== 'string' || repoPath.length === 0) {
+    throw new Error(`Not a git repository: ${repoPath}`);
+  }
   try {
     if (!statSync(repoPath).isDirectory()) {
       throw new Error(`Not a git repository: ${repoPath}`);
@@ -149,6 +152,9 @@ export function getAllCommits(repoPath) {
  */
 export function getLocalBranchCount(repoPath) {
   // Validate upfront so the error is synchronous and descriptive
+  if (typeof repoPath !== 'string' || repoPath.length === 0) {
+    throw new Error(`Not a git repository: ${repoPath}`);
+  }
   try {
     if (!statSync(repoPath).isDirectory()) {
       throw new Error(`Not a git repository: ${repoPath}`);

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import chalk from 'chalk';
 import { main } from '../src/index.js';
 
 const repoPath = process.argv[2];
@@ -10,6 +11,6 @@ if (!repoPath) {
 }
 
 main(repoPath).catch(err => {
-  console.error(err);
+  console.error(chalk.red(`Error: ${err.message}`));
   process.exit(1);
 });

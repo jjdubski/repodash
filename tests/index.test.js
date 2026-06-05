@@ -1,32 +1,32 @@
-import { describe, it } from 'node:test';
+import { describe, it, before } from 'node:test';
 import assert from 'node:assert';
 
-describe('main orchestrator (src/index.js)', () => {
-  it('should export main as a function', async () => {
-    // Arrange & Act
-    const { main } = await import('../src/index.js');
+/** @type {import('../src/index.js').main} */
+let main;
 
-    // Assert
+describe('main orchestrator (src/index.js)', () => {
+  before(async () => {
+    const mod = await import('../src/index.js');
+    main = mod.main;
+  });
+
+  it('should export main as a function', () => {
     assert.strictEqual(typeof main, 'function');
   });
 
-  it('should run without throwing when given a repo path', async () => {
-    // Arrange
-    const { main } = await import('../src/index.js');
-
-    // Act & Assert — node:test catches rejected promises
-    await main('/tmp/some-repo');
+  it('should reject with a descriptive error for a non-existent repo path', async () => {
+    await assert.rejects(
+      () => main('/tmp/nonexistent-repo-path-for-testing'),
+      /Not a git repository/,
+      'main() should reject when the repo path does not exist',
+    );
   });
 
-  it('should not crash when called with no arguments (scaffold behavior)', async () => {
-    // Arrange
-    const { main } = await import('../src/index.js');
-
-    // Act & Assert
-    try {
-      await main();
-    } catch (err) {
-      assert.fail(`main() with no arguments threw: ${err.message}`);
-    }
+  it('should reject with a descriptive error when called with no arguments', async () => {
+    await assert.rejects(
+      () => main(),
+      /Not a git repository/,
+      'main() should reject when called with undefined repoPath',
+    );
   });
 });

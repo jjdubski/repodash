@@ -51,7 +51,14 @@ function serveFile(res, filePath) {
     'Content-Type': contentType,
     'Cache-Control': 'no-cache',
   });
-  createReadStream(filePath).pipe(res);
+  const stream = createReadStream(filePath);
+  stream.on('error', () => {
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'text/plain' });
+      res.end('Internal Server Error');
+    }
+  });
+  stream.pipe(res);
 }
 
 /**
@@ -226,6 +233,8 @@ export async function serveDashboard(data, dashboardDir, port = 0) {
       res.end('Bad Request');
     }
   });
+
+  server.timeout = 30000; // 30 seconds
 
   await new Promise((resolve, reject) => {
     const onError = (err) => {

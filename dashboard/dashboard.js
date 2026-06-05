@@ -6,7 +6,10 @@
   'use strict';
 
   // ── Guard ────────────────────────────────────────────────────────────
-  if (typeof Chart === 'undefined') return; // Chart.js CDN didn't load
+  if (typeof Chart === 'undefined') {
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--red,#f85149);font-family:var(--font-sans,sans-serif);font-size:16px;padding:24px;">Failed to load Chart.js. Check your network connection.</div>';
+    return;
+  }
   if (!window.COLORS || !window.getScaleDefaults) return; // config didn't load
 
   // ── State ───────────────────────────────────────────────────────────
@@ -42,10 +45,12 @@
     }
   }
 
+  var _escapeDiv = null;
+
   function escapeHtml(str) {
-    var div = document.createElement('div');
-    div.appendChild(document.createTextNode(str));
-    return div.innerHTML;
+    if (!_escapeDiv) _escapeDiv = document.createElement('div');
+    _escapeDiv.textContent = str;
+    return _escapeDiv.innerHTML;
   }
 
   // ── Time filter helpers ──────────────────────────────────────────────

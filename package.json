@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node bin/insights.js",
-    "test": "node -e \"import { run } from 'node:test'; import { spec } from 'node:test/reporters'; run({ files: ['tests/imports.test.js', 'tests/aggregate.test.js', 'tests/server.test.js'] }).compose(spec).pipe(process.stdout);\""
+    "test": "node -e \"import { run } from 'node:test'; import { spec } from 'node:test/reporters'; run({ files: ['tests/imports.test.js', 'tests/aggregate.test.js', 'tests/server.test.js', 'tests/git.test.js', 'tests/dashboard.test.js', 'tests/index.test.js'] }).compose(spec).pipe(process.stdout);\""
   },
   "dependencies": {
     "chalk": "^5.4.1",
