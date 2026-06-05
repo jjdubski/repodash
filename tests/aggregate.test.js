@@ -1,0 +1,699 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert';
+import { aggregate } from '../src/aggregate.js';
+
+// ---------------------------------------------------------------------------
+// Fixture helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a minimal commit object with sensible defaults.
+ * Spread overrides *after* defaults so callers can override any field.
+ */
+function makeCommit(overrides = {}) {
+  const defaults = {
+    hash: 'abc123',
+    author: { name: 'Test User', email: 'test@test.com' },
+    date: '2025-01-15T10:30:00+00:00',
+    message: 'Test commit',
+    stats: { additions: 10, deletions: 5, files: 2 },
+    files: ['src/file1.js', 'src/file2.js'],
+  };
+  return {
+    ...defaults,
+    ...overrides,
+    author: { ...defaults.author, ...overrides.author },
+    stats: { ...defaults.stats, ...overrides.stats },
+  };
+}
+
+/**
+ * Verify that all five datasets have their "empty" shape.
+ * Used after calling aggregate([], branchCount).
+ */
+function assertEmptyResult(result, branchCount) {
+  // -- summary --
+  assert.strictEqual(result.summary.totalCommits, 0);
+  assert.strictEqual(result.summary.totalContributors, 0);
+  assert.strictEqual(result.summary.totalAdditions, 0);
+  assert.strictEqual(result.summary.totalDeletions, 0);
+  assert.strictEqual(result.summary.firstCommit, null);
+  assert.strictEqual(result.summary.lastCommit, null);
+  assert.strictEqual(result.summary.activeBranches, branchCount);
+
+  // -- contributions --
+  assert.deepStrictEqual(result.contributions, []);
+
+  // -- contributors --
+  assert.deepStrictEqual(result.contributors, []);
+
+  // -- frequency --
+  assert.deepStrictEqual(result.frequency, []);
+
+  // -- activity --
+  assert.strictEqual(result.activity.byDayOfWeek.length, 7);
+  for (const entry of result.activity.byDayOfWeek) {
+    assert.strictEqual(entry.count, 0);
+  }
+  assert.strictEqual(result.activity.byHour.length, 24);
+  for (const entry of result.activity.byHour) {
+    assert.strictEqual(entry.count, 0);
+  }
+  assert.deepStrictEqual(result.activity.topFiles, []);
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('aggregate (pure function)', () => {
+  // ----- 1. Empty commits ------------------------------------------------
+
+  describe('empty commits', () => {
+    it('should return all zeros and empty arrays (branchCount = 1)', () => {
+      const result = aggregate([], 1);
+      assertEmptyResult(result, 1);
+    });
+
+    it('should return all zeros and empty arrays (branchCount = 0)', () => {
+      const result = aggregate([], 0);
+      assertEmptyResult(result, 0);
+    });
+
+    it('should return all zeros and empty arrays (branchCount = 42)', () => {
+      const result = aggregate([], 42);
+      assertEmptyResult(result, 42);
+    });
+  });
+
+  // ----- 2. Single commit ------------------------------------------------
+
+  describe('single commit', () => {
+    const commit = makeCommit({ hash: 'single1' });
+    const result = aggregate([commit], 1);
+
+    it('should have correct summary totals', () => {
+      assert.strictEqual(result.summary.totalCommits, 1);
+      assert.strictEqual(result.summary.totalContributors, 1);
+      assert.strictEqual(result.summary.totalAdditions, 10);
+      assert.strictEqual(result.summary.totalDeletions, 5);
+      assert.strictEqual(result.summary.firstCommit, commit.date);
+      assert.strictEqual(result.summary.lastCommit, commit.date);
+      assert.strictEqual(result.summary.activeBranches, 1);
+    });
+
+    it('should have contributions with 1 entry', () => {
+      assert.strictEqual(result.contributions.length, 1);
+      assert.strictEqual(result.contributions[0].date, '2025-01-15');
+      assert.strictEqual(result.contributions[0].count, 1);
+      assert.strictEqual(result.contributions[0].authorDetails.length, 1);
+      assert.strictEqual(
+        result.contributions[0].authorDetails[0].author,
+        'Test User',
+      );
+      assert.strictEqual(result.contributions[0].authorDetails[0].count, 1);
+    });
+
+    it('should have contributors with 1 entry and correct stats', () => {
+      assert.strictEqual(result.contributors.length, 1);
+      const c = result.contributors[0];
+      assert.strictEqual(c.name, 'Test User');
+      assert.strictEqual(c.email, 'test@test.com');
+      assert.strictEqual(c.totalCommits, 1);
+      assert.strictEqual(c.additions, 10);
+      assert.strictEqual(c.deletions, 5);
+      assert.strictEqual(c.firstCommit, commit.date);
+      assert.strictEqual(c.lastCommit, commit.date);
+    });
+
+    it('should have frequency with 1 entry', () => {
+      assert.strictEqual(result.frequency.length, 1);
+      assert.strictEqual(result.frequency[0].date, '2025-01-15');
+      assert.strictEqual(result.frequency[0].additions, 10);
+      assert.strictEqual(result.frequency[0].deletions, 5);
+    });
+
+    it('should have 7 day-of-week entries with correct day set', () => {
+      // 2025-01-15 is a Wednesday  (jsDay=3 → mapDayOfWeek(3)=(3+6)%7=2 → 'Wed')
+      assert.strictEqual(result.activity.byDayOfWeek.length, 7);
+      const dayNames = result.activity.byDayOfWeek.map((d) => d.day);
+      assert.deepStrictEqual(dayNames, [
+        'Mon',
+        'Tue',
+        'Wed',
+        'Thu',
+        'Fri',
+        'Sat',
+        'Sun',
+      ]);
+      // Wednesday should have count 1, all others 0
+      for (let i = 0; i < 7; i++) {
+        const expected = i === 2 ? 1 : 0;
+        assert.strictEqual(
+          result.activity.byDayOfWeek[i].count,
+          expected,
+          `dayOfWeek[${i}] (${result.activity.byDayOfWeek[i].day}) count mismatch`,
+        );
+      }
+    });
+
+    it('should have 24 hour entries with correct hour set', () => {
+      // date is 10:30 UTC → hour 10
+      assert.strictEqual(result.activity.byHour.length, 24);
+      for (let i = 0; i < 24; i++) {
+        const expected = i === 10 ? 1 : 0;
+        assert.strictEqual(
+          result.activity.byHour[i].count,
+          expected,
+          `hour[${i}] count mismatch`,
+        );
+        assert.strictEqual(result.activity.byHour[i].hour, i);
+      }
+    });
+
+    it('should have topFiles from the commit files', () => {
+      // Default commit touches 2 files
+      assert.strictEqual(result.activity.topFiles.length, 2);
+      // Sorted by changes desc (both have 1)
+      const paths = result.activity.topFiles.map((f) => f.path);
+      assert.deepStrictEqual(paths, ['src/file1.js', 'src/file2.js']);
+      for (const f of result.activity.topFiles) {
+        assert.strictEqual(f.changes, 1);
+      }
+    });
+  });
+
+  // ----- 3. Same day, different authors -----------------------------------
+
+  describe('multiple commits — same day, different authors', () => {
+    const commits = [
+      makeCommit({
+        hash: 'c1',
+        author: { name: 'Alice', email: 'alice@test.com' },
+        date: '2025-01-15T10:00:00Z',
+        stats: { additions: 10, deletions: 2, files: 1 },
+        files: ['a.js'],
+      }),
+      makeCommit({
+        hash: 'c2',
+        author: { name: 'Alice', email: 'alice@test.com' },
+        date: '2025-01-15T11:00:00Z',
+        stats: { additions: 5, deletions: 1, files: 1 },
+        files: ['b.js'],
+      }),
+      makeCommit({
+        hash: 'c3',
+        author: { name: 'Bob', email: 'bob@test.com' },
+        date: '2025-01-15T12:00:00Z',
+        stats: { additions: 20, deletions: 3, files: 2 },
+        files: ['c.js', 'd.js'],
+      }),
+      makeCommit({
+        hash: 'c4',
+        author: { name: 'Alice', email: 'alice@test.com' },
+        date: '2025-01-16T10:00:00Z',
+        stats: { additions: 3, deletions: 0, files: 1 },
+        files: ['e.js'],
+      }),
+    ];
+
+    const result = aggregate(commits, 1);
+
+    it('should have correct summary', () => {
+      assert.strictEqual(result.summary.totalCommits, 4);
+      assert.strictEqual(result.summary.totalContributors, 2); // 2 unique names
+      assert.strictEqual(result.summary.totalAdditions, 10 + 5 + 20 + 3);
+      assert.strictEqual(result.summary.totalDeletions, 2 + 1 + 3 + 0);
+      assert.strictEqual(result.summary.firstCommit, '2025-01-15T10:00:00Z');
+      assert.strictEqual(result.summary.lastCommit, '2025-01-16T10:00:00Z');
+    });
+
+    it('should have 2 contribution day entries sorted by date', () => {
+      assert.strictEqual(result.contributions.length, 2);
+      assert.strictEqual(result.contributions[0].date, '2025-01-15');
+      assert.strictEqual(result.contributions[1].date, '2025-01-16');
+    });
+
+    it('should break down contributions by author sorted by count desc', () => {
+      const day1 = result.contributions[0]; // 2025-01-15
+      assert.strictEqual(day1.count, 3);
+      assert.strictEqual(day1.authorDetails.length, 2);
+      // Alice has 2 commits, Bob has 1 → Alice first
+      assert.strictEqual(day1.authorDetails[0].author, 'Alice');
+      assert.strictEqual(day1.authorDetails[0].count, 2);
+      assert.strictEqual(day1.authorDetails[1].author, 'Bob');
+      assert.strictEqual(day1.authorDetails[1].count, 1);
+
+      const day2 = result.contributions[1]; // 2025-01-16
+      assert.strictEqual(day2.count, 1);
+      assert.strictEqual(day2.authorDetails.length, 1);
+      assert.strictEqual(day2.authorDetails[0].author, 'Alice');
+      assert.strictEqual(day2.authorDetails[0].count, 1);
+    });
+
+    it('should have 2 contributors sorted by commit count desc', () => {
+      assert.strictEqual(result.contributors.length, 2);
+      // Alice (3 commits) before Bob (1 commit)
+      assert.strictEqual(result.contributors[0].name, 'Alice');
+      assert.strictEqual(result.contributors[0].totalCommits, 3);
+      assert.strictEqual(result.contributors[1].name, 'Bob');
+      assert.strictEqual(result.contributors[1].totalCommits, 1);
+    });
+
+    it('should have correct per-contributor stats', () => {
+      const alice = result.contributors[0];
+      const bob = result.contributors[1];
+      assert.strictEqual(alice.additions, 10 + 5 + 3);
+      assert.strictEqual(alice.deletions, 2 + 1 + 0);
+      assert.strictEqual(alice.firstCommit, '2025-01-15T10:00:00Z');
+      assert.strictEqual(alice.lastCommit, '2025-01-16T10:00:00Z');
+
+      assert.strictEqual(bob.additions, 20);
+      assert.strictEqual(bob.deletions, 3);
+      assert.strictEqual(bob.firstCommit, '2025-01-15T12:00:00Z');
+      assert.strictEqual(bob.lastCommit, '2025-01-15T12:00:00Z');
+    });
+  });
+
+  // ----- 4. Different days ------------------------------------------------
+
+  describe('multiple commits — different days', () => {
+    const commits = [
+      makeCommit({
+        hash: 'd1',
+        date: '2025-01-15T10:00:00Z',
+        stats: { additions: 10, deletions: 5, files: 1 },
+        files: ['x.js'],
+      }),
+      makeCommit({
+        hash: 'd2',
+        date: '2025-01-16T10:00:00Z',
+        stats: { additions: 20, deletions: 3, files: 1 },
+        files: ['y.js'],
+      }),
+      makeCommit({
+        hash: 'd3',
+        date: '2025-01-18T10:00:00Z',
+        stats: { additions: 5, deletions: 1, files: 1 },
+        files: ['z.js'],
+      }),
+    ];
+
+    const result = aggregate(commits, 1);
+
+    it('should have 3 frequency entries sorted by date', () => {
+      assert.strictEqual(result.frequency.length, 3);
+      assert.strictEqual(result.frequency[0].date, '2025-01-15');
+      assert.strictEqual(result.frequency[1].date, '2025-01-16');
+      assert.strictEqual(result.frequency[2].date, '2025-01-18');
+    });
+
+    it('should have correct per-day additions and deletions', () => {
+      assert.strictEqual(result.frequency[0].additions, 10);
+      assert.strictEqual(result.frequency[0].deletions, 5);
+      assert.strictEqual(result.frequency[1].additions, 20);
+      assert.strictEqual(result.frequency[1].deletions, 3);
+      assert.strictEqual(result.frequency[2].additions, 5);
+      assert.strictEqual(result.frequency[2].deletions, 1);
+    });
+
+    it('should have contributions with non-consecutive dates', () => {
+      // 2025-01-17 is skipped
+      const dates = result.contributions.map((c) => c.date);
+      assert.deepStrictEqual(dates, ['2025-01-15', '2025-01-16', '2025-01-18']);
+    });
+  });
+
+  // ----- 5. Activity patterns --------------------------------------------
+
+  describe('activity patterns', () => {
+    // Dates and their properties:
+    //   2025-01-20  Mon  (jsDay=1 → idx 0)  09:00 UTC
+    //   2025-01-20  Mon  (jsDay=1 → idx 0)  10:00 UTC
+    //   2025-01-21  Tue  (jsDay=2 → idx 1)  14:00 UTC
+    //   2025-01-22  Wed  (jsDay=3 → idx 2)  09:00 UTC
+    //   2025-01-15  Wed  (jsDay=3 → idx 2)  15:00 UTC
+    const commits = [
+      makeCommit({
+        hash: 'a1',
+        date: '2025-01-20T09:00:00Z',
+        files: ['src/file1.js', 'src/file2.js'],
+      }),
+      makeCommit({
+        hash: 'a2',
+        date: '2025-01-20T10:00:00Z',
+        files: ['src/file1.js'],
+      }),
+      makeCommit({
+        hash: 'a3',
+        date: '2025-01-21T14:00:00Z',
+        files: ['src/file3.js', 'src/file1.js'],
+      }),
+      makeCommit({
+        hash: 'a4',
+        date: '2025-01-22T09:00:00Z',
+        files: ['src/file2.js', 'src/file4.js'],
+      }),
+      makeCommit({
+        hash: 'a5',
+        date: '2025-01-15T15:00:00Z',
+        files: ['src/file1.js', 'src/file5.js', 'src/file3.js'],
+      }),
+    ];
+
+    const result = aggregate(commits, 1);
+
+    it('should count day-of-week correctly (Mon=0 .. Sun=6)', () => {
+      const dow = result.activity.byDayOfWeek;
+      // Mon=2, Tue=1, Wed=2, Thu=0, Fri=0, Sat=0, Sun=0
+      assert.strictEqual(dow[0].day, 'Mon');
+      assert.strictEqual(dow[0].count, 2);
+      assert.strictEqual(dow[1].day, 'Tue');
+      assert.strictEqual(dow[1].count, 1);
+      assert.strictEqual(dow[2].day, 'Wed');
+      assert.strictEqual(dow[2].count, 2);
+      assert.strictEqual(dow[3].day, 'Thu');
+      assert.strictEqual(dow[3].count, 0);
+      assert.strictEqual(dow[4].day, 'Fri');
+      assert.strictEqual(dow[4].count, 0);
+      assert.strictEqual(dow[5].day, 'Sat');
+      assert.strictEqual(dow[5].count, 0);
+      assert.strictEqual(dow[6].day, 'Sun');
+      assert.strictEqual(dow[6].count, 0);
+    });
+
+    it('should count hours correctly (0-23)', () => {
+      const hours = result.activity.byHour;
+      assert.strictEqual(hours[9].hour, 9);
+      assert.strictEqual(hours[9].count, 2); // 09:00 UTC (commits a1, a4)
+      assert.strictEqual(hours[10].hour, 10);
+      assert.strictEqual(hours[10].count, 1); // 10:00 UTC (commit a2)
+      assert.strictEqual(hours[14].hour, 14);
+      assert.strictEqual(hours[14].count, 1); // 14:00 UTC (commit a3)
+      assert.strictEqual(hours[15].hour, 15);
+      assert.strictEqual(hours[15].count, 1); // 15:00 UTC (commit a5)
+      // All other hours should be 0
+      for (let i = 0; i < 24; i++) {
+        if (![9, 10, 14, 15].includes(i)) {
+          assert.strictEqual(hours[i].count, 0, `hour ${i} should be 0`);
+        }
+      }
+    });
+
+    it('should return topFiles sorted by change count desc (max 10)', () => {
+      // file changes:
+      //   src/file1.js: a1(1) + a2(1) + a3(1) + a5(1) = 4
+      //   src/file2.js: a1(1) + a4(1)                   = 2
+      //   src/file3.js: a3(1) + a5(1)                   = 2
+      //   src/file4.js: a4(1)                           = 1
+      //   src/file5.js: a5(1)                           = 1
+      // Sorted desc: file1(4), file2(2), file3(2), file4(1), file5(1)
+      const topFiles = result.activity.topFiles;
+      assert.strictEqual(topFiles.length, 5); // fewer than 10 → all returned
+
+      assert.strictEqual(topFiles[0].path, 'src/file1.js');
+      assert.strictEqual(topFiles[0].changes, 4);
+
+      assert.strictEqual(topFiles[1].path, 'src/file2.js');
+      assert.strictEqual(topFiles[1].changes, 2);
+
+      assert.strictEqual(topFiles[2].path, 'src/file3.js');
+      assert.strictEqual(topFiles[2].changes, 2);
+
+      assert.strictEqual(topFiles[3].path, 'src/file4.js');
+      assert.strictEqual(topFiles[3].changes, 1);
+
+      assert.strictEqual(topFiles[4].path, 'src/file5.js');
+      assert.strictEqual(topFiles[4].changes, 1);
+    });
+
+    it('should never return more than 10 files', () => {
+      // Generate enough commits to exceed 10 unique files
+      const manyFiles = Array.from({ length: 15 }, (_, i) =>
+        makeCommit({
+          hash: `mf${i}`,
+          files: [`file${i}.js`],
+          stats: { additions: 1, deletions: 0, files: 1 },
+        }),
+      );
+      const r = aggregate(manyFiles, 1);
+      assert.strictEqual(r.activity.topFiles.length, 10);
+    });
+  });
+
+  // ----- 6. Edge cases ----------------------------------------------------
+
+  describe('edge cases', () => {
+    it('should handle a merge commit with zero stats and no files', () => {
+      const mergeCommit = makeCommit({
+        hash: 'merge1',
+        stats: { additions: 0, deletions: 0, files: 0 },
+        files: [],
+        message: 'Merge branch feature-x',
+      });
+      const result = aggregate([mergeCommit], 1);
+
+      assert.strictEqual(result.summary.totalCommits, 1);
+      assert.strictEqual(result.summary.totalAdditions, 0);
+      assert.strictEqual(result.summary.totalDeletions, 0);
+      assert.strictEqual(result.frequency[0].additions, 0);
+      assert.strictEqual(result.frequency[0].deletions, 0);
+      assert.deepStrictEqual(result.activity.topFiles, []);
+    });
+
+    it('should handle a merge commit with non-zero stats (conflict resolution)', () => {
+      const mergeCommit = makeCommit({
+        hash: 'mergeConflict1',
+        stats: { additions: 42, deletions: 17, files: 3 },
+        files: ['src/conflict.js', 'src/resolved.js', 'src/merged.js'],
+        message: 'Merge branch feature-y with conflict resolution',
+      });
+      const result = aggregate([mergeCommit], 1);
+
+      assert.strictEqual(result.summary.totalCommits, 1);
+      assert.strictEqual(result.summary.totalAdditions, 42);
+      assert.strictEqual(result.summary.totalDeletions, 17);
+      assert.strictEqual(result.frequency[0].additions, 42);
+      assert.strictEqual(result.frequency[0].deletions, 17);
+      assert.strictEqual(result.activity.topFiles.length, 3);
+      // Each file changed once
+      for (const f of result.activity.topFiles) {
+        assert.strictEqual(f.changes, 1);
+      }
+    });
+
+    it('should handle very long file paths', () => {
+      const longPath =
+        'src/this/is/a/very/deep/nested/directory/structure/that/' +
+        'contains/a/file/with/a/really/really/long/path/that/might/' +
+        'cause/issues/in/some/systems/but/should/be/fine/here/very_long_filename_with_lots_of_characters.js';
+      const commit = makeCommit({
+        hash: 'long1',
+        files: [longPath],
+      });
+      const result = aggregate([commit], 1);
+
+      assert.strictEqual(result.activity.topFiles.length, 1);
+      assert.strictEqual(result.activity.topFiles[0].path, longPath);
+      assert.strictEqual(result.activity.topFiles[0].changes, 1);
+    });
+
+    it('should merge same author name with different emails', () => {
+      const commits = [
+        makeCommit({
+          hash: 'c1',
+          author: { name: 'Test User', email: 'old@test.com' },
+          date: '2025-01-15T10:00:00Z',
+        }),
+        makeCommit({
+          hash: 'c2',
+          author: { name: 'Test User', email: 'new@test.com' },
+          date: '2025-01-16T10:00:00Z',
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      // Only one contributor (same name)
+      assert.strictEqual(result.summary.totalContributors, 1);
+      assert.strictEqual(result.contributors.length, 1);
+      // The most recent email should be kept
+      assert.strictEqual(result.contributors[0].email, 'new@test.com');
+      assert.strictEqual(result.contributors[0].totalCommits, 2);
+    });
+
+    it('should handle branchCount = 0 with commits present', () => {
+      const result = aggregate([makeCommit({ hash: 'b0' })], 0);
+      assert.strictEqual(result.summary.activeBranches, 0);
+      assert.strictEqual(result.summary.totalCommits, 1);
+    });
+  });
+
+  // ----- Structural invariants -------------------------------------------
+
+  describe('structural invariants', () => {
+    it('should return exactly 5 top-level keys', () => {
+      const result = aggregate([makeCommit({ hash: 'inv1' })], 1);
+      assert.deepStrictEqual(Object.keys(result).sort(), [
+        'activity',
+        'contributions',
+        'contributors',
+        'frequency',
+        'summary',
+      ]);
+    });
+
+    it('should have consistent totals across datasets', () => {
+      const commits = [
+        makeCommit({
+          hash: 's1',
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 5, files: 2 },
+        }),
+        makeCommit({
+          hash: 's2',
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 20, deletions: 3, files: 1 },
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      // Total additions should match sum of contributions' additions
+      const freqAdditions = result.frequency.reduce(
+        (sum, d) => sum + d.additions,
+        0,
+      );
+      assert.strictEqual(result.summary.totalAdditions, freqAdditions);
+
+      // Total deletions should match sum of frequency deletions
+      const freqDeletions = result.frequency.reduce(
+        (sum, d) => sum + d.deletions,
+        0,
+      );
+      assert.strictEqual(result.summary.totalDeletions, freqDeletions);
+
+      // Total commits should equal sum of all contribution counts
+      const contribCommits = result.contributions.reduce(
+        (sum, d) => sum + d.count,
+        0,
+      );
+      assert.strictEqual(result.summary.totalCommits, contribCommits);
+
+      // Contributors' total additions should match summary total additions
+      const contribAdditions = result.contributors.reduce(
+        (s, c) => s + c.additions,
+        0,
+      );
+      assert.strictEqual(result.summary.totalAdditions, contribAdditions);
+
+      // Contributors' total commits should match summary total commits
+      const contribTotalCommits = result.contributors.reduce(
+        (s, c) => s + c.totalCommits,
+        0,
+      );
+      assert.strictEqual(result.summary.totalCommits, contribTotalCommits);
+    });
+
+    it('should not mutate the input array', () => {
+      const commits = [
+        makeCommit({ hash: 'mut1' }),
+        makeCommit({ hash: 'mut2' }),
+      ];
+      const frozen = structuredClone(commits);
+      aggregate(commits, 1);
+      assert.deepStrictEqual(commits, frozen);
+    });
+
+    it('should produce the same results with unsorted (non-chronological) commit input', () => {
+      // Fixture of 5 known commits in chronological order, with unique
+      // per-contributor commit counts and per-file change counts to avoid
+      // tie-breaking non-determinism.
+      const commits = [
+        makeCommit({
+          hash: 'u1',
+          author: { name: 'Alice', email: 'alice@test.com' },
+          date: '2025-01-10T10:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'u2',
+          author: { name: 'Bob', email: 'bob@test.com' },
+          date: '2025-01-12T14:00:00Z',
+          stats: { additions: 10, deletions: 3, files: 1 },
+          files: ['b.js'],
+        }),
+        makeCommit({
+          hash: 'u3',
+          author: { name: 'Bob', email: 'bob@test.com' },
+          date: '2025-01-13T09:00:00Z',
+          stats: { additions: 2, deletions: 0, files: 1 },
+          files: ['c.js'],
+        }),
+        makeCommit({
+          hash: 'u4',
+          author: { name: 'Bob', email: 'bob@test.com' },
+          date: '2025-01-14T16:00:00Z',
+          stats: { additions: 8, deletions: 4, files: 1 },
+          files: ['d.js'],
+        }),
+        makeCommit({
+          hash: 'u5',
+          author: { name: 'Charlie', email: 'charlie@test.com' },
+          date: '2025-01-15T11:00:00Z',
+          stats: { additions: 15, deletions: 2, files: 1 },
+          files: ['e.js'],
+        }),
+        makeCommit({
+          hash: 'u6',
+          author: { name: 'Charlie', email: 'charlie@test.com' },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 3, deletions: 1, files: 1 },
+          files: ['f.js'],
+        }),
+      ];
+
+      // Sorted by date ascending — the expected invariant result
+      const sortedResult = aggregate(commits, 1);
+
+      // Shuffle: reverse order
+      const shuffled = [...commits].reverse();
+      const shuffledResult = aggregate(shuffled, 1);
+
+      assert.deepStrictEqual(shuffledResult, sortedResult);
+    });
+
+    it('should return the same result when called twice with the same input', () => {
+      const commits = [
+        makeCommit({ hash: 'det1', date: '2025-01-15T10:00:00Z' }),
+        makeCommit({ hash: 'det2', date: '2025-01-16T10:00:00Z' }),
+      ];
+      const a = aggregate(commits, 2);
+      const b = aggregate(commits, 2);
+      assert.deepStrictEqual(a, b);
+    });
+
+    it('should aggregate 5000 commits in under 500ms', () => {
+      const largeSet = Array.from({ length: 5000 }, (_, i) =>
+        makeCommit({
+          hash: `perf${i}`,
+          author: {
+            name: `User${i % 50}`,
+            email: `user${i % 50}@test.com`,
+          },
+          date: new Date(Date.UTC(2025, 0, 1) + i * 3600000).toISOString(),
+          stats: { additions: i % 20, deletions: i % 10, files: 1 },
+          files: [`src/file${i % 100}.js`],
+        }),
+      );
+
+      const start = performance.now();
+      const result = aggregate(largeSet, 5);
+      const elapsed = performance.now() - start;
+
+      assert.ok(elapsed < 500, `Took ${elapsed.toFixed(1)}ms, expected under 500ms`);
+      // Sanity check that we got real results
+      assert.strictEqual(result.summary.totalCommits, 5000);
+      assert.ok(result.summary.totalContributors > 0);
+    });
+  });
+});

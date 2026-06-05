@@ -1,0 +1,267 @@
+import { describe, it, before, after } from 'node:test';
+import assert from 'node:assert';
+import {
+  mkdtempSync,
+  writeFileSync,
+  rmSync,
+  readFileSync,
+  existsSync,
+} from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { serveDashboard } from '../src/server.js';
+
+// ---------------------------------------------------------------------------
+// Fixture setup — runs once for the entire suite
+// ---------------------------------------------------------------------------
+
+let testDashboardDir;
+let testData;
+
+before(() => {
+  // Create a minimal dashboard directory to simulate the bundled UI
+  testDashboardDir = mkdtempSync(join(tmpdir(), 'insights-test-dashboard-'));
+  writeFileSync(join(testDashboardDir, 'index.html'), '<h1>Test Dashboard</h1>');
+  writeFileSync(join(testDashboardDir, 'style.css'), 'body { color: red; }');
+  writeFileSync(join(testDashboardDir, 'dashboard.js'), 'console.log("test");');
+  writeFileSync(join(testDashboardDir, 'chart-config.js'), '// config');
+
+  // Sample aggregated data matching the shape produced by src/aggregate.js
+  testData = {
+    summary: {
+      totalCommits: 100,
+      totalContributors: 5,
+      totalAdditions: 1000,
+      totalDeletions: 500,
+      firstCommit: '2024-01-01',
+      lastCommit: '2025-01-01',
+      activeBranches: 2,
+    },
+    contributions: [
+      {
+        date: '2025-01-15',
+        count: 5,
+        authorDetails: [{ author: 'test', count: 5 }],
+      },
+    ],
+    contributors: [
+      {
+        name: 'test',
+        email: 'test@test.com',
+        totalCommits: 100,
+        additions: 1000,
+        deletions: 500,
+        firstCommit: '2024-01-01',
+        lastCommit: '2025-01-01',
+      },
+    ],
+    frequency: [{ date: '2025-01-15', additions: 100, deletions: 50 }],
+    activity: {
+      byDayOfWeek: [{ day: 'Mon', count: 10 }],
+      byHour: [{ hour: 9, count: 5 }],
+      topFiles: [{ path: 'src/index.js', changes: 20 }],
+    },
+  };
+});
+
+after(() => {
+  rmSync(testDashboardDir, { recursive: true, force: true });
+});
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+describe('serveDashboard', () => {
+  /** @type {{ port: number, tmpDir: string, server: import('node:http').Server }} */
+  let handle;
+
+  before(async () => {
+    handle = await serveDashboard(testData, testDashboardDir, 0);
+  });
+
+  after(async () => {
+    if (!handle) return;
+    await new Promise((resolve) => handle.server.close(resolve));
+    rmSync(handle.tmpDir, { recursive: true, force: true });
+  });
+
+  // ----- 1. Server starts and returns expected shape -----------------------
+
+  it('should return { port, tmpDir, server } with a positive port number', () => {
+    assert.ok(handle.port > 0, `Expected positive port, got ${handle.port}`);
+    assert.ok(Number.isInteger(handle.port), 'port must be an integer');
+    assert.strictEqual(typeof handle.tmpDir, 'string');
+    assert.ok(handle.tmpDir.length > 0, 'tmpDir should not be empty');
+    assert.ok(handle.server, 'server must be defined');
+    assert.strictEqual(typeof handle.server.close, 'function');
+  });
+
+  // ----- 2. Data JSON files are written ------------------------------------
+
+  it('should write all 5 JSON data files to tmpDir/data/', () => {
+    const dataDir = join(handle.tmpDir, 'data');
+    const expectedFiles = [
+      'summary.json',
+      'contributions.json',
+      'contributors.json',
+      'frequency.json',
+      'activity.json',
+    ];
+
+    for (const file of expectedFiles) {
+      const filePath = join(dataDir, file);
+      assert.ok(existsSync(filePath), `Missing data file: ${file}`);
+
+      // Verify that each file contains valid JSON
+      const parsed = JSON.parse(readFileSync(filePath, 'utf-8'));
+      assert.ok(parsed !== null, `${file} should contain valid JSON`);
+    }
+
+    // Deep-compare summary.json against the input data as a correctness check
+    const summary = JSON.parse(
+      readFileSync(join(dataDir, 'summary.json'), 'utf-8'),
+    );
+    assert.deepStrictEqual(summary, testData.summary);
+  });
+
+  // ----- 3 + 4. HTTP endpoints and MIME types -----------------------------
+
+  describe('HTTP endpoints', () => {
+    it('should serve /index.html with status 200 and text/html', async () => {
+      const res = await fetch(`http://localhost:${handle.port}/index.html`);
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.headers.get('content-type'), 'text/html');
+
+      const body = await res.text();
+      assert.ok(body.includes('Test Dashboard'));
+    });
+
+    it('should serve /style.css with status 200 and text/css', async () => {
+      const res = await fetch(`http://localhost:${handle.port}/style.css`);
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.headers.get('content-type'), 'text/css');
+
+      const body = await res.text();
+      assert.ok(body.includes('color: red'));
+    });
+
+    it('should serve /dashboard.js with status 200 and application/javascript', async () => {
+      const res = await fetch(`http://localhost:${handle.port}/dashboard.js`);
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(
+        res.headers.get('content-type'),
+        'application/javascript',
+      );
+
+      const body = await res.text();
+      assert.ok(body.includes('console.log'));
+    });
+
+    it('should serve /data/summary.json with status 200 and application/json', async () => {
+      const res = await fetch(
+        `http://localhost:${handle.port}/data/summary.json`,
+      );
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(
+        res.headers.get('content-type'),
+        'application/json',
+      );
+
+      const body = await res.json();
+      assert.deepStrictEqual(body, testData.summary);
+    });
+
+    it('should serve /data/contributions.json with correct data', async () => {
+      const res = await fetch(
+        `http://localhost:${handle.port}/data/contributions.json`,
+      );
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(
+        res.headers.get('content-type'),
+        'application/json',
+      );
+
+      const body = await res.json();
+      assert.deepStrictEqual(body, testData.contributions);
+    });
+
+    it('should serve / (root) with index.html content', async () => {
+      const res = await fetch(`http://localhost:${handle.port}/`);
+
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(res.headers.get('content-type'), 'text/html');
+
+      const body = await res.text();
+      assert.ok(body.includes('Test Dashboard'));
+    });
+
+    it('should return 404 for nonexistent files', async () => {
+      const res = await fetch(
+        `http://localhost:${handle.port}/nonexistent.html`,
+      );
+
+      assert.strictEqual(res.status, 404);
+      assert.strictEqual(res.headers.get('content-type'), 'text/plain');
+
+      const body = await res.text();
+      assert.strictEqual(body, 'Not Found');
+    });
+  });
+
+  // ----- 5. Specific port --------------------------------------------------
+  // NOTE: Each ephemeral server is created, tested, and cleaned up entirely
+  // within the it() callback via try/finally. This avoids storing http.Server
+  // objects in describe-block closures, which would trigger the Node.js test
+  // runner's "Unable to deserialize cloned data" error during IPC serialization.
+
+  it('should start on the requested port', async () => {
+    const requestedPort = 19876;
+    const h = await serveDashboard(testData, testDashboardDir, requestedPort);
+
+    try {
+      assert.strictEqual(
+        h.port,
+        requestedPort,
+        `Expected server to bind to ${requestedPort}, got ${h.port}`,
+      );
+
+      // Quick sanity check: the server is actually listening
+      const res = await fetch(`http://localhost:${h.port}/index.html`);
+      assert.strictEqual(res.status, 200);
+    } finally {
+      await new Promise((resolve) => h.server.close(resolve));
+      rmSync(h.tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  // ----- 6. Missing dashboardDir (warns but doesn't crash) -----------------
+
+  it('should not throw when dashboardDir does not exist', async () => {
+    const fakeDir = join(tmpdir(), 'does-not-exist-xxxxxxxx');
+
+    // Should resolve without throwing even though the dashboard dir
+    // is missing (the server can still serve data endpoints)
+    const h = await serveDashboard(testData, fakeDir, 0);
+
+    try {
+      assert.ok(h, 'should return a handle');
+      assert.ok(h.port > 0, 'should have a positive port');
+
+      // Data endpoints should still work even without the dashboard UI
+      const res = await fetch(`http://localhost:${h.port}/data/summary.json`);
+      assert.strictEqual(res.status, 200);
+
+      const body = await res.json();
+      assert.deepStrictEqual(body, testData.summary);
+    } finally {
+      await new Promise((resolve) => h.server.close(resolve));
+      rmSync(h.tmpDir, { recursive: true, force: true });
+    }
+  });
+});
