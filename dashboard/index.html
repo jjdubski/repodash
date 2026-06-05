@@ -118,7 +118,14 @@
 
       <!-- Top contributors horizontal bar -->
       <div class="chart-card">
-        <h2 class="chart-title">Top Contributors</h2>
+        <div class="chart-header">
+          <h2 class="chart-title">Top Contributors</h2>
+          <select id="topcontributors-mode" class="chart-select" aria-label="Top contributors metric">
+            <option value="commits">Commits</option>
+            <option value="additions">Additions</option>
+            <option value="deletions">Deletions</option>
+          </select>
+        </div>
         <div class="chart-wrap">
           <canvas id="chart-top-contributors"></canvas>
         </div>

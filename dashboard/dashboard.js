@@ -22,6 +22,7 @@
     customStartDate: null,
     customEndDate: null,
     contributionMode: 'author',
+    topContributorsMode: 'commits',
   };
 
   // ═════════════════════════════════════════════════════════════════════
@@ -433,7 +434,7 @@
     }
 
     renderContributionChart(d.contributions, d.frequency, state.contributionMode);
-    renderTopContributorsChart(d.contributors);
+    renderTopContributorsChart(d.contributors, state.topContributorsMode);
     renderFrequencyMiniChart(d.frequency);
   }
 
@@ -596,15 +597,28 @@
 
   // -- Top contributors horizontal bar -----------------------------------
 
-  function renderTopContributorsChart(contributors) {
+  function renderTopContributorsChart(contributors, mode) {
     if (!contributors || !contributors.length) return;
+    mode = mode || 'commits';
     var top10 = contributors.slice(0, 10);
+
+    var label, data;
+    if (mode === 'additions') {
+      label = 'Additions';
+      data = top10.map(function (c) { return c.additions; });
+    } else if (mode === 'deletions') {
+      label = 'Deletions';
+      data = top10.map(function (c) { return c.deletions; });
+    } else {
+      label = 'Commits';
+      data = top10.map(function (c) { return c.totalCommits; });
+    }
 
     createChart('chart-top-contributors', 'bar', {
       labels: top10.map(function (c) { return c.name || c.email; }),
       datasets: [{
-        label: 'Commits',
-        data: top10.map(function (c) { return c.totalCommits; }),
+        label: label,
+        data: data,
         backgroundColor: window.COLORS.blue,
         borderWidth: 0,
         borderRadius: 2,
@@ -848,6 +862,16 @@
     if (contributionSelect) {
       contributionSelect.addEventListener('change', function () {
         state.contributionMode = contributionSelect.value;
+        if (state.activeTab === 'overview') {
+          renderCurrentTab();
+        }
+      });
+    }
+
+    var topContribSelect = document.getElementById('topcontributors-mode');
+    if (topContribSelect) {
+      topContribSelect.addEventListener('change', function () {
+        state.topContributorsMode = topContribSelect.value;
         if (state.activeTab === 'overview') {
           renderCurrentTab();
         }
