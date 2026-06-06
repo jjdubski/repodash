@@ -61,7 +61,7 @@ export function aggregate(commits, branchCount) {
   let firstCommit = commits[0].date;
   let lastCommit = commits[0].date;
 
-  // date key → { date, count, authors: Map<name, { count, additions, deletions }> }
+  // date key → { date, count, authors: Map<email, { name, count, additions, deletions }> }
   const contributionsMap = new Map();
 
   // date key → { additions, deletions }
@@ -94,8 +94,9 @@ export function aggregate(commits, branchCount) {
       contributionsMap.set(dateKey, dayEntry);
     }
     dayEntry.count++;
-    const prev = dayEntry.authors.get(name) ?? { count: 0, additions: 0, deletions: 0 };
-    dayEntry.authors.set(name, {
+    const prev = dayEntry.authors.get(email) ?? { name, count: 0, additions: 0, deletions: 0 };
+    dayEntry.authors.set(email, {
+      name,
       count: prev.count + 1,
       additions: prev.additions + (commit.stats?.additions ?? 0),
       deletions: prev.deletions + (commit.stats?.deletions ?? 0),
@@ -145,10 +146,11 @@ export function aggregate(commits, branchCount) {
   // ---- GitHub noreply email handling ---------------------------------------
   // Merge contributors where the same person uses both a normal email and a
   // GitHub noreply email (user@users.noreply.github.com).  The local part of
-  // the noreply address IS the GitHub username; if another contributor's name
-  // or email local part matches that username they are the same person.
+  // the noreply address IS the GitHub username (with optional numeric ID+
+  // prefix); if another contributor's name or email local part matches that
+  // username they are the same person.
 
-  const GITHUB_NOREPLY_RE = /^([^@]+)@users\.noreply\.github\.com$/;
+  const GITHUB_NOREPLY_RE = /^(?:\d+\+)?([^@+]+)@users\.noreply\.github\.com$/;
 
   // Store GH usernames lowercased for case-insensitive matching.
   // GitHub always lowercases the local part of noreply addresses,
@@ -183,12 +185,12 @@ export function aggregate(commits, branchCount) {
       }
 
       if (matchedTarget) {
-        merges.push({ sourceEmail: email, targetEmail: matchedTarget, sourceNames: [...c.names.keys()] });
+        merges.push({ sourceEmail: email, targetEmail: matchedTarget });
       }
     }
 
     // Apply merges to contributorsMap
-    for (const { sourceEmail, targetEmail, sourceNames } of merges) {
+    for (const { sourceEmail, targetEmail } of merges) {
       const target = contributorsMap.get(targetEmail);
       const source = contributorsMap.get(sourceEmail);
       if (!target || !source) continue;
@@ -204,39 +206,23 @@ export function aggregate(commits, branchCount) {
       contributorsMap.delete(sourceEmail);
     }
 
-    // Apply merges to contributionsMap (author names → name used by target)
-    for (const { targetEmail, sourceNames } of merges) {
+    // Apply merges to contributionsMap (source email → target email)
+    for (const { targetEmail, sourceEmail } of merges) {
       const targetContributor = contributorsMap.get(targetEmail);
       if (!targetContributor) continue;
 
       for (const dayEntry of contributionsMap.values()) {
-        const sourceDataInDay = [];
-        for (const name of sourceNames) {
-          if (dayEntry.authors.has(name)) {
-            sourceDataInDay.push({ name, ...dayEntry.authors.get(name) });
-            dayEntry.authors.delete(name);
-          }
-        }
-        if (sourceDataInDay.length === 0) continue;
+        if (!dayEntry.authors.has(sourceEmail)) continue;
 
-        // Find a target name that already has an entry this day
-        let targetNameInDay = null;
-        for (const [name] of targetContributor.names) {
-          if (dayEntry.authors.has(name)) {
-            targetNameInDay = name;
-            break;
-          }
-        }
+        const sourceData = dayEntry.authors.get(sourceEmail);
+        dayEntry.authors.delete(sourceEmail);
 
-        if (targetNameInDay) {
-          const existing = dayEntry.authors.get(targetNameInDay);
-          for (const data of sourceDataInDay) {
-            existing.count += data.count;
-            existing.additions += data.additions;
-            existing.deletions += data.deletions;
-          }
+        if (dayEntry.authors.has(targetEmail)) {
+          const existing = dayEntry.authors.get(targetEmail);
+          existing.count += sourceData.count;
+          existing.additions += sourceData.additions;
+          existing.deletions += sourceData.deletions;
         } else {
-          // No existing target entry — create one with best name
           let bestName = targetContributor.name;
           let bestCount = 0;
           for (const [n, count] of targetContributor.names) {
@@ -245,13 +231,12 @@ export function aggregate(commits, branchCount) {
               bestCount = count;
             }
           }
-          const merged = { count: 0, additions: 0, deletions: 0 };
-          for (const data of sourceDataInDay) {
-            merged.count += data.count;
-            merged.additions += data.additions;
-            merged.deletions += data.deletions;
-          }
-          dayEntry.authors.set(bestName, merged);
+          dayEntry.authors.set(targetEmail, {
+            name: bestName,
+            count: sourceData.count,
+            additions: sourceData.additions,
+            deletions: sourceData.deletions,
+          });
         }
       }
     }
@@ -265,7 +250,7 @@ export function aggregate(commits, branchCount) {
       date: day.date,
       count: day.count,
       authorDetails: Array.from(day.authors.entries())
-        .map(([author, { count, additions, deletions }]) => ({ author, count, additions, deletions }))
+        .map(([email, { name, count, additions, deletions }]) => ({ author: name, email, count, additions, deletions }))
         .sort((a, b) => b.count - a.count || a.author.localeCompare(b.author)),
     }))
     .sort((a, b) => a.date.localeCompare(b.date));

@@ -111,7 +111,7 @@
     var authorSet = {};
     contributions.forEach(function (day) {
       (day.authorDetails || []).forEach(function (a) {
-        authorSet[a.author] = true;
+        authorSet[a.email || a.author] = true;
       });
     });
     var totalContributors = Object.keys(authorSet).length;
@@ -131,38 +131,31 @@
     var authorStats = {};
     contributions.forEach(function (day) {
       (day.authorDetails || []).forEach(function (a) {
-        if (!authorStats[a.author]) {
-          authorStats[a.author] = {
+        var key = a.email || a.author;
+        if (!authorStats[key]) {
+          authorStats[key] = {
             totalCommits: 0,
             additions: 0,
             deletions: 0,
           };
         }
-        authorStats[a.author].totalCommits += a.count;
-        authorStats[a.author].additions += a.additions;
-        authorStats[a.author].deletions += a.deletions;
+        authorStats[key].totalCommits += a.count;
+        authorStats[key].additions += a.additions;
+        authorStats[key].deletions += a.deletions;
       });
     });
 
-    var activeNames = Object.keys(authorStats);
-    // Aggregate contributors by display name (`name` or `email`) so the
-    // UI doesn't show duplicate rows when a person appears under multiple
-    // emails but uses the same display name. This keeps charts and the
-    // overview tidy while preserving commit/addition/deletion totals.
-    var aggregated = {};
-    allContributors.forEach(function (c) {
-      var lookupKey = c.name || c.email;
-      if (activeNames.indexOf(lookupKey) === -1) return;
-
-      var display = c.name || c.email;
-      var stats = authorStats[lookupKey] || {
-        totalCommits: 0,
-        additions: 0,
-        deletions: 0,
-      };
-
-      if (!aggregated[display]) {
-        aggregated[display] = {
+    return allContributors
+      .filter(function (c) {
+        return authorStats.hasOwnProperty(c.email);
+      })
+      .map(function (c) {
+        var stats = authorStats[c.email] || {
+          totalCommits: 0,
+          additions: 0,
+          deletions: 0,
+        };
+        return {
           name: c.name,
           email: c.email,
           totalCommits: stats.totalCommits,
@@ -171,30 +164,6 @@
           firstCommit: c.firstCommit,
           lastCommit: c.lastCommit,
         };
-      } else {
-        aggregated[display].totalCommits += stats.totalCommits;
-        aggregated[display].additions += stats.additions;
-        aggregated[display].deletions += stats.deletions;
-        if (
-          c.firstCommit &&
-          (!aggregated[display].firstCommit ||
-            c.firstCommit < aggregated[display].firstCommit)
-        ) {
-          aggregated[display].firstCommit = c.firstCommit;
-        }
-        if (
-          c.lastCommit &&
-          (!aggregated[display].lastCommit ||
-            c.lastCommit > aggregated[display].lastCommit)
-        ) {
-          aggregated[display].lastCommit = c.lastCommit;
-        }
-      }
-    });
-
-    return Object.keys(aggregated)
-      .map(function (k) {
-        return aggregated[k];
       })
       .sort(function (a, b) {
         return (
@@ -588,8 +557,14 @@
 
   function renderContributionAuthor(contributions, contributors) {
     var TOP = 7;
-    var authorKeys = (contributors || []).map(function (c) {
-      return { key: c.name || c.email, label: c.name || c.email };
+    var seen = {};
+    var authorKeys = [];
+    (contributors || []).forEach(function (c) {
+      var key = c.name || c.email;
+      if (!seen[key]) {
+        seen[key] = true;
+        authorKeys.push({ key: key, label: key });
+      }
     });
     var topAuthors = authorKeys.slice(0, TOP);
     var hasOthers = authorKeys.length > TOP;
@@ -1154,7 +1129,16 @@
       contributionSelect.addEventListener("change", function () {
         state.contributionMode = contributionSelect.value;
         if (state.activeTab === "overview") {
-          renderCurrentTab();
+          var d = getFilteredData();
+          if (d && d.contributions) {
+            renderContributionChart(
+              d.contributions,
+              d.frequency,
+              state.contributionMode,
+              d.contributors,
+            );
+            renderFrequencyMiniChart(d.frequency);
+          }
         }
       });
     }
@@ -1164,7 +1148,10 @@
       topContribSelect.addEventListener("change", function () {
         state.topContributorsMode = topContribSelect.value;
         if (state.activeTab === "overview") {
-          renderCurrentTab();
+          var d = getFilteredData();
+          if (d && d.contributors) {
+            renderTopContributorsChart(d.contributors, state.topContributorsMode);
+          }
         }
       });
     }

@@ -49,3 +49,15 @@ dashboard/style.css      — light + dark theme via custom properties
 - ESM throughout (`"type": "module"`)
 - No comments in code
 - Pure functions preferred where possible
+
+## Contributor deduplication
+
+Contributors are keyed by **email** in `src/aggregate.js`'s `contributorsMap`. A special pass merges entries detected as the same person via GitHub noreply emails (`user@users.noreply.github.com`):
+
+- The local part of a noreply address is the GitHub username (stripping any numeric `ID+` prefix).
+- For each non-noreply contributor, two checks run (case-insensitive):
+  1. Does any of their commit author names match a known GitHub username?
+  2. Does their email's local part (before `@`) exactly match a known GitHub username?
+- If either matches, the non-noreply contributor's stats are **merged into** the noreply entry — totals are summed, earliest/latest dates kept. Per-day `contributionsMap` author entries are also rewritten so the source's days are folded into the target's author name.
+
+Per-day contributions (`contributionsMap`) track authors by **email**, not by display name. This means two contributors with the same display name but different emails (e.g. `user@work.com` and `user@personal.com`, both named "User") remain separate entries with their own per-day stats. The `authorDetails` array in each day's contribution includes an `email` field, which the frontend uses to match each contributor to their correct stats.

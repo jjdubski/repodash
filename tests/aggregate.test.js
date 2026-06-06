@@ -183,6 +183,17 @@ describe('aggregate (pure function)', () => {
         assert.strictEqual(f.changes, 1);
       }
     });
+
+    it('should include email field in authorDetails', () => {
+      assert.strictEqual(
+        result.contributions[0].authorDetails[0].email,
+        'test@test.com',
+      );
+      assert.strictEqual(
+        result.contributions[0].authorDetails[0].author,
+        'Test User',
+      );
+    });
   });
 
   // ----- 3. Same day, different authors -----------------------------------
@@ -720,6 +731,89 @@ describe('aggregate (pure function)', () => {
       // johndoe merged into one, plus Alice = 2 contributors
       assert.strictEqual(result.summary.totalContributors, 2);
     });
+
+    it('should merge when email local part matches GH username from noreply (nivekxyz@company.com vs 31807746+nivekxyz@users.noreply.github.com)', () => {
+      const commits = [
+        makeCommit({
+          hash: 'm1',
+          author: { name: 'Nivek Xyz', email: 'nivekxyz@company.com' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 2, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'm2',
+          author: {
+            name: 'Nivek Xyz',
+            email: '31807746+nivekxyz@users.noreply.github.com',
+          },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['b.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      assert.strictEqual(result.contributors.length, 1);
+      assert.strictEqual(result.contributors[0].totalCommits, 2);
+      assert.strictEqual(result.contributors[0].additions, 15);
+      assert.strictEqual(result.contributors[0].deletions, 3);
+    });
+
+    it('should NOT merge when noreply username does not match name or email local part (Kevin Cordia case: me@kevco.dev vs 31807746+nivekxyz@users.noreply.github.com)', () => {
+      const commits = [
+        makeCommit({
+          hash: 'k1',
+          author: { name: 'Kevin Cordia', email: 'me@kevco.dev' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 2, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'k2',
+          author: {
+            name: 'Kevin Cordia',
+            email: '31807746+nivekxyz@users.noreply.github.com',
+          },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['b.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      // Name "Kevin Cordia" does not match "nivekxyz",
+      // email local part "me" does not match "nivekxyz"
+      assert.strictEqual(result.contributors.length, 2);
+    });
+
+    it('should merge ID+username noreply format (12345+jjdubski@users.noreply.github.com) when name matches extracted username', () => {
+      const commits = [
+        makeCommit({
+          hash: 'j1',
+          author: { name: 'jjdubski', email: 'jjdubski@company.com' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 2, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'j2',
+          author: {
+            name: 'jjdubski',
+            email: '12345+jjdubski@users.noreply.github.com',
+          },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['b.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      assert.strictEqual(result.contributors.length, 1);
+      assert.strictEqual(result.contributors[0].totalCommits, 2);
+      assert.strictEqual(result.contributors[0].additions, 15);
+      assert.strictEqual(result.contributors[0].deletions, 3);
+    });
   });
 
   // ----- Structural invariants -------------------------------------------
@@ -888,6 +982,95 @@ describe('aggregate (pure function)', () => {
       // Sanity check that we got real results
       assert.strictEqual(result.summary.totalCommits, 5000);
       assert.ok(result.summary.totalContributors > 0);
+    });
+  });
+
+  // ----- 9. Per-email tracking in authorDetails ----------------------------
+
+  describe('per-email tracking in authorDetails', () => {
+    it('should create separate authorDetails entries for same name with different emails on the same day', () => {
+      const commits = [
+        makeCommit({
+          hash: 'c1',
+          author: { name: 'Test User', email: 'old@test.com' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 2, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'c2',
+          author: { name: 'Test User', email: 'new@test.com' },
+          date: '2025-01-15T14:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['b.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      // 2 separate contributors (different emails)
+      assert.strictEqual(result.contributors.length, 2);
+
+      // 1 contribution day with 2 authorDetails entries
+      assert.strictEqual(result.contributions.length, 1);
+      assert.strictEqual(result.contributions[0].authorDetails.length, 2);
+
+      const details = result.contributions[0].authorDetails;
+
+      // Both have count 1 and same name — stable sort preserves Map insertion order
+      const oldEntry = details.find((d) => d.email === 'old@test.com');
+      const newEntry = details.find((d) => d.email === 'new@test.com');
+      assert.ok(oldEntry);
+      assert.ok(newEntry);
+
+      assert.strictEqual(oldEntry.author, 'Test User');
+      assert.strictEqual(oldEntry.count, 1);
+      assert.strictEqual(oldEntry.additions, 10);
+      assert.strictEqual(oldEntry.deletions, 2);
+
+      assert.strictEqual(newEntry.author, 'Test User');
+      assert.strictEqual(newEntry.count, 1);
+      assert.strictEqual(newEntry.additions, 5);
+      assert.strictEqual(newEntry.deletions, 1);
+
+      // Each contributor should have their own stats (not merged)
+      const emails = result.contributors.map((c) => c.email).sort();
+      assert.deepStrictEqual(emails, ['new@test.com', 'old@test.com']);
+    });
+
+    it('should keep same name with different regular emails as separate contributors in summary', () => {
+      const commits = [
+        makeCommit({
+          hash: 's1',
+          author: { name: 'jake123', email: 'jake123@aol.com' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 2, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 's2',
+          author: { name: 'jake123', email: 'jake123@gmail.com' },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['b.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      // 2 separate contributors
+      assert.strictEqual(result.contributors.length, 2);
+      assert.strictEqual(result.summary.totalContributors, 2);
+
+      // Each contributor has their own per-email stats
+      const c1 = result.contributors.find((c) => c.email === 'jake123@aol.com');
+      const c2 = result.contributors.find((c) => c.email === 'jake123@gmail.com');
+      assert.ok(c1);
+      assert.ok(c2);
+      assert.strictEqual(c1.totalCommits, 1);
+      assert.strictEqual(c1.additions, 10);
+      assert.strictEqual(c1.deletions, 2);
+      assert.strictEqual(c2.totalCommits, 1);
+      assert.strictEqual(c2.additions, 5);
+      assert.strictEqual(c2.deletions, 1);
     });
   });
 });

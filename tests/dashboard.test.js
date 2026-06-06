@@ -365,6 +365,8 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
   let getCutoffDate;
   /** @type {Function} */
   let filterByDate;
+  /** @type {Function} */
+  let computeFilteredContributors;
 
   before(() => {
     const src = read('dashboard.js');
@@ -381,6 +383,9 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
 
     filterByDate = evalFunction(extractFunction('filterByDate', src));
     assert.ok(filterByDate, 'filterByDate not found in dashboard.js');
+
+    computeFilteredContributors = evalFunction(extractFunction('computeFilteredContributors', src));
+    assert.ok(computeFilteredContributors, 'computeFilteredContributors not found in dashboard.js');
   });
 
   // ── formatNumber ─────────────────────────────────────────────────────────
@@ -576,6 +581,101 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       ];
       const result = filterByDate(d, { start: '2024-01-01', end: null });
       assert.strictEqual(result.length, 1);
+    });
+  });
+
+  // ── computeFilteredContributors ───────────────────────────────────────────
+
+  describe('computeFilteredContributors', () => {
+    it('should return separate contributors for same name with different emails', () => {
+      const contributions = [
+        {
+          date: '2025-01-15',
+          count: 3,
+          authorDetails: [
+            { author: 'Alice', email: 'alice@work.com', count: 2, additions: 20, deletions: 5 },
+            { author: 'Alice', email: 'alice@personal.com', count: 1, additions: 10, deletions: 2 },
+          ],
+        },
+      ];
+
+      const allContributors = [
+        {
+          name: 'Alice',
+          email: 'alice@work.com',
+          totalCommits: 2,
+          additions: 20,
+          deletions: 5,
+          firstCommit: '2025-01-15T10:00:00Z',
+          lastCommit: '2025-01-15T14:00:00Z',
+        },
+        {
+          name: 'Alice',
+          email: 'alice@personal.com',
+          totalCommits: 1,
+          additions: 10,
+          deletions: 2,
+          firstCommit: '2025-01-15T16:00:00Z',
+          lastCommit: '2025-01-15T16:00:00Z',
+        },
+      ];
+
+      const result = computeFilteredContributors(contributions, allContributors);
+
+      assert.strictEqual(result.length, 2);
+      // Sorted by totalCommits desc: alice@work.com (2) before alice@personal.com (1)
+      assert.strictEqual(result[0].email, 'alice@work.com');
+      assert.strictEqual(result[0].totalCommits, 2);
+      assert.strictEqual(result[0].additions, 20);
+      assert.strictEqual(result[0].deletions, 5);
+      assert.strictEqual(result[0].name, 'Alice');
+
+      assert.strictEqual(result[1].email, 'alice@personal.com');
+      assert.strictEqual(result[1].totalCommits, 1);
+      assert.strictEqual(result[1].additions, 10);
+      assert.strictEqual(result[1].deletions, 2);
+      assert.strictEqual(result[1].name, 'Alice');
+    });
+
+    it('should use email field for contributor lookups when email is available in authorDetails', () => {
+      const contributions = [
+        {
+          date: '2025-01-15',
+          count: 2,
+          authorDetails: [
+            { author: 'User', email: 'email1@test.com', count: 1, additions: 5, deletions: 1 },
+            { author: 'User', email: 'email2@test.com', count: 1, additions: 10, deletions: 2 },
+          ],
+        },
+      ];
+
+      const allContributors = [
+        {
+          name: 'User',
+          email: 'email1@test.com',
+          totalCommits: 1,
+          additions: 5,
+          deletions: 1,
+          firstCommit: '2025-01-15',
+          lastCommit: '2025-01-15',
+        },
+        {
+          name: 'User',
+          email: 'email2@test.com',
+          totalCommits: 1,
+          additions: 10,
+          deletions: 2,
+          firstCommit: '2025-01-15',
+          lastCommit: '2025-01-15',
+        },
+      ];
+
+      const result = computeFilteredContributors(contributions, allContributors);
+
+      // Two separate entries — email is the key, not author name
+      assert.strictEqual(result.length, 2);
+      const emails = result.map((c) => c.email).sort();
+      assert.deepStrictEqual(emails, ['email1@test.com', 'email2@test.com']);
     });
   });
 });
