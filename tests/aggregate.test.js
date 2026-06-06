@@ -564,6 +564,164 @@ describe('aggregate (pure function)', () => {
     });
   });
 
+  // ----- 7. GitHub noreply email merging ----------------------------------
+
+  describe('GitHub noreply email merging', () => {
+    it('should merge same person when name matches GH username from noreply email', () => {
+      const commits = [
+        makeCommit({
+          hash: 'c1',
+          author: { name: 'johndoe', email: 'johndoe@gmail.com' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 2, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'c2',
+          author: { name: 'Full Name', email: 'johndoe@users.noreply.github.com' },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['b.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      assert.strictEqual(result.contributors.length, 1);
+
+      // Email should be the noreply one (first-seen or canonical)
+      assert.strictEqual(result.contributors[0].email, 'johndoe@users.noreply.github.com');
+
+      // Total commits should be combined
+      assert.strictEqual(result.contributors[0].totalCommits, 2);
+
+      // Stats should be combined
+      assert.strictEqual(result.contributors[0].additions, 15);
+      assert.strictEqual(result.contributors[0].deletions, 3);
+    });
+
+    it('should not merge when noreply username matches no other contributor', () => {
+      const commits = [
+        makeCommit({
+          hash: 'c1',
+          author: { name: 'Alice', email: 'alice@test.com' },
+          date: '2025-01-15T10:00:00Z',
+        }),
+        makeCommit({
+          hash: 'c2',
+          author: { name: 'bobsmith', email: 'bobsmith@users.noreply.github.com' },
+          date: '2025-01-16T10:00:00Z',
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      // Two separate contributors — no overlap
+      assert.strictEqual(result.contributors.length, 2);
+    });
+
+    it('should merge when email local part matches GH username from noreply', () => {
+      const commits = [
+        makeCommit({
+          hash: 'c1',
+          author: { name: 'Some Person', email: 'ghuser@example.com' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 2, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'c2',
+          author: { name: 'Another Name', email: 'ghuser@users.noreply.github.com' },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['b.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      assert.strictEqual(result.contributors.length, 1);
+      assert.strictEqual(result.contributors[0].totalCommits, 2);
+    });
+
+    it('should merge contributions from the same day', () => {
+      const commits = [
+        makeCommit({
+          hash: 'c1',
+          author: { name: 'johndoe', email: 'johndoe@gmail.com' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 2, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'c2',
+          author: { name: 'johndoe', email: 'johndoe@users.noreply.github.com' },
+          date: '2025-01-15T14:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['b.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      // One contributor
+      assert.strictEqual(result.contributors.length, 1);
+      assert.strictEqual(result.contributors[0].totalCommits, 2);
+
+      // One day, author should be the target name
+      assert.strictEqual(result.contributions.length, 1);
+      const day = result.contributions[0];
+      assert.strictEqual(day.authorDetails.length, 1);
+      // The noreply email contributor's best name
+      assert.strictEqual(day.authorDetails[0].count, 2);
+    });
+
+    it('should merge case-insensitively when GH username differs in case from author name', () => {
+      const commits = [
+        makeCommit({
+          hash: 'c1',
+          author: { name: 'Jake', email: 'Jake@gmail.com' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 2, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'c2',
+          author: { name: 'Jake', email: 'jake@users.noreply.github.com' },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['b.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      // Should merge despite "Jake" (capitalized) vs "jake" (lowercase GH username)
+      assert.strictEqual(result.contributors.length, 1);
+      assert.strictEqual(result.contributors[0].totalCommits, 2);
+    });
+
+    it('should reflect correct totalContributors in summary after merge', () => {
+      const commits = [
+        makeCommit({
+          hash: 'c1',
+          author: { name: 'johndoe', email: 'johndoe@gmail.com' },
+          date: '2025-01-15T10:00:00Z',
+        }),
+        makeCommit({
+          hash: 'c2',
+          author: { name: 'johndoe', email: 'johndoe@users.noreply.github.com' },
+          date: '2025-01-16T10:00:00Z',
+        }),
+        makeCommit({
+          hash: 'c3',
+          author: { name: 'Alice', email: 'alice@test.com' },
+          date: '2025-01-17T10:00:00Z',
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      assert.strictEqual(result.summary.totalCommits, 3);
+      // johndoe merged into one, plus Alice = 2 contributors
+      assert.strictEqual(result.summary.totalContributors, 2);
+    });
+  });
+
   // ----- Structural invariants -------------------------------------------
 
   describe('structural invariants', () => {

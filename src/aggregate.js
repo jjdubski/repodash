@@ -61,8 +61,6 @@ export function aggregate(commits, branchCount) {
   let firstCommit = commits[0].date;
   let lastCommit = commits[0].date;
 
-  const uniqueAuthors = new Set();
-
   // date key → { date, count, authors: Map<name, { count, additions, deletions }> }
   const contributionsMap = new Map();
 
@@ -88,7 +86,6 @@ export function aggregate(commits, branchCount) {
     totalDeletions += commit.stats?.deletions ?? 0;
     if (commit.date < firstCommit) firstCommit = commit.date;
     if (commit.date > lastCommit) lastCommit = commit.date;
-    uniqueAuthors.add(name);
 
     // -- contributions (per-day, per-author) --------------------------------
     let dayEntry = contributionsMap.get(dateKey);
@@ -145,6 +142,121 @@ export function aggregate(commits, branchCount) {
     }
   }
 
+  // ---- GitHub noreply email handling ---------------------------------------
+  // Merge contributors where the same person uses both a normal email and a
+  // GitHub noreply email (user@users.noreply.github.com).  The local part of
+  // the noreply address IS the GitHub username; if another contributor's name
+  // or email local part matches that username they are the same person.
+
+  const GITHUB_NOREPLY_RE = /^([^@]+)@users\.noreply\.github\.com$/;
+
+  // Store GH usernames lowercased for case-insensitive matching.
+  // GitHub always lowercases the local part of noreply addresses,
+  // but the author name in commits may be "Jake" vs "jake".
+  const ghUsernameToEmail = new Map();
+  for (const [email] of contributorsMap) {
+    const m = GITHUB_NOREPLY_RE.exec(email);
+    if (m) ghUsernameToEmail.set(m[1].toLowerCase(), email);
+  }
+
+  if (ghUsernameToEmail.size > 0) {
+    // Find merge pairs: { sourceEmail, targetEmail, sourceNames }
+    const merges = [];
+    for (const [email, c] of contributorsMap) {
+      if (GITHUB_NOREPLY_RE.test(email)) continue;
+
+      const lowerLocalPart = email.split('@')[0].toLowerCase();
+      let matchedTarget = null;
+
+      // Check 1: any of this contributor's names (case-insensitive) matches a known GH username
+      for (const [name] of c.names) {
+        const lowerName = name.toLowerCase();
+        if (ghUsernameToEmail.has(lowerName) && ghUsernameToEmail.get(lowerName) !== email) {
+          matchedTarget = ghUsernameToEmail.get(lowerName);
+          break;
+        }
+      }
+
+      // Check 2: the email's local part (case-insensitive) matches a known GH username
+      if (!matchedTarget && ghUsernameToEmail.has(lowerLocalPart) && ghUsernameToEmail.get(lowerLocalPart) !== email) {
+        matchedTarget = ghUsernameToEmail.get(lowerLocalPart);
+      }
+
+      if (matchedTarget) {
+        merges.push({ sourceEmail: email, targetEmail: matchedTarget, sourceNames: [...c.names.keys()] });
+      }
+    }
+
+    // Apply merges to contributorsMap
+    for (const { sourceEmail, targetEmail, sourceNames } of merges) {
+      const target = contributorsMap.get(targetEmail);
+      const source = contributorsMap.get(sourceEmail);
+      if (!target || !source) continue;
+
+      target.totalCommits += source.totalCommits;
+      target.additions += source.additions;
+      target.deletions += source.deletions;
+      if (source.firstCommit < target.firstCommit) target.firstCommit = source.firstCommit;
+      if (source.lastCommit > target.lastCommit) target.lastCommit = source.lastCommit;
+      for (const [name, count] of source.names) {
+        target.names.set(name, (target.names.get(name) ?? 0) + count);
+      }
+      contributorsMap.delete(sourceEmail);
+    }
+
+    // Apply merges to contributionsMap (author names → name used by target)
+    for (const { targetEmail, sourceNames } of merges) {
+      const targetContributor = contributorsMap.get(targetEmail);
+      if (!targetContributor) continue;
+
+      for (const dayEntry of contributionsMap.values()) {
+        const sourceDataInDay = [];
+        for (const name of sourceNames) {
+          if (dayEntry.authors.has(name)) {
+            sourceDataInDay.push({ name, ...dayEntry.authors.get(name) });
+            dayEntry.authors.delete(name);
+          }
+        }
+        if (sourceDataInDay.length === 0) continue;
+
+        // Find a target name that already has an entry this day
+        let targetNameInDay = null;
+        for (const [name] of targetContributor.names) {
+          if (dayEntry.authors.has(name)) {
+            targetNameInDay = name;
+            break;
+          }
+        }
+
+        if (targetNameInDay) {
+          const existing = dayEntry.authors.get(targetNameInDay);
+          for (const data of sourceDataInDay) {
+            existing.count += data.count;
+            existing.additions += data.additions;
+            existing.deletions += data.deletions;
+          }
+        } else {
+          // No existing target entry — create one with best name
+          let bestName = targetContributor.name;
+          let bestCount = 0;
+          for (const [n, count] of targetContributor.names) {
+            if (count > bestCount || (count === bestCount && n < bestName)) {
+              bestName = n;
+              bestCount = count;
+            }
+          }
+          const merged = { count: 0, additions: 0, deletions: 0 };
+          for (const data of sourceDataInDay) {
+            merged.count += data.count;
+            merged.additions += data.additions;
+            merged.deletions += data.deletions;
+          }
+          dayEntry.authors.set(bestName, merged);
+        }
+      }
+    }
+  }
+
   // ---- convert Maps to sorted arrays --------------------------------------
 
   // Contributions: sort by date ascending; authorDetails sorted by count desc
@@ -197,7 +309,7 @@ export function aggregate(commits, branchCount) {
   return {
     summary: {
       totalCommits: commits.length,
-      totalContributors: uniqueAuthors.size,
+      totalContributors: contributorsMap.size,
       totalAdditions,
       totalDeletions,
       firstCommit,
