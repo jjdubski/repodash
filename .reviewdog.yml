@@ -1,7 +1,8 @@
 runner:
   eslint:
-    cmd: npx eslint -f rdjson src/ bin/ dashboard/ tests/
-    format: rdjson
+    cmd: npx eslint -f unix src/ bin/ dashboard/ tests/
+    errorformat:
+      - '%f:%l:%c: %m'
     name: ESLint
     level: warning
   actionlint:
@@ -11,7 +12,7 @@ runner:
     name: actionlint
     level: warning
   markdownlint:
-    cmd: npx markdownlint --ignore node_modules --ignore docs/superpowers --ignore .husky --ignore AGENTS.md .
+    cmd: npx markdownlint --ignore node_modules --ignore docs/superpowers --ignore .husky --ignore AGENTS.md --ignore 'session-ses_*.md' .
     errorformat:
       - '%f:%l:%c %m'
     name: markdownlint
@@ -23,7 +24,8 @@ runner:
     name: ShellCheck
     level: warning
   stylelint:
-    cmd: npx stylelint '**/*.css' --rdjson
-    format: rdjson
+    cmd: npx stylelint '**/*.css' --formatter unix
+    errorformat:
+      - '%f:%l:%c: %m'
     name: stylelint
     level: warning

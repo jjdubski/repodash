@@ -9,7 +9,6 @@ import {
 } from 'node:fs';
 import { extname, join, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
-import open from 'open';
 import chalk from 'chalk';
 
 // ---------------------------------------------------------------------------
@@ -186,8 +185,10 @@ async function resolvePort(port) {
 }
 
 /**
- * Write aggregated data to a temp directory, start an HTTP server that serves
- * both the bundled dashboard UI and the generated JSON, then open the browser.
+ * Write aggregated data to a temp directory and start an HTTP server that
+ * serves both the bundled dashboard UI and the generated JSON.
+ *
+ * The caller is responsible for browser opening and process signal handling.
  *
  * @param {object} data - Object returned by aggregate() with keys:
  *   summary, contributions, contributors, frequency, activity
@@ -256,53 +257,6 @@ export async function serveDashboard(data, dashboardDir, port = 0) {
       resolve();
     });
   });
-
-  // -----------------------------------------------------------------------
-  // 6. Open browser
-  // -----------------------------------------------------------------------
-  const addr = `http://localhost:${actualPort}`;
-  console.log(chalk.cyan('📊 insights dashboard:'), chalk.underline(addr));
-
-  // Fire-and-forget — browser open failure should never crash the server
-  open(addr).catch((err) => {
-    console.warn(chalk.yellow(`Could not open browser: ${err.message}`));
-    console.warn(chalk.yellow(`Open ${addr} manually.`));
-  });
-
-  // -----------------------------------------------------------------------
-  // 7. Graceful shutdown
-  // -----------------------------------------------------------------------
-  let shuttingDown = false;
-
-  function cleanup() {
-    if (shuttingDown) return;
-    shuttingDown = true;
-    console.log(chalk.gray('\nShutting down insights server...'));
-    server.close(() => {
-      try {
-        rmSync(tmpDir, { recursive: true, force: true });
-      } catch {
-        // temp dir may already be gone — ignore
-      }
-      process.exit(0);
-    });
-    // Fallback: force exit after 5 s if the server refuses to close
-    setTimeout(() => {
-      try {
-        rmSync(tmpDir, { recursive: true, force: true });
-      } catch {
-        // ignore
-      }
-      process.exit(0);
-    }, 5000).unref();
-  }
-
-  process.once('SIGINT', cleanup);
-  process.once('SIGTERM', cleanup);
-
-  // stdin close fires on Ctrl+C alongside SIGINT; the guard prevents double
-  // cleanup when both events arrive in quick succession.
-  process.stdin.on('close', cleanup);
 
   return { port: actualPort, tmpDir, server };
 }

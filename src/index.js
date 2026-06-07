@@ -1,6 +1,8 @@
 import chalk from 'chalk';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { rmSync } from 'node:fs';
+import open from 'open';
 import { getAllCommits, getLocalBranchCount } from './git.js';
 import { aggregate } from './aggregate.js';
 import { serveDashboard } from './server.js';
@@ -29,5 +31,41 @@ export async function main(repoPath) {
     .replace(/\.git$/, '');
 
   const dashboardDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
-  await serveDashboard(result, dashboardDir);
+  const { port, tmpDir, server } = await serveDashboard(result, dashboardDir);
+
+  const addr = `http://localhost:${port}`;
+  console.log(chalk.cyan('📊 insights dashboard:'), chalk.underline(addr));
+
+  open(addr).catch((err) => {
+    console.warn(chalk.yellow(`Could not open browser: ${err.message}`));
+    console.warn(chalk.yellow(`Open ${addr} manually.`));
+  });
+
+  let shuttingDown = false;
+
+  function cleanup() {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(chalk.gray('\nShutting down insights server...'));
+    server.close(() => {
+      try {
+        rmSync(tmpDir, { recursive: true, force: true });
+      } catch {
+        // temp dir may already be gone — ignore
+      }
+      process.exit(0);
+    });
+    setTimeout(() => {
+      try {
+        rmSync(tmpDir, { recursive: true, force: true });
+      } catch {
+        // ignore
+      }
+      process.exit(0);
+    }, 5000).unref();
+  }
+
+  process.once('SIGINT', cleanup);
+  process.once('SIGTERM', cleanup);
+  process.stdin.on('close', cleanup);
 }

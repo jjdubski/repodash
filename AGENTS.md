@@ -22,13 +22,49 @@ dashboard/style.css      — light + dark theme via custom properties
 
 ## Commands
 
-| Command                               | Notes                                                        |
-| ------------------------------------- | ------------------------------------------------------------ |
-| `npm start`                           | Runs `node bin/insights.js` (no args → shows usage)          |
+| Command                               | Notes                                                                         |
+| ------------------------------------- | ----------------------------------------------------------------------------- |
+| `npm start`                           | Runs `node bin/insights.js` (no args → shows usage)                           |
 | `npm test`                            | Runs **all 6** test files (imports, aggregate, server, git, dashboard, index) |
-| `node --test tests/*.test.js`         | Runs **all 6** test files                                    |
-| `node --test tests/aggregate.test.js` | Single test file                                             |
-| `node bin/insights.js /path/to/repo`  | Generate dashboard                                           |
+| `node --test tests/*.test.js`         | Runs **all 6** test files                                                     |
+| `node --test tests/aggregate.test.js` | Single test file                                                              |
+| `node bin/insights.js /path/to/repo`  | Generate dashboard                                                            |
+
+## Linting & reviewdog
+
+`reviewdog` can be run locally with `npm run reviewdog` (requires reviewdog to be installed on PATH).
+
+| Command             | What it runs                              | Requires                            |
+| ------------------- | ----------------------------------------- | ----------------------------------- |
+| `npm run lint`      | ESLint                                    | _none (npx)_                        |
+| `npm run lint:md`   | markdownlint                              | _none (npx)_                        |
+| `npm run lint:css`  | stylelint                                 | _none (npx)_                        |
+| `npm run reviewdog` | All 5 linters via `.reviewdog.yml` config | reviewdog + actionlint + shellcheck |
+
+The `.reviewdog.yml` file defines 5 runners (eslint, actionlint, markdownlint, shellcheck, stylelint)
+matching the same workflow that runs in CI.
+
+**To run reviewdog locally:**
+
+1. Install the CLI: `brew install reviewdog`
+2. Install additional binaries: `brew install actionlint shellcheck`
+3. Run: `npm run reviewdog` (or `reviewdog` with no args)
+
+reviewdog defaults to `-reporter=local`, which prints lint results to stdout. To report only
+on changed lines (useful during development), run:
+
+```sh
+reviewdog -diff="git diff" -reporter=local
+```
+
+reviewdog exits with code 1 if any runner fails (e.g., missing binaries). The individual
+runners that are available (ESLint, stylelint, markdownlint) still produce correct output.
+To run a single runner:
+
+```sh
+reviewdog -reporter=local -conf=.reviewdog.yml  # all runners
+# Filter to specific runners by commenting out others in .reviewdog.yml
+```
 
 ## Testing quirks
 
@@ -36,7 +72,9 @@ dashboard/style.css      — light + dark theme via custom properties
 - `npm test` runs all 6 test files.
 - `git.test.js` creates real temp git repos (needs actual git on PATH).
 - `aggregate.test.js` has performance assertions (<500ms for 5000 commits).
-- No CI, no pre-commit hooks, no lint, no typecheck — zero runtime devDependencies.
+- CI via GitHub Actions (test.yml, fallow.yml, reviewdog.yml, trigger.yml).
+- Pre-commit hooks via Husky + lint-staged (prettier + eslint --fix on staged JS).
+- No typecheck — Vanilla JS only.
 
 ## Dependencies
 

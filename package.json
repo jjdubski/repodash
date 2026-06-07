@@ -9,10 +9,13 @@
   },
   "scripts": {
     "start": "node bin/insights.js",
-    "test": "node -e \"import { run } from 'node:test'; import { spec } from 'node:test/reporters'; run({ files: ['tests/imports.test.js', 'tests/aggregate.test.js', 'tests/server.test.js', 'tests/git.test.js', 'tests/dashboard.test.js', 'tests/index.test.js'] }).compose(spec).pipe(process.stdout);\"",
+    "test": "node --test tests/*.test.js",
     "lint": "eslint .",
+    "lint:md": "markdownlint --ignore node_modules --ignore docs/superpowers --ignore .husky --ignore AGENTS.md .",
+    "lint:css": "stylelint '**/*.css'",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
+    "reviewdog": "reviewdog",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -47,6 +50,7 @@
     "@eslint/js": "^10.0.1",
     "eslint": "^10.4.1",
     "eslint-config-prettier": "^10.1.8",
+    "eslint-formatter-unix": "^9.0.1",
     "globals": "^17.6.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
