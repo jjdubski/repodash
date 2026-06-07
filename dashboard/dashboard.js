@@ -50,7 +50,7 @@ export function clampDate(dateStr, minStr, maxStr) {
   return dateStr;
 }
 
-export function getTodayLocal() {
+function getTodayLocal() {
   var d = new Date();
   var year = d.getFullYear();
   var month = String(d.getMonth() + 1).padStart(2, '0');
@@ -362,9 +362,6 @@ function hideElem(id) {
 
 function showLoading(tab) {
   showElem(tab + '-loading');
-}
-function hideLoading(tab) {
-  hideElem(tab + '-loading');
 }
 function showError(tab, msg) {
   var el = document.getElementById(tab + '-error');
@@ -782,7 +779,6 @@ function renderContributionLines(frequency) {
 function renderTopContributorsChart(contributors, mode) {
   if (!contributors || !contributors.length) return;
   mode = mode || 'commits';
-  var isPrinting = document.body.classList.contains('printing');
   var top = contributors.slice(0, 10);
 
   var label, data;
@@ -1120,13 +1116,12 @@ function setupEvents() {
       Object.keys(state.charts).forEach(function (id) {
         try {
           state.charts[id].resize();
-        } catch (e) {
+        } catch (_) {
           /* ignore individual chart resize failures */
         }
       });
 
       // After print (or cancel), restore original state
-      var originalTab = state.activeTab;
       var cleanup = function () {
         window.removeEventListener('afterprint', cleanup);
         document.body.classList.remove('printing');

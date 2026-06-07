@@ -323,7 +323,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
         },
         getCutoffDate: () => ({ start: '2024-01-01', end: null }),
         filterByDate: (arr) => arr,
-        computeFilteredSummary: (c, f) => ({
+        computeFilteredSummary: (_c, _f) => ({
           totalCommits: 1,
           totalContributors: 1,
           totalAdditions: 10,

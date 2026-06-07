@@ -21,6 +21,34 @@ function validateRepoPath(repoPath) {
   }
 }
 
+function spawnGit(args, cwd) {
+  return new Promise((resolve, reject) => {
+    const child = spawn('git', args, { cwd });
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(stderr.trim() || `git command failed with exit code ${code}`));
+        return;
+      }
+      resolve({ stdout, stderr });
+    });
+
+    child.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
 /**
  * Parse a commit entry from an array of lines.
  * First line is the pretty=format header (hash|name|email|date|message).
@@ -83,60 +111,23 @@ function parseCommit(lines) {
 export function getAllCommits(repoPath) {
   validateRepoPath(repoPath);
 
-  return new Promise((resolve, reject) => {
-    const child = spawn(
-      'git',
-      ['log', '--all', `--pretty=format:${COMMIT_DELIMITER}%n%H|%an|%ae|%ai|%s`, '--numstat'],
-      { cwd: repoPath },
-    );
-
+  return spawnGit(
+    ['log', '--all', `--pretty=format:${COMMIT_DELIMITER}%n%H|%an|%ae|%ai|%s`, '--numstat'],
+    repoPath,
+  ).then(({ stdout }) => {
     const commits = [];
-    let buffer = '';
-    let stderr = '';
+    const parts = stdout.split(COMMIT_DELIMITER);
 
-    child.stdout.on('data', (chunk) => {
-      buffer += chunk.toString();
+    for (const part of parts) {
+      const trimmed = part.trim();
+      if (!trimmed) continue;
 
-      // Split on the delimiter. Complete commits are the segments
-      // between delimiters; the last segment is kept in the buffer
-      // as it may be incomplete.
-      const parts = buffer.split(COMMIT_DELIMITER);
-      buffer = parts.pop();
+      const lines = trimmed.split('\n');
+      const commit = parseCommit(lines);
+      if (commit) commits.push(commit);
+    }
 
-      for (const part of parts) {
-        const trimmed = part.trim();
-        if (!trimmed) continue;
-
-        const lines = trimmed.split('\n');
-        const commit = parseCommit(lines);
-        if (commit) commits.push(commit);
-      }
-    });
-
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk.toString();
-    });
-
-    child.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr.trim() || `git command failed with exit code ${code}`));
-        return;
-      }
-
-      // Process any remaining commit data still in the buffer
-      const trimmed = buffer.trim();
-      if (trimmed) {
-        const lines = trimmed.split('\n');
-        const commit = parseCommit(lines);
-        if (commit) commits.push(commit);
-      }
-
-      resolve(commits);
-    });
-
-    child.on('error', (err) => {
-      reject(err);
-    });
+    return commits;
   });
 }
 
@@ -149,30 +140,7 @@ export function getAllCommits(repoPath) {
 export function getLocalBranchCount(repoPath) {
   validateRepoPath(repoPath);
 
-  return new Promise((resolve, reject) => {
-    const child = spawn('git', ['branch', '--list'], { cwd: repoPath });
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString();
-    });
-
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk.toString();
-    });
-
-    child.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr.trim() || `git command failed with exit code ${code}`));
-        return;
-      }
-      const branches = stdout.trim().split('\n').filter(Boolean);
-      resolve(branches.length);
-    });
-
-    child.on('error', (err) => {
-      reject(err);
-    });
-  });
+  return spawnGit(['branch', '--list'], repoPath).then(
+    ({ stdout }) => stdout.trim().split('\n').filter(Boolean).length,
+  );
 }

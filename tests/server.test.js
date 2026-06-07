@@ -120,74 +120,64 @@ describe('serveDashboard', () => {
   // ----- 3 + 4. HTTP endpoints and MIME types -----------------------------
 
   describe('HTTP endpoints', () => {
+    async function assertFetch(path, { status = 200, type, bodyIncludes, bodyDeep } = {}) {
+      const res = await fetch(`http://localhost:${handle.port}${path}`);
+      assert.strictEqual(res.status, status);
+      if (type) assert.strictEqual(res.headers.get('content-type'), type);
+      if (bodyIncludes) assert.ok((await res.text()).includes(bodyIncludes));
+      if (bodyDeep) assert.deepStrictEqual(await res.json(), bodyDeep);
+    }
+
     it('should serve /index.html with status 200 and text/html', async () => {
-      const res = await fetch(`http://localhost:${handle.port}/index.html`);
-
-      assert.strictEqual(res.status, 200);
-      assert.strictEqual(res.headers.get('content-type'), 'text/html');
-
-      const body = await res.text();
-      assert.ok(body.includes('Test Dashboard'));
+      await assertFetch('/index.html', {
+        status: 200,
+        type: 'text/html',
+        bodyIncludes: 'Test Dashboard',
+      });
     });
 
     it('should serve /style.css with status 200 and text/css', async () => {
-      const res = await fetch(`http://localhost:${handle.port}/style.css`);
-
-      assert.strictEqual(res.status, 200);
-      assert.strictEqual(res.headers.get('content-type'), 'text/css');
-
-      const body = await res.text();
-      assert.ok(body.includes('color: red'));
+      await assertFetch('/style.css', {
+        status: 200,
+        type: 'text/css',
+        bodyIncludes: 'color: red',
+      });
     });
 
     it('should serve /dashboard.js with status 200 and application/javascript', async () => {
-      const res = await fetch(`http://localhost:${handle.port}/dashboard.js`);
-
-      assert.strictEqual(res.status, 200);
-      assert.strictEqual(res.headers.get('content-type'), 'application/javascript');
-
-      const body = await res.text();
-      assert.ok(body.includes('console.log'));
+      await assertFetch('/dashboard.js', {
+        status: 200,
+        type: 'application/javascript',
+        bodyIncludes: 'console.log',
+      });
     });
 
     it('should serve /data/summary.json with status 200 and application/json', async () => {
-      const res = await fetch(`http://localhost:${handle.port}/data/summary.json`);
-
-      assert.strictEqual(res.status, 200);
-      assert.strictEqual(res.headers.get('content-type'), 'application/json');
-
-      const body = await res.json();
-      assert.deepStrictEqual(body, testData.summary);
+      await assertFetch('/data/summary.json', {
+        status: 200,
+        type: 'application/json',
+        bodyDeep: testData.summary,
+      });
     });
 
     it('should serve /data/contributions.json with correct data', async () => {
-      const res = await fetch(`http://localhost:${handle.port}/data/contributions.json`);
-
-      assert.strictEqual(res.status, 200);
-      assert.strictEqual(res.headers.get('content-type'), 'application/json');
-
-      const body = await res.json();
-      assert.deepStrictEqual(body, testData.contributions);
+      await assertFetch('/data/contributions.json', {
+        status: 200,
+        type: 'application/json',
+        bodyDeep: testData.contributions,
+      });
     });
 
     it('should serve / (root) with index.html content', async () => {
-      const res = await fetch(`http://localhost:${handle.port}/`);
-
-      assert.strictEqual(res.status, 200);
-      assert.strictEqual(res.headers.get('content-type'), 'text/html');
-
-      const body = await res.text();
-      assert.ok(body.includes('Test Dashboard'));
+      await assertFetch('/', { status: 200, type: 'text/html', bodyIncludes: 'Test Dashboard' });
     });
 
     it('should return 404 for nonexistent files', async () => {
-      const res = await fetch(`http://localhost:${handle.port}/nonexistent.html`);
-
-      assert.strictEqual(res.status, 404);
-      assert.strictEqual(res.headers.get('content-type'), 'text/plain');
-
-      const body = await res.text();
-      assert.strictEqual(body, 'Not Found');
+      await assertFetch('/nonexistent.html', {
+        status: 404,
+        type: 'text/plain',
+        bodyIncludes: 'Not Found',
+      });
     });
   });
 

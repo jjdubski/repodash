@@ -71,8 +71,8 @@ jobs:
       - name: Set PR context for reviewdog
         if: github.event_name == 'issue_comment'
         run: |
-          echo "GITHUB_EVENT_NAME=pull_request" >> $GITHUB_ENV
-          echo "GITHUB_REF=refs/pull/${{ github.event.issue.number }}/merge" >> $GITHUB_ENV
+          echo "GITHUB_EVENT_NAME=pull_request" >> "$GITHUB_ENV"
+          echo "GITHUB_REF=refs/pull/${{ github.event.issue.number }}/merge" >> "$GITHUB_ENV"
       - uses: reviewdog/action-eslint@v1
         id: eslint
         with:
@@ -417,7 +417,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Add node_modules/.bin to PATH for reviewdog stylelint
-        run: echo "${{ github.workspace }}/node_modules/.bin" >> $GITHUB_PATH
+        run: echo "${{ github.workspace }}/node_modules/.bin" >> "$GITHUB_PATH"
       - uses: reviewdog/action-stylelint@v1
         id: stylelint
         with:
