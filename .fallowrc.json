@@ -11,5 +11,6 @@
     ],
     "mode": "semantic"
   },
+  "ignoreDependencies": ["eslint-formatter-rdjson"],
   "rules": {}
 }

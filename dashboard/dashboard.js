@@ -249,6 +249,67 @@ export function computeFilteredActivity(contributions) {
 //  CHART MANAGEMENT
 // ═════════════════════════════════════════════════════════════════════
 
+function lineChartOptions(frequency) {
+  return {
+    scales: {
+      x: { maxTicksLimit: frequency.length > 90 ? 12 : undefined },
+    },
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { boxWidth: 12, padding: 12, usePointStyle: true },
+      },
+    },
+    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+  };
+}
+
+function renderFrequencyLineChart(frequency, chartId, alpha, pointRadius, pointHoverRadius) {
+  if (!frequency || !frequency.length) {
+    destroyChart(chartId);
+    return;
+  }
+
+  createChart(
+    chartId,
+    'line',
+    {
+      labels: frequency.map(function (x) {
+        return x.date;
+      }),
+      datasets: [
+        {
+          label: 'Additions',
+          data: frequency.map(function (x) {
+            return x.additions;
+          }),
+          borderColor: window.COLORS.green,
+          backgroundColor: window.COLORS.green + alpha,
+          fill: true,
+          tension: 0.3,
+          pointRadius: pointRadius,
+          pointHoverRadius: pointHoverRadius,
+          borderWidth: 2,
+        },
+        {
+          label: 'Deletions',
+          data: frequency.map(function (x) {
+            return x.deletions;
+          }),
+          borderColor: window.COLORS.red,
+          backgroundColor: window.COLORS.red + alpha,
+          fill: true,
+          tension: 0.3,
+          pointRadius: pointRadius,
+          pointHoverRadius: pointHoverRadius,
+          borderWidth: 2,
+        },
+      ],
+    },
+    lineChartOptions(frequency),
+  );
+}
+
 /**
  * Build a complete Chart.js options object by merging CHART_DEFAULTS,
  * theme-aware scale colours, and caller-provided overrides.  Scales
@@ -732,58 +793,7 @@ function renderContributionCommits(contributions) {
 }
 
 function renderContributionLines(frequency) {
-  if (!frequency || !frequency.length) {
-    destroyChart('chart-contribution');
-    return;
-  }
-
-  createChart(
-    'chart-contribution',
-    'line',
-    {
-      labels: frequency.map(function (d) {
-        return d.date;
-      }),
-      datasets: [
-        {
-          label: 'Additions',
-          data: frequency.map(function (d) {
-            return d.additions;
-          }),
-          borderColor: window.COLORS.green,
-          backgroundColor: window.COLORS.green + '20',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 0,
-          borderWidth: 2,
-        },
-        {
-          label: 'Deletions',
-          data: frequency.map(function (d) {
-            return d.deletions;
-          }),
-          borderColor: window.COLORS.red,
-          backgroundColor: window.COLORS.red + '20',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 0,
-          borderWidth: 2,
-        },
-      ],
-    },
-    {
-      scales: {
-        x: { maxTicksLimit: frequency.length > 90 ? 12 : undefined },
-      },
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { boxWidth: 12, padding: 12, usePointStyle: true },
-        },
-      },
-      interaction: { mode: 'nearest', axis: 'x', intersect: false },
-    },
-  );
+  renderFrequencyLineChart(frequency, 'chart-contribution', '20', 0, undefined);
 }
 
 // -- Top contributors horizontal bar -----------------------------------
@@ -842,59 +852,12 @@ function renderTopContributorsChart(contributors, mode) {
 // -- Code frequency overview chart -----------------------------------
 
 function renderFrequencyOverviewChart(frequency) {
-  if (!frequency || !frequency.length) {
-    destroyChart('chart-frequency-overview');
-    return;
-  }
-
-  createChart(
+  renderFrequencyLineChart(
+    frequency,
     'chart-frequency-overview',
-    'line',
-    {
-      labels: frequency.map(function (x) {
-        return x.date;
-      }),
-      datasets: [
-        {
-          label: 'Additions',
-          data: frequency.map(function (x) {
-            return x.additions;
-          }),
-          borderColor: window.COLORS.green,
-          backgroundColor: window.COLORS.green + '30',
-          fill: true,
-          tension: 0.3,
-          pointRadius: frequency.length < 60 ? 2 : 0,
-          pointHoverRadius: 4,
-          borderWidth: 2,
-        },
-        {
-          label: 'Deletions',
-          data: frequency.map(function (x) {
-            return x.deletions;
-          }),
-          borderColor: window.COLORS.red,
-          backgroundColor: window.COLORS.red + '30',
-          fill: true,
-          tension: 0.3,
-          pointRadius: frequency.length < 60 ? 2 : 0,
-          pointHoverRadius: 4,
-          borderWidth: 2,
-        },
-      ],
-    },
-    {
-      scales: {
-        x: { maxTicksLimit: frequency.length > 90 ? 12 : undefined },
-      },
-      plugins: {
-        legend: {
-          position: 'bottom',
-          labels: { boxWidth: 12, padding: 12, usePointStyle: true },
-        },
-      },
-      interaction: { mode: 'nearest', axis: 'x', intersect: false },
-    },
+    '30',
+    frequency.length < 60 ? 2 : 0,
+    4,
   );
 }
 
@@ -987,6 +950,30 @@ function renderContributors(d) {
 //  ACTIVITY TAB
 // ═════════════════════════════════════════════════════════════════════
 
+function renderActivityBarChart(chartId, items, color, labelMapper) {
+  destroyChart(chartId);
+  if (!items || !items.length) return;
+  createChart(
+    chartId,
+    'bar',
+    {
+      labels: items.map(labelMapper),
+      datasets: [
+        {
+          label: 'Commits',
+          data: items.map(function (x) {
+            return x.count;
+          }),
+          backgroundColor: color,
+          borderWidth: 0,
+          borderRadius: 2,
+        },
+      ],
+    },
+    { plugins: { legend: { display: false } } },
+  );
+}
+
 function renderActivity(d) {
   clearStates('activity');
   const a = d.activity;
@@ -1014,61 +1001,12 @@ function renderActivity(d) {
     return;
   }
 
-  // Day-of-week bar chart
-  destroyChart('chart-dayofweek');
-  if (a.byDayOfWeek && a.byDayOfWeek.length) {
-    createChart(
-      'chart-dayofweek',
-      'bar',
-      {
-        labels: a.byDayOfWeek.map(function (x) {
-          return x.day;
-        }),
-        datasets: [
-          {
-            label: 'Commits',
-            data: a.byDayOfWeek.map(function (x) {
-              return x.count;
-            }),
-            backgroundColor: window.COLORS.purple,
-            borderWidth: 0,
-            borderRadius: 2,
-          },
-        ],
-      },
-      {
-        plugins: { legend: { display: false } },
-      },
-    );
-  }
-
-  // Hour-of-day bar chart
-  destroyChart('chart-hour');
-  if (a.byHour && a.byHour.length) {
-    createChart(
-      'chart-hour',
-      'bar',
-      {
-        labels: a.byHour.map(function (x) {
-          return String(x.hour).padStart(2, '0') + ':00';
-        }),
-        datasets: [
-          {
-            label: 'Commits',
-            data: a.byHour.map(function (x) {
-              return x.count;
-            }),
-            backgroundColor: window.COLORS.orange,
-            borderWidth: 0,
-            borderRadius: 2,
-          },
-        ],
-      },
-      {
-        plugins: { legend: { display: false } },
-      },
-    );
-  }
+  renderActivityBarChart('chart-dayofweek', a.byDayOfWeek, window.COLORS.purple, function (x) {
+    return x.day;
+  });
+  renderActivityBarChart('chart-hour', a.byHour, window.COLORS.orange, function (x) {
+    return String(x.hour).padStart(2, '0') + ':00';
+  });
 
   // Top files table
   const tbody = document.querySelector('#topfiles-table tbody');
@@ -1092,6 +1030,19 @@ function renderActivity(d) {
 // ═════════════════════════════════════════════════════════════════════
 //  EVENT LISTENERS
 // ═════════════════════════════════════════════════════════════════════
+
+function setupModeSelect(selectId, stateKey, renderFn) {
+  const el = document.getElementById(selectId);
+  if (el) {
+    el.addEventListener('change', function () {
+      state[stateKey] = el.value;
+      if (state.activeTab === 'overview') {
+        const d = getFilteredData();
+        if (d) renderFn(d);
+      }
+    });
+  }
+}
 
 function setupEvents() {
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
@@ -1185,36 +1136,17 @@ function setupEvents() {
     });
   });
 
-  const contributionSelect = document.getElementById('contribution-mode');
-  if (contributionSelect) {
-    contributionSelect.addEventListener('change', function () {
-      state.contributionMode = contributionSelect.value;
-      if (state.activeTab === 'overview') {
-        const d = getFilteredData();
-        if (d && d.contributions) {
-          renderContributionChart(
-            d.contributions,
-            d.frequency,
-            state.contributionMode,
-            d.contributors,
-          );
-        }
-      }
-    });
-  }
+  setupModeSelect('contribution-mode', 'contributionMode', function (d) {
+    if (d.contributions) {
+      renderContributionChart(d.contributions, d.frequency, state.contributionMode, d.contributors);
+    }
+  });
 
-  const topContribSelect = document.getElementById('topcontributors-mode');
-  if (topContribSelect) {
-    topContribSelect.addEventListener('change', function () {
-      state.topContributorsMode = topContribSelect.value;
-      if (state.activeTab === 'overview') {
-        const d = getFilteredData();
-        if (d && d.contributors) {
-          renderTopContributorsChart(d.contributors, state.topContributorsMode);
-        }
-      }
-    });
-  }
+  setupModeSelect('topcontributors-mode', 'topContributorsMode', function (d) {
+    if (d.contributors) {
+      renderTopContributorsChart(d.contributors, state.topContributorsMode);
+    }
+  });
 
   const dateStart = document.getElementById('date-start');
   const dateEnd = document.getElementById('date-end');
