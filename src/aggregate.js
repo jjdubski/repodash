@@ -1,4 +1,5 @@
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const GITHUB_NOREPLY_RE = /^(?:\d+\+)?([^@+]+)@users\.noreply\.github\.com$/;
 
 function extractDate(isoString) {
   return isoString.slice(0, 10);
@@ -30,6 +31,60 @@ function createEmptyResult(branchCount) {
   };
 }
 
+function initOrUpdateDayEntry(contributionsMap, dateKey, jsDate, commit) {
+  const { name, email } = commit.author;
+
+  let dayEntry = contributionsMap.get(dateKey);
+  if (!dayEntry) {
+    dayEntry = {
+      date: dateKey,
+      count: 0,
+      authors: new Map(),
+      byHour: new Array(24).fill(0),
+      files: new Map(),
+    };
+    contributionsMap.set(dateKey, dayEntry);
+  }
+  dayEntry.count++;
+  dayEntry.byHour[jsDate.getUTCHours()]++;
+  const prev = dayEntry.authors.get(email) ?? { name, count: 0, additions: 0, deletions: 0 };
+  dayEntry.authors.set(email, {
+    name,
+    count: prev.count + 1,
+    additions: prev.additions + (commit.stats?.additions ?? 0),
+    deletions: prev.deletions + (commit.stats?.deletions ?? 0),
+  });
+
+  return dayEntry;
+}
+
+function initOrUpdateContributor(contributorsMap, commit) {
+  const { name, email } = commit.author;
+
+  let contributor = contributorsMap.get(email);
+  if (!contributor) {
+    contributor = {
+      name,
+      email,
+      totalCommits: 0,
+      additions: 0,
+      deletions: 0,
+      firstCommit: commit.date,
+      lastCommit: commit.date,
+      names: new Map(),
+    };
+    contributorsMap.set(email, contributor);
+  }
+  contributor.totalCommits++;
+  contributor.additions += commit.stats?.additions ?? 0;
+  contributor.deletions += commit.stats?.deletions ?? 0;
+  contributor.names.set(name, (contributor.names.get(name) ?? 0) + 1);
+  if (commit.date < contributor.firstCommit) contributor.firstCommit = commit.date;
+  if (commit.date > contributor.lastCommit) contributor.lastCommit = commit.date;
+
+  return contributor;
+}
+
 function processCommits(commits) {
   let totalAdditions = 0;
   let totalDeletions = 0;
@@ -46,7 +101,6 @@ function processCommits(commits) {
   const fileChangesMap = new Map();
 
   for (const commit of commits) {
-    const { name, email } = commit.author;
     const dateKey = extractDate(commit.date);
     const jsDate = new Date(commit.date);
 
@@ -55,26 +109,7 @@ function processCommits(commits) {
     if (commit.date < firstCommit) firstCommit = commit.date;
     if (commit.date > lastCommit) lastCommit = commit.date;
 
-    let dayEntry = contributionsMap.get(dateKey);
-    if (!dayEntry) {
-      dayEntry = {
-        date: dateKey,
-        count: 0,
-        authors: new Map(),
-        byHour: new Array(24).fill(0),
-        files: new Map(),
-      };
-      contributionsMap.set(dateKey, dayEntry);
-    }
-    dayEntry.count++;
-    dayEntry.byHour[jsDate.getUTCHours()]++;
-    const prev = dayEntry.authors.get(email) ?? { name, count: 0, additions: 0, deletions: 0 };
-    dayEntry.authors.set(email, {
-      name,
-      count: prev.count + 1,
-      additions: prev.additions + (commit.stats?.additions ?? 0),
-      deletions: prev.deletions + (commit.stats?.deletions ?? 0),
-    });
+    const dayEntry = initOrUpdateDayEntry(contributionsMap, dateKey, jsDate, commit);
 
     let freq = frequencyMap.get(dateKey);
     if (!freq) {
@@ -84,26 +119,7 @@ function processCommits(commits) {
     freq.additions += commit.stats?.additions ?? 0;
     freq.deletions += commit.stats?.deletions ?? 0;
 
-    let contributor = contributorsMap.get(email);
-    if (!contributor) {
-      contributor = {
-        name,
-        email,
-        totalCommits: 0,
-        additions: 0,
-        deletions: 0,
-        firstCommit: commit.date,
-        lastCommit: commit.date,
-        names: new Map(),
-      };
-      contributorsMap.set(email, contributor);
-    }
-    contributor.totalCommits++;
-    contributor.additions += commit.stats?.additions ?? 0;
-    contributor.deletions += commit.stats?.deletions ?? 0;
-    contributor.names.set(name, (contributor.names.get(name) ?? 0) + 1);
-    if (commit.date < contributor.firstCommit) contributor.firstCommit = commit.date;
-    if (commit.date > contributor.lastCommit) contributor.lastCommit = commit.date;
+    initOrUpdateContributor(contributorsMap, commit);
 
     dayOfWeekCounts[mapDayOfWeek(jsDate.getUTCDay())]++;
     hourCounts[jsDate.getUTCHours()]++;
@@ -128,17 +144,7 @@ function processCommits(commits) {
   };
 }
 
-function mergeNoreplyContributors(contributorsMap, contributionsMap) {
-  const GITHUB_NOREPLY_RE = /^(?:\d+\+)?([^@+]+)@users\.noreply\.github\.com$/;
-
-  const ghUsernameToEmail = new Map();
-  for (const [email] of contributorsMap) {
-    const m = GITHUB_NOREPLY_RE.exec(email);
-    if (m) ghUsernameToEmail.set(m[1].toLowerCase(), email);
-  }
-
-  if (ghUsernameToEmail.size === 0) return;
-
+function findGhNoreplyMerges(contributorsMap, ghUsernameToEmail) {
   const merges = [];
   for (const [email, c] of contributorsMap) {
     if (GITHUB_NOREPLY_RE.test(email)) continue;
@@ -166,7 +172,10 @@ function mergeNoreplyContributors(contributorsMap, contributionsMap) {
       merges.push({ sourceEmail: email, targetEmail: matchedTarget });
     }
   }
+  return merges;
+}
 
+function applyGhNoreplyMerges(contributorsMap, contributionsMap, merges) {
   for (const { sourceEmail, targetEmail } of merges) {
     const target = contributorsMap.get(targetEmail);
     const source = contributorsMap.get(sourceEmail);
@@ -216,6 +225,19 @@ function mergeNoreplyContributors(contributorsMap, contributionsMap) {
       }
     }
   }
+}
+
+function mergeNoreplyContributors(contributorsMap, contributionsMap) {
+  const ghUsernameToEmail = new Map();
+  for (const [email] of contributorsMap) {
+    const m = GITHUB_NOREPLY_RE.exec(email);
+    if (m) ghUsernameToEmail.set(m[1].toLowerCase(), email);
+  }
+
+  if (ghUsernameToEmail.size === 0) return;
+
+  const merges = findGhNoreplyMerges(contributorsMap, ghUsernameToEmail);
+  applyGhNoreplyMerges(contributorsMap, contributionsMap, merges);
 }
 
 function formatResults(processed, commitCount, branchCount) {
