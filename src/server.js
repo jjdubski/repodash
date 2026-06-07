@@ -127,6 +127,58 @@ function findAvailablePort(port) {
 // Public API
 // ---------------------------------------------------------------------------
 
+function createTempDir() {
+  let tmpDir;
+  try {
+    tmpDir = mkdtempSync(join(tmpdir(), 'insights-'));
+  } catch (err) {
+    throw new Error(`Failed to create temp directory: ${err.message}`);
+  }
+  let dataDir;
+  try {
+    dataDir = join(tmpDir, 'data');
+    mkdirSync(dataDir);
+  } catch (err) {
+    rmSync(tmpDir, { recursive: true, force: true });
+    throw new Error(`Failed to create data directory: ${err.message}`);
+  }
+  return { tmpDir, dataDir };
+}
+
+function writeDataFiles(dataDir, data) {
+  try {
+    writeFileSync(join(dataDir, 'summary.json'), JSON.stringify(data.summary ?? {}, null, 2));
+    writeFileSync(join(dataDir, 'contributions.json'), JSON.stringify(data.contributions ?? {}, null, 2));
+    writeFileSync(join(dataDir, 'contributors.json'), JSON.stringify(data.contributors ?? {}, null, 2));
+    writeFileSync(join(dataDir, 'frequency.json'), JSON.stringify(data.frequency ?? {}, null, 2));
+    writeFileSync(join(dataDir, 'activity.json'), JSON.stringify(data.activity ?? {}, null, 2));
+  } catch (err) {
+    throw new Error(`Failed to write data files: ${err.message}`);
+  }
+}
+
+async function resolvePort(port) {
+  if (port === 0) {
+    return await findAvailablePort(0);
+  }
+  let current = port;
+  let found = false;
+  let actualPort;
+  for (let attempt = 0; attempt <= 10 && !found; attempt++) {
+    try {
+      actualPort = await findAvailablePort(current);
+      found = true;
+    } catch (err) {
+      if (err.code !== 'EADDRINUSE') throw err;
+      current++;
+    }
+  }
+  if (!found) {
+    throw new Error(`Could not bind to any port from ${port} to ${port + 10}`);
+  }
+  return actualPort;
+}
+
 /**
  * Write aggregated data to a temp directory, start an HTTP server that serves
  * both the bundled dashboard UI and the generated JSON, then open the browser.
@@ -138,76 +190,27 @@ function findAvailablePort(port) {
  * @returns {Promise<{port: number, tmpDir: string, server: http.Server}>}
  */
 export async function serveDashboard(data, dashboardDir, port = 0) {
-  // -----------------------------------------------------------------------
-  // 1. Create temp directory
-  // -----------------------------------------------------------------------
-  let tmpDir;
-  try {
-    tmpDir = mkdtempSync(join(tmpdir(), 'insights-'));
-  } catch (err) {
-    throw new Error(`Failed to create temp directory: ${err.message}`);
-  }
+  const { tmpDir, dataDir } = createTempDir();
 
-  let dataDir;
   try {
-    dataDir = join(tmpDir, 'data');
-    mkdirSync(dataDir);
+    writeDataFiles(dataDir, data);
   } catch (err) {
     rmSync(tmpDir, { recursive: true, force: true });
-    throw new Error(`Failed to create data directory: ${err.message}`);
+    throw err;
   }
 
   // -----------------------------------------------------------------------
-  // 2. Write JSON data files
-  // -----------------------------------------------------------------------
-  try {
-    writeFileSync(join(dataDir, 'summary.json'), JSON.stringify(data.summary ?? {}, null, 2));
-    writeFileSync(join(dataDir, 'contributions.json'), JSON.stringify(data.contributions ?? {}, null, 2));
-    writeFileSync(join(dataDir, 'contributors.json'), JSON.stringify(data.contributors ?? {}, null, 2));
-    writeFileSync(join(dataDir, 'frequency.json'), JSON.stringify(data.frequency ?? {}, null, 2));
-    writeFileSync(join(dataDir, 'activity.json'), JSON.stringify(data.activity ?? {}, null, 2));
-  } catch (err) {
-    rmSync(tmpDir, { recursive: true, force: true });
-    throw new Error(`Failed to write data files: ${err.message}`);
-  }
-
-  // -----------------------------------------------------------------------
-  // 3. Warn if dashboard dir is missing (non-fatal — data API still works)
+  // Dashboard dir warning (non-fatal — data API still works)
   // -----------------------------------------------------------------------
   if (!existsSync(dashboardDir)) {
     console.warn(chalk.yellow(`Dashboard directory not found: ${dashboardDir}`));
     console.warn(chalk.yellow('The server will serve data endpoints but the UI may not load.'));
   }
 
-  // -----------------------------------------------------------------------
-  // 4. Find an available port
-  // -----------------------------------------------------------------------
   let actualPort;
   try {
-    if (port === 0) {
-      // OS-assigned — always succeeds on the first attempt
-      actualPort = await findAvailablePort(0);
-    } else {
-      // Specific port requested — retry up to +10 if EADDRINUSE
-      let current = port;
-      let found = false;
-
-      for (let attempt = 0; attempt <= 10 && !found; attempt++) {
-        try {
-          actualPort = await findAvailablePort(current);
-          found = true;
-        } catch (err) {
-          if (err.code !== 'EADDRINUSE') throw err;
-          current++;
-        }
-      }
-
-      if (!found) {
-        throw new Error(`Could not bind to any port from ${port} to ${port + 10}`);
-      }
-    }
+    actualPort = await resolvePort(port);
   } catch (err) {
-    // Clean up temp dir on port failure
     rmSync(tmpDir, { recursive: true, force: true });
     throw new Error(`Port error: ${err.message}`);
   }
