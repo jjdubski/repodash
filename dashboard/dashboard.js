@@ -660,6 +660,27 @@ function renderContributionChart(contributions, frequency, mode, contributors) {
   }
 }
 
+function buildOthersDataset(contributions, topAuthors) {
+  if (!topAuthors.length) return null;
+  const topSet = {};
+  topAuthors.forEach(function (x) {
+    topSet[x.key] = true;
+  });
+  return {
+    label: 'Others',
+    data: contributions.map(function (day) {
+      let sum = 0;
+      (day.authorDetails || []).forEach(function (a) {
+        if (!topSet[a.author]) sum += a.count;
+      });
+      return sum;
+    }),
+    backgroundColor: '#8b949e',
+    borderWidth: 0,
+    borderRadius: 2,
+  };
+}
+
 function renderContributionAuthor(contributions, contributors) {
   const TOP = 10;
   const seen = {};
@@ -703,23 +724,8 @@ function renderContributionAuthor(contributions, contributors) {
   });
 
   if (hasOthers) {
-    const topSet = {};
-    topAuthors.forEach(function (x) {
-      topSet[x.key] = true;
-    });
-    datasets.push({
-      label: 'Others',
-      data: contributions.map(function (day) {
-        let sum = 0;
-        (day.authorDetails || []).forEach(function (a) {
-          if (!topSet[a.author]) sum += a.count;
-        });
-        return sum;
-      }),
-      backgroundColor: '#8b949e',
-      borderWidth: 0,
-      borderRadius: 2,
-    });
+    const othersDataset = buildOthersDataset(contributions, topAuthors);
+    if (othersDataset) datasets.push(othersDataset);
   }
 
   createChart(
@@ -865,18 +871,10 @@ function renderFrequencyOverviewChart(frequency) {
 //  CONTRIBUTORS TAB
 // ═════════════════════════════════════════════════════════════════════
 
-function renderContributors(d) {
-  clearStates('contributors');
-  if (!d.contributors || !d.contributors.length) {
-    destroyChart('chart-contributor-distribution');
-    showEmpty('contributors');
-    return;
-  }
-
-  // -- Table --
+function renderContributorsTable(contributors) {
   const tbody = document.querySelector('#contributors-table tbody');
   tbody.innerHTML = '';
-  d.contributors.forEach(function (c) {
+  contributors.forEach(function (c) {
     const tr = document.createElement('tr');
     tr.innerHTML =
       '<td>' +
@@ -899,12 +897,13 @@ function renderContributors(d) {
       '</td>';
     tbody.appendChild(tr);
   });
+}
 
-  // -- Distribution bar chart (top N that fit, reversed so top is first) --
+function renderContributorBarChart(contributors) {
   const barHeight = 14;
   const maxChartHeight = 560;
   const maxBars = Math.floor(maxChartHeight / barHeight);
-  const list = d.contributors.slice(0, maxBars).reverse();
+  const list = contributors.slice(0, maxBars).reverse();
   const chartHeight = Math.max(320, list.length * barHeight);
 
   const wrap = document.getElementById('chart-contributor-distribution').parentElement;
@@ -946,9 +945,40 @@ function renderContributors(d) {
   );
 }
 
+function renderContributors(d) {
+  clearStates('contributors');
+  if (!d.contributors || !d.contributors.length) {
+    destroyChart('chart-contributor-distribution');
+    showEmpty('contributors');
+    return;
+  }
+
+  renderContributorsTable(d.contributors);
+  renderContributorBarChart(d.contributors);
+}
+
 // ═════════════════════════════════════════════════════════════════════
 //  ACTIVITY TAB
 // ═════════════════════════════════════════════════════════════════════
+
+function renderTopFilesTable(a) {
+  const tbody = document.querySelector('#topfiles-table tbody');
+  if (tbody) tbody.innerHTML = '';
+  if (a.topFiles && a.topFiles.length) {
+    const fileCount = document.body.classList.contains('printing') ? 20 : 10;
+    a.topFiles.slice(0, fileCount).forEach(function (f) {
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td><code class="file-path">' +
+        escapeHtml(f.path) +
+        '</code></td>' +
+        '<td class="num-col">' +
+        formatNumber(f.changes) +
+        '</td>';
+      tbody.appendChild(tr);
+    });
+  }
+}
 
 function renderActivityBarChart(chartId, items, color, labelMapper) {
   destroyChart(chartId);
@@ -1008,23 +1038,7 @@ function renderActivity(d) {
     return String(x.hour).padStart(2, '0') + ':00';
   });
 
-  // Top files table
-  const tbody = document.querySelector('#topfiles-table tbody');
-  if (tbody) tbody.innerHTML = '';
-  if (a.topFiles && a.topFiles.length) {
-    const fileCount = document.body.classList.contains('printing') ? 20 : 10;
-    a.topFiles.slice(0, fileCount).forEach(function (f) {
-      const tr = document.createElement('tr');
-      tr.innerHTML =
-        '<td><code class="file-path">' +
-        escapeHtml(f.path) +
-        '</code></td>' +
-        '<td class="num-col">' +
-        formatNumber(f.changes) +
-        '</td>';
-      tbody.appendChild(tr);
-    });
-  }
+  renderTopFilesTable(a);
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -1044,110 +1058,28 @@ function setupModeSelect(selectId, stateKey, renderFn) {
   }
 }
 
-function setupEvents() {
-  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+function setupKeyboardNav() {
+  const tabsBar = document.querySelector('.tabs');
+  if (tabsBar) {
+    tabsBar.addEventListener('keydown', function (e) {
+      const tabs = Array.prototype.slice.call(tabsBar.querySelectorAll('.tab'));
+      const idx = tabs.indexOf(document.activeElement);
+      if (idx === -1) return;
 
-  const exportBtn = document.getElementById('export-pdf');
-  if (exportBtn) {
-    exportBtn.addEventListener('click', function () {
-      const filtered = getFilteredData();
-      if (!filtered || !filtered.contributions || !filtered.contributions.length) return;
-
-      const titleEl = document.querySelector('.header-title');
-      const originalTitle = titleEl ? titleEl.textContent : 'Insights';
-
-      const dateLabel = getDateRangeLabel(filtered);
-      const repoName = (state.data.summary && state.data.summary.repoName) || '';
-      const printTitle = repoName ? repoName + ' Insights: ' + dateLabel : 'Insights: ' + dateLabel;
-      if (titleEl) titleEl.textContent = printTitle;
-      const originalDocTitle = document.title;
-      document.title = printTitle;
-
-      // Force dark text for print so canvas text is visible on white paper
-      document.documentElement.style.setProperty('--text', '#000000');
-
-      // Show all tab panels so canvases have dimensions when charts render
-      document.body.classList.add('printing');
-      // Force synchronous reflow so canvases get measured correctly
-      void document.body.offsetHeight;
-
-      // Render all tabs so every canvas has a chart before printing
-      renderOverview(filtered);
-      renderContributors(filtered);
-      renderActivity(filtered);
-
-      // Ensure Chart.js instances recalculate sizes to match print CSS
-      Object.keys(state.charts).forEach(function (id) {
-        try {
-          state.charts[id].resize();
-        } catch (_) {
-          /* ignore individual chart resize failures */
-        }
-      });
-
-      // After print (or cancel), restore original state
-      const cleanup = function () {
-        window.removeEventListener('afterprint', cleanup);
-        document.body.classList.remove('printing');
-        document.documentElement.style.removeProperty('--text');
-        if (titleEl) titleEl.textContent = originalTitle;
-        document.title = originalDocTitle;
-        renderCurrentTab();
-      };
-      window.addEventListener('afterprint', cleanup);
-
-      setTimeout(function () {
-        window.print();
-      }, 100);
-    });
-  }
-
-  if (window.matchMedia) {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
-      let saved;
-      try {
-        saved = localStorage.getItem('insights-theme');
-      } catch (_) {
-        /* localStorage unavailable */
-      }
-      if (!saved) {
-        applyTheme(e.matches ? 'dark' : 'light');
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        e.preventDefault();
+        const next =
+          e.key === 'ArrowRight' ? (idx + 1) % tabs.length : (idx - 1 + tabs.length) % tabs.length;
+        const nextTab = tabs[next];
+        const tabName = nextTab.getAttribute('data-tab');
+        if (tabName) switchTab(tabName);
+        nextTab.focus();
       }
     });
   }
+}
 
-  // Sync tab from URL hash on browser back/forward
-  window.addEventListener('hashchange', function () {
-    const tab = window.location.hash.replace('#', '');
-    if (tab && TABS.indexOf(tab) !== -1) {
-      switchTab(tab);
-    }
-  });
-
-  document.querySelectorAll('.tab').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      switchTab(btn.getAttribute('data-tab'));
-    });
-  });
-
-  document.querySelectorAll('.pill').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      setTimeFilter(btn.getAttribute('data-filter'));
-    });
-  });
-
-  setupModeSelect('contribution-mode', 'contributionMode', function (d) {
-    if (d.contributions) {
-      renderContributionChart(d.contributions, d.frequency, state.contributionMode, d.contributors);
-    }
-  });
-
-  setupModeSelect('topcontributors-mode', 'topContributorsMode', function (d) {
-    if (d.contributors) {
-      renderTopContributorsChart(d.contributors, state.topContributorsMode);
-    }
-  });
-
+function setupDateRangeListeners() {
   const dateStart = document.getElementById('date-start');
   const dateEnd = document.getElementById('date-end');
   if (dateStart) {
@@ -1174,34 +1106,123 @@ function setupEvents() {
       setTimeFilter('custom');
     });
   }
+}
 
-  // Arrow-key navigation within tabs
-  const tabsBar = document.querySelector('.tabs');
-  if (tabsBar) {
-    tabsBar.addEventListener('keydown', function (e) {
-      const tabs = Array.prototype.slice.call(tabsBar.querySelectorAll('.tab'));
-      const idx = tabs.indexOf(document.activeElement);
-      if (idx === -1) return;
+function setupTabListeners() {
+  document.querySelectorAll('.tab').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      switchTab(btn.getAttribute('data-tab'));
+    });
+  });
 
-      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-        e.preventDefault();
-        const next =
-          e.key === 'ArrowRight' ? (idx + 1) % tabs.length : (idx - 1 + tabs.length) % tabs.length;
-        const nextTab = tabs[next];
-        const tabName = nextTab.getAttribute('data-tab');
-        if (tabName) switchTab(tabName);
-        nextTab.focus();
+  document.querySelectorAll('.pill').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setTimeFilter(btn.getAttribute('data-filter'));
+    });
+  });
+}
+
+function setupExportPdf() {
+  const exportBtn = document.getElementById('export-pdf');
+  if (!exportBtn) return;
+  exportBtn.addEventListener('click', function () {
+    const filtered = getFilteredData();
+    if (!filtered || !filtered.contributions || !filtered.contributions.length) return;
+
+    const titleEl = document.querySelector('.header-title');
+    const originalTitle = titleEl ? titleEl.textContent : 'Insights';
+
+    const dateLabel = getDateRangeLabel(filtered);
+    const repoName = (state.data.summary && state.data.summary.repoName) || '';
+    const printTitle = repoName ? repoName + ' Insights: ' + dateLabel : 'Insights: ' + dateLabel;
+    if (titleEl) titleEl.textContent = printTitle;
+    const originalDocTitle = document.title;
+    document.title = printTitle;
+
+    document.documentElement.style.setProperty('--text', '#000000');
+
+    document.body.classList.add('printing');
+    void document.body.offsetHeight;
+
+    renderOverview(filtered);
+    renderContributors(filtered);
+    renderActivity(filtered);
+
+    Object.keys(state.charts).forEach(function (id) {
+      try {
+        state.charts[id].resize();
+      } catch (_) {
+        /* ignore individual chart resize failures */
+      }
+    });
+
+    const cleanup = function () {
+      window.removeEventListener('afterprint', cleanup);
+      document.body.classList.remove('printing');
+      document.documentElement.style.removeProperty('--text');
+      if (titleEl) titleEl.textContent = originalTitle;
+      document.title = originalDocTitle;
+      renderCurrentTab();
+    };
+    window.addEventListener('afterprint', cleanup);
+
+    setTimeout(function () {
+      window.print();
+    }, 100);
+  });
+}
+
+function setupEvents() {
+  document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+
+  setupExportPdf();
+
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+      let saved;
+      try {
+        saved = localStorage.getItem('insights-theme');
+      } catch (_) {
+        /* localStorage unavailable */
+      }
+      if (!saved) {
+        applyTheme(e.matches ? 'dark' : 'light');
       }
     });
   }
+
+  // Sync tab from URL hash on browser back/forward
+  window.addEventListener('hashchange', function () {
+    const tab = window.location.hash.replace('#', '');
+    if (tab && TABS.indexOf(tab) !== -1) {
+      switchTab(tab);
+    }
+  });
+
+  setupTabListeners();
+
+  setupModeSelect('contribution-mode', 'contributionMode', function (d) {
+    if (d.contributions) {
+      renderContributionChart(d.contributions, d.frequency, state.contributionMode, d.contributors);
+    }
+  });
+
+  setupModeSelect('topcontributors-mode', 'topContributorsMode', function (d) {
+    if (d.contributors) {
+      renderTopContributorsChart(d.contributors, state.topContributorsMode);
+    }
+  });
+
+  setupDateRangeListeners();
+
+  setupKeyboardNav();
 }
 
 // ═════════════════════════════════════════════════════════════════════
 //  INIT
 // ═════════════════════════════════════════════════════════════════════
 
-function init() {
-  // Restore state from URL (if present)
+function restoreUrlState() {
   const hashTab = window.location.hash.replace('#', '');
   if (hashTab && TABS.indexOf(hashTab) !== -1) {
     state.activeTab = hashTab;
@@ -1219,6 +1240,10 @@ function init() {
   } catch (_) {
     /* ignore */
   }
+}
+
+function init() {
+  restoreUrlState();
 
   applyTheme(detectTheme());
   setupEvents();
