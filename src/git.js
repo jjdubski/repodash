@@ -7,6 +7,20 @@ import { statSync } from 'node:fs';
 // including the delimiter itself, corrupting the parse.
 const COMMIT_DELIMITER = '---COMMIT---';
 
+function validateRepoPath(repoPath) {
+  if (typeof repoPath !== 'string' || repoPath.length === 0) {
+    throw new Error(`Not a git repository: ${repoPath}`);
+  }
+  try {
+    if (!statSync(repoPath).isDirectory()) {
+      throw new Error(`Not a git repository: ${repoPath}`);
+    }
+  } catch (e) {
+    if (e.code === 'ENOENT') throw new Error(`Not a git repository: ${repoPath}`);
+    throw e;
+  }
+}
+
 /**
  * Parse a commit entry from an array of lines.
  * First line is the pretty=format header (hash|name|email|date|message).
@@ -67,18 +81,7 @@ function parseCommit(lines) {
  * @returns {Promise<Array>} Array of parsed commit objects
  */
 export function getAllCommits(repoPath) {
-  // Validate upfront so the error is synchronous and descriptive
-  if (typeof repoPath !== 'string' || repoPath.length === 0) {
-    throw new Error(`Not a git repository: ${repoPath}`);
-  }
-  try {
-    if (!statSync(repoPath).isDirectory()) {
-      throw new Error(`Not a git repository: ${repoPath}`);
-    }
-  } catch (e) {
-    if (e.code === 'ENOENT') throw new Error(`Not a git repository: ${repoPath}`);
-    throw e;
-  }
+  validateRepoPath(repoPath);
 
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -151,18 +154,7 @@ export function getAllCommits(repoPath) {
  * @returns {Promise<number>} Number of local branches
  */
 export function getLocalBranchCount(repoPath) {
-  // Validate upfront so the error is synchronous and descriptive
-  if (typeof repoPath !== 'string' || repoPath.length === 0) {
-    throw new Error(`Not a git repository: ${repoPath}`);
-  }
-  try {
-    if (!statSync(repoPath).isDirectory()) {
-      throw new Error(`Not a git repository: ${repoPath}`);
-    }
-  } catch (e) {
-    if (e.code === 'ENOENT') throw new Error(`Not a git repository: ${repoPath}`);
-    throw e;
-  }
+  validateRepoPath(repoPath);
 
   return new Promise((resolve, reject) => {
     const child = spawn('git', ['branch', '--list'], { cwd: repoPath });
