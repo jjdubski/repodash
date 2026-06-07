@@ -29,5 +29,8 @@
     "dashboard",
     "cli"
   ],
-  "author": ""
+  "author": "",
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  }
 }

@@ -60,6 +60,27 @@
     return _escapeDiv.innerHTML;
   }
 
+  function getDateRangeLabel(d) {
+    var startLabel, endLabel;
+    if (state.timeFilter === "allTime" && d && d.summary) {
+      startLabel = formatDate(d.summary.firstCommit);
+      endLabel = formatDate(d.summary.lastCommit);
+    } else {
+      var bounds = getCutoffDate(state.timeFilter);
+      if (!bounds) {
+        startLabel =
+          d && d.summary ? formatDate(d.summary.firstCommit) : "Beginning";
+        endLabel =
+          d && d.summary ? formatDate(d.summary.lastCommit) : "Present";
+      } else {
+        startLabel = bounds.start ? formatDate(bounds.start) : "Beginning";
+        endLabel = bounds.end ? formatDate(bounds.end) : "Present";
+      }
+    }
+    if (startLabel === endLabel) return startLabel;
+    return startLabel + " \u2014 " + endLabel;
+  }
+
   // ── Time filter helpers ──────────────────────────────────────────────
 
   function getCutoffDate(filter) {
@@ -747,22 +768,23 @@
   function renderTopContributorsChart(contributors, mode) {
     if (!contributors || !contributors.length) return;
     mode = mode || "commits";
-    var top10 = contributors.slice(0, 10);
+    var isPrinting = document.body.classList.contains("printing");
+    var top = contributors.slice(0, 10);
 
     var label, data;
     if (mode === "additions") {
       label = "Additions";
-      data = top10.map(function (c) {
+      data = top.map(function (c) {
         return c.additions;
       });
     } else if (mode === "deletions") {
       label = "Deletions";
-      data = top10.map(function (c) {
+      data = top.map(function (c) {
         return c.deletions;
       });
     } else {
       label = "Commits";
-      data = top10.map(function (c) {
+      data = top.map(function (c) {
         return c.totalCommits;
       });
     }
@@ -771,7 +793,7 @@
       "chart-top-contributors",
       "bar",
       {
-        labels: top10.map(function (c) {
+        labels: top.map(function (c) {
           return c.name || c.email;
         }),
         datasets: [
@@ -1069,9 +1091,10 @@
 
     // Top files table
     if (a.topFiles && a.topFiles.length) {
+      var fileCount = document.body.classList.contains("printing") ? 20 : 10;
       var tbody = document.querySelector("#topfiles-table tbody");
       tbody.innerHTML = "";
-      a.topFiles.forEach(function (f) {
+      a.topFiles.slice(0, fileCount).forEach(function (f) {
         var tr = document.createElement("tr");
         tr.innerHTML =
           '<td><code class="file-path">' +
@@ -1093,6 +1116,71 @@
     document
       .getElementById("theme-toggle")
       .addEventListener("click", toggleTheme);
+
+    var exportBtn = document.getElementById("export-pdf");
+    if (exportBtn) {
+      exportBtn.addEventListener("click", function () {
+        var filtered = getFilteredData();
+        if (
+          !filtered ||
+          !filtered.contributions ||
+          !filtered.contributions.length
+        )
+          return;
+
+        var titleEl = document.querySelector(".header-title");
+        var originalTitle = titleEl ? titleEl.textContent : "Insights";
+
+        var dateLabel = getDateRangeLabel(filtered);
+        var repoName =
+          (state.data.summary && state.data.summary.repoName) || "";
+        var printTitle = repoName
+          ? repoName + " Insights: " + dateLabel
+          : "Insights: " + dateLabel;
+        if (titleEl) titleEl.textContent = printTitle;
+        var originalDocTitle = document.title;
+        document.title = printTitle;
+
+        // Force dark text for print so canvas text is visible on white paper
+        document.documentElement.style.setProperty("--text", "#1f2328");
+
+        // Show all tab panels so canvases have dimensions when charts render
+        document.body.classList.add("printing");
+        // Force synchronous reflow so canvases get measured correctly
+        void document.body.offsetHeight;
+
+        // Render all tabs so every canvas has a chart before printing
+        renderOverview(filtered);
+        renderContributors(filtered);
+        renderCodeFrequency(filtered);
+        renderActivity(filtered);
+
+        // Ensure Chart.js instances recalculate sizes to match print CSS
+        Object.keys(state.charts).forEach(function (id) {
+          try {
+            state.charts[id].resize();
+          } catch (e) {
+            /* ignore individual chart resize failures */
+          }
+        });
+
+        // After print (or cancel), restore original state
+        var originalTab = state.activeTab;
+        var cleanup = function () {
+          window.removeEventListener("afterprint", cleanup);
+          document.body.classList.remove("printing");
+          document.documentElement.style.removeProperty("--text");
+          if (titleEl) titleEl.textContent = originalTitle;
+          document.title = originalDocTitle;
+          renderCurrentTab();
+        };
+        window.addEventListener("afterprint", cleanup);
+
+        setTimeout(function () {
+          window.print();
+        }, 100);
+      });
+    }
 
     if (window.matchMedia) {
       window
@@ -1150,7 +1238,10 @@
         if (state.activeTab === "overview") {
           var d = getFilteredData();
           if (d && d.contributors) {
-            renderTopContributorsChart(d.contributors, state.topContributorsMode);
+            renderTopContributorsChart(
+              d.contributors,
+              state.topContributorsMode,
+            );
           }
         }
       });

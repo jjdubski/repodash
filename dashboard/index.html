@@ -1,234 +1,400 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en" data-theme="light">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#ffffff">
-  <title>Insights Dashboard</title>
-  <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="stylesheet" href="style.css">
-  <!-- Chart.js UMD build — registers as global `Chart` -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" defer></script>
-  <!-- Chart configuration: registers components, exports COLORS & CHART_DEFAULTS -->
-  <script src="chart-config.js" defer></script>
-  <!-- Main application logic -->
-  <script src="dashboard.js" defer></script>
-</head>
-<body>
-  <!-- ── Skip link for keyboard users ── -->
-  <a href="#main-content" class="skip-link">Skip to main content</a>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>Insights Dashboard</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link rel="stylesheet" href="style.css" />
+    <!-- Chart.js UMD build — registers as global `Chart` -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"
+      defer
+    ></script>
+    <!-- Chart configuration: registers components, exports COLORS & CHART_DEFAULTS -->
+    <script src="chart-config.js" defer></script>
+    <!-- Main application logic -->
+    <script src="dashboard.js" defer></script>
+  </head>
+  <body>
+    <!-- ── Skip link for keyboard users ── -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
 
-  <!-- ── Header ── -->
-  <header class="header">
-    <h1 class="header-title">Insights</h1>
-    <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme" type="button">
-      <!-- Sun icon (visible in light mode, hidden in dark) -->
-      <svg class="icon sun-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-           viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-           aria-hidden="true">
-        <circle cx="12" cy="12" r="5"/>
-        <line x1="12" y1="1" x2="12" y2="3"/>
-        <line x1="12" y1="21" x2="12" y2="23"/>
-        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-        <line x1="1" y1="12" x2="3" y2="12"/>
-        <line x1="21" y1="12" x2="23" y2="12"/>
-        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-      </svg>
-      <!-- Moon icon (visible in dark mode, hidden in light) -->
-      <svg class="icon moon-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20"
-           viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-           aria-hidden="true">
-        <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
-      </svg>
-    </button>
-  </header>
-
-  <!-- ── Time filter ── -->
-  <nav class="time-filter" aria-label="Time filter">
-    <button class="pill" data-filter="allTime" type="button">All Time</button>
-    <button class="pill" data-filter="pastYear" type="button">Past Year</button>
-    <button class="pill active" data-filter="last3months" type="button">Last 3 Months</button>
-    <button class="pill" data-filter="thisWeek" type="button">This Week</button>
-    <button class="pill" data-filter="custom" type="button">Custom</button>
-  </nav>
-  <div class="custom-date-range hidden" id="custom-date-range">
-    <label for="date-start">From:</label>
-    <input type="date" id="date-start">
-    <label for="date-end">To:</label>
-    <input type="date" id="date-end">
-  </div>
-
-  <!-- ── Tab navigation ── -->
-  <nav class="tabs" role="tablist" aria-label="Dashboard sections">
-    <button id="tab-overview-label" class="tab active" role="tab" aria-selected="true" data-tab="overview" type="button">Overview</button>
-    <button id="tab-contributors-label" class="tab" role="tab" aria-selected="false" data-tab="contributors" type="button">Contributors</button>
-    <button id="tab-codefrequency-label" class="tab" role="tab" aria-selected="false" data-tab="codefrequency" type="button">Code Frequency</button>
-    <button id="tab-activity-label" class="tab" role="tab" aria-selected="false" data-tab="activity" type="button">Activity</button>
-  </nav>
-
-  <!-- ── Main content ── -->
-  <main id="main-content">
-
-    <!-- ══════════════ OVERVIEW TAB ══════════════ -->
-    <section id="tab-overview" class="tab-content active" role="tabpanel" aria-labelledby="tab-overview-label">
-
-      <!-- Loading / error / empty states -->
-      <div class="state-message" id="overview-loading" aria-live="polite">Loading…</div>
-      <div class="state-message hidden" id="overview-error" role="alert"></div>
-      <div class="state-message hidden" id="overview-empty" aria-live="polite">No commits found in the selected time range.</div>
-
-      <!-- Metric cards -->
-      <div class="metric-grid" id="metric-cards">
-        <article class="metric-card">
-          <h3 class="metric-label">Total Commits</h3>
-          <p class="metric-value" id="metric-commits">—</p>
-        </article>
-        <article class="metric-card">
-          <h3 class="metric-label">Contributors</h3>
-          <p class="metric-value" id="metric-contributors">—</p>
-        </article>
-        <article class="metric-card">
-          <h3 class="metric-label">Lines Added</h3>
-          <p class="metric-value metric-positive" id="metric-additions">—</p>
-        </article>
-        <article class="metric-card">
-          <h3 class="metric-label">Lines Deleted</h3>
-          <p class="metric-value metric-negative" id="metric-deletions">—</p>
-        </article>
+    <!-- ── Header ── -->
+    <header class="header">
+      <h1 class="header-title">Insights</h1>
+      <div class="header-controls">
+        <button
+          id="export-pdf"
+          class="export-btn"
+          type="button"
+          title="Export dashboard as PDF"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path
+              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+            />
+            <polyline points="14 2 14 8 20 8" />
+            <line x1="16" y1="13" x2="8" y2="13" />
+            <line x1="16" y1="17" x2="8" y2="17" />
+            <polyline points="10 9 9 9 8 9" />
+          </svg>
+          <span>Export PDF</span>
+        </button>
+        <button
+          id="theme-toggle"
+          class="theme-toggle"
+          aria-label="Toggle theme"
+          type="button"
+        >
+          <!-- Sun icon (visible in light mode, hidden in dark) -->
+          <svg
+            class="icon sun-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </svg>
+          <!-- Moon icon (visible in dark mode, hidden in light) -->
+          <svg
+            class="icon moon-icon"
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+          </svg>
+        </button>
       </div>
+    </header>
 
-      <!-- Contribution stacked bar chart -->
-      <div class="chart-card">
-        <div class="chart-header">
-          <h2 class="chart-title">Contribution Graph</h2>
-          <select id="contribution-mode" class="chart-select" aria-label="Contribution graph mode">
-            <option value="author">Author</option>
-            <option value="commits">Commits</option>
-            <option value="lines">Lines</option>
-          </select>
+    <!-- ── Time filter ── -->
+    <nav class="time-filter" aria-label="Time filter">
+      <button class="pill" data-filter="allTime" type="button">All Time</button>
+      <button class="pill" data-filter="pastYear" type="button">
+        Past Year
+      </button>
+      <button class="pill active" data-filter="last3months" type="button">
+        Last 3 Months
+      </button>
+      <button class="pill" data-filter="thisWeek" type="button">
+        This Week
+      </button>
+      <button class="pill" data-filter="custom" type="button">Custom</button>
+    </nav>
+    <div class="custom-date-range hidden" id="custom-date-range">
+      <label for="date-start">From:</label>
+      <input type="date" id="date-start" />
+      <label for="date-end">To:</label>
+      <input type="date" id="date-end" />
+    </div>
+
+    <!-- ── Tab navigation ── -->
+    <nav class="tabs" role="tablist" aria-label="Dashboard sections">
+      <button
+        id="tab-overview-label"
+        class="tab active"
+        role="tab"
+        aria-selected="true"
+        data-tab="overview"
+        type="button"
+      >
+        Overview
+      </button>
+      <button
+        id="tab-contributors-label"
+        class="tab"
+        role="tab"
+        aria-selected="false"
+        data-tab="contributors"
+        type="button"
+      >
+        Contributors
+      </button>
+      <button
+        id="tab-codefrequency-label"
+        class="tab"
+        role="tab"
+        aria-selected="false"
+        data-tab="codefrequency"
+        type="button"
+      >
+        Code Frequency
+      </button>
+      <button
+        id="tab-activity-label"
+        class="tab"
+        role="tab"
+        aria-selected="false"
+        data-tab="activity"
+        type="button"
+      >
+        Activity
+      </button>
+    </nav>
+
+    <!-- ── Main content ── -->
+    <main id="main-content">
+      <!-- ══════════════ OVERVIEW TAB ══════════════ -->
+      <section
+        id="tab-overview"
+        class="tab-content active"
+        role="tabpanel"
+        aria-labelledby="tab-overview-label"
+      >
+        <!-- Loading / error / empty states -->
+        <div class="state-message" id="overview-loading" aria-live="polite">
+          Loading…
         </div>
-        <div class="chart-wrap">
-          <canvas id="chart-contribution"></canvas>
+        <div
+          class="state-message hidden"
+          id="overview-error"
+          role="alert"
+        ></div>
+        <div
+          class="state-message hidden"
+          id="overview-empty"
+          aria-live="polite"
+        >
+          No commits found in the selected time range.
         </div>
-      </div>
 
-      <!-- Top contributors horizontal bar -->
-      <div class="chart-card">
-        <div class="chart-header">
-          <h2 class="chart-title">Top Contributors</h2>
-          <select id="topcontributors-mode" class="chart-select" aria-label="Top contributors metric">
-            <option value="commits">Commits</option>
-            <option value="additions">Additions</option>
-            <option value="deletions">Deletions</option>
-          </select>
+        <!-- Metric cards -->
+        <div class="metric-grid" id="metric-cards">
+          <article class="metric-card">
+            <h3 class="metric-label">Total Commits</h3>
+            <p class="metric-value" id="metric-commits">—</p>
+          </article>
+          <article class="metric-card">
+            <h3 class="metric-label">Contributors</h3>
+            <p class="metric-value" id="metric-contributors">—</p>
+          </article>
+          <article class="metric-card">
+            <h3 class="metric-label">Lines Added</h3>
+            <p class="metric-value metric-positive" id="metric-additions">—</p>
+          </article>
+          <article class="metric-card">
+            <h3 class="metric-label">Lines Deleted</h3>
+            <p class="metric-value metric-negative" id="metric-deletions">—</p>
+          </article>
         </div>
-        <div class="chart-wrap">
-          <canvas id="chart-top-contributors"></canvas>
-        </div>
-      </div>
 
-      <!-- Code frequency mini area chart -->
-      <div class="chart-card">
-        <h2 class="chart-title">Code Frequency</h2>
-        <div class="chart-wrap chart-wrap-sm">
-          <canvas id="chart-frequency-mini"></canvas>
-        </div>
-      </div>
-
-    </section>
-
-    <!-- ══════════════ CONTRIBUTORS TAB ══════════════ -->
-    <section id="tab-contributors" class="tab-content" role="tabpanel" aria-labelledby="tab-contributors-label">
-      <div class="state-message" id="contributors-loading" aria-live="polite">Loading…</div>
-      <div class="state-message hidden" id="contributors-error" role="alert"></div>
-      <div class="state-message hidden" id="contributors-empty" aria-live="polite">No contributors found in this time range.</div>
-
-      <!-- Contributor table -->
-      <div class="table-wrap">
-        <table class="data-table" id="contributors-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th class="num-col">Commits</th>
-              <th class="num-col">Additions</th>
-              <th class="num-col">Deletions</th>
-              <th>First Commit</th>
-              <th>Last Commit</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-
-      <!-- Per-contributor bar chart -->
-      <div class="chart-card">
-        <h2 class="chart-title">Commit Distribution</h2>
-        <div class="chart-wrap">
-          <canvas id="chart-contributor-distribution"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- ══════════════ CODE FREQUENCY TAB ══════════════ -->
-    <section id="tab-codefrequency" class="tab-content" role="tabpanel" aria-labelledby="tab-codefrequency-label">
-      <div class="state-message" id="codefrequency-loading" aria-live="polite">Loading…</div>
-      <div class="state-message hidden" id="codefrequency-error" role="alert"></div>
-      <div class="state-message hidden" id="codefrequency-empty" aria-live="polite">No frequency data in this time range.</div>
-
-      <div class="chart-card">
-        <h2 class="chart-title">Additions &amp; Deletions Over Time</h2>
-        <div class="chart-wrap chart-wrap-lg">
-          <canvas id="chart-frequency"></canvas>
-        </div>
-      </div>
-    </section>
-
-    <!-- ══════════════ ACTIVITY TAB ══════════════ -->
-    <section id="tab-activity" class="tab-content" role="tabpanel" aria-labelledby="tab-activity-label">
-      <div class="state-message" id="activity-loading" aria-live="polite">Loading…</div>
-      <div class="state-message hidden" id="activity-error" role="alert"></div>
-      <div class="state-message hidden" id="activity-empty" aria-live="polite">No activity data in this time range.</div>
-
-      <div class="chart-row">
+        <!-- Contribution stacked bar chart -->
         <div class="chart-card">
-          <h2 class="chart-title">Commits by Day of Week</h2>
+          <div class="chart-header">
+            <h2 class="chart-title">Contribution Graph</h2>
+            <select
+              id="contribution-mode"
+              class="chart-select"
+              aria-label="Contribution graph mode"
+            >
+              <option value="author">Author</option>
+              <option value="commits">Commits</option>
+              <option value="lines">Lines</option>
+            </select>
+          </div>
           <div class="chart-wrap">
-            <canvas id="chart-dayofweek"></canvas>
+            <canvas id="chart-contribution"></canvas>
           </div>
         </div>
+
+        <!-- Top contributors horizontal bar -->
         <div class="chart-card">
-          <h2 class="chart-title">Commits by Hour of Day</h2>
+          <div class="chart-header">
+            <h2 class="chart-title">Top Contributors</h2>
+            <select
+              id="topcontributors-mode"
+              class="chart-select"
+              aria-label="Top contributors metric"
+            >
+              <option value="commits">Commits</option>
+              <option value="additions">Additions</option>
+              <option value="deletions">Deletions</option>
+            </select>
+          </div>
           <div class="chart-wrap">
-            <canvas id="chart-hour"></canvas>
+            <canvas id="chart-top-contributors"></canvas>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="chart-card">
-        <h2 class="chart-title">Top Changed Files</h2>
+      <!-- ══════════════ CONTRIBUTORS TAB ══════════════ -->
+      <section
+        id="tab-contributors"
+        class="tab-content"
+        role="tabpanel"
+        aria-labelledby="tab-contributors-label"
+      >
+        <div class="state-message" id="contributors-loading" aria-live="polite">
+          Loading…
+        </div>
+        <div
+          class="state-message hidden"
+          id="contributors-error"
+          role="alert"
+        ></div>
+        <div
+          class="state-message hidden"
+          id="contributors-empty"
+          aria-live="polite"
+        >
+          No contributors found in this time range.
+        </div>
+
+        <!-- Contributor table -->
         <div class="table-wrap">
-          <table class="data-table" id="topfiles-table">
+          <table class="data-table" id="contributors-table">
             <thead>
               <tr>
-                <th>File</th>
-                <th class="num-col">Changes</th>
+                <th>Name</th>
+                <th class="num-col">Commits</th>
+                <th class="num-col">Additions</th>
+                <th class="num-col">Deletions</th>
+                <th>First Commit</th>
+                <th>Last Commit</th>
               </tr>
             </thead>
             <tbody></tbody>
           </table>
         </div>
-      </div>
-    </section>
 
-  </main>
+        <!-- Per-contributor bar chart -->
+        <div class="chart-card">
+          <h2 class="chart-title">Commit Distribution</h2>
+          <div class="chart-wrap">
+            <canvas id="chart-contributor-distribution"></canvas>
+          </div>
+        </div>
+      </section>
 
-  <!-- ── Footer ── -->
-  <footer class="footer">
-    <p>Generated by <span translate="no">insights</span></p>
-  </footer>
-</body>
+      <!-- ══════════════ CODE FREQUENCY TAB ══════════════ -->
+      <section
+        id="tab-codefrequency"
+        class="tab-content"
+        role="tabpanel"
+        aria-labelledby="tab-codefrequency-label"
+      >
+        <div
+          class="state-message"
+          id="codefrequency-loading"
+          aria-live="polite"
+        >
+          Loading…
+        </div>
+        <div
+          class="state-message hidden"
+          id="codefrequency-error"
+          role="alert"
+        ></div>
+        <div
+          class="state-message hidden"
+          id="codefrequency-empty"
+          aria-live="polite"
+        >
+          No frequency data in this time range.
+        </div>
+
+        <div class="chart-card">
+          <h2 class="chart-title">Additions &amp; Deletions Over Time</h2>
+          <div class="chart-wrap chart-wrap-lg">
+            <canvas id="chart-frequency"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════ ACTIVITY TAB ══════════════ -->
+      <section
+        id="tab-activity"
+        class="tab-content"
+        role="tabpanel"
+        aria-labelledby="tab-activity-label"
+      >
+        <div class="state-message" id="activity-loading" aria-live="polite">
+          Loading…
+        </div>
+        <div
+          class="state-message hidden"
+          id="activity-error"
+          role="alert"
+        ></div>
+        <div
+          class="state-message hidden"
+          id="activity-empty"
+          aria-live="polite"
+        >
+          No activity data in this time range.
+        </div>
+
+        <div class="chart-row">
+          <div class="chart-card">
+            <h2 class="chart-title">Commits by Day of Week</h2>
+            <div class="chart-wrap">
+              <canvas id="chart-dayofweek"></canvas>
+            </div>
+          </div>
+          <div class="chart-card">
+            <h2 class="chart-title">Commits by Hour of Day</h2>
+            <div class="chart-wrap">
+              <canvas id="chart-hour"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h2 class="chart-title">Top Changed Files</h2>
+          <div class="table-wrap">
+            <table class="data-table" id="topfiles-table">
+              <thead>
+                <tr>
+                  <th>File</th>
+                  <th class="num-col">Changes</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ── Footer ── -->
+    <footer class="footer">
+      <p>Generated by <span translate="no">insights</span></p>
+    </footer>
+  </body>
 </html>

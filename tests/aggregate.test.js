@@ -446,9 +446,9 @@ describe('aggregate (pure function)', () => {
       assert.strictEqual(topFiles[4].changes, 1);
     });
 
-    it('should never return more than 10 files', () => {
-      // Generate enough commits to exceed 10 unique files
-      const manyFiles = Array.from({ length: 15 }, (_, i) =>
+    it('should never return more than 20 files', () => {
+      // Generate enough commits to exceed 20 unique files
+      const manyFiles = Array.from({ length: 25 }, (_, i) =>
         makeCommit({
           hash: `mf${i}`,
           files: [`file${i}.js`],
@@ -456,7 +456,7 @@ describe('aggregate (pure function)', () => {
         }),
       );
       const r = aggregate(manyFiles, 1);
-      assert.strictEqual(r.activity.topFiles.length, 10);
+      assert.strictEqual(r.activity.topFiles.length, 20);
     });
   });
 

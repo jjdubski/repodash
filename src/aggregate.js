@@ -283,11 +283,11 @@ export function aggregate(commits, branchCount) {
     .map(([date, { additions, deletions }]) => ({ date, additions, deletions }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  // Activity: top 10 files by change count descending
+  // Activity: top 20 files by change count descending
   const topFiles = Array.from(fileChangesMap.entries())
     .map(([path, changes]) => ({ path, changes }))
     .sort((a, b) => b.changes - a.changes || a.path.localeCompare(b.path))
-    .slice(0, 10);
+    .slice(0, 20);
 
   // ---- assemble result ----------------------------------------------------
 
