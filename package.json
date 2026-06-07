@@ -30,7 +30,5 @@
     "cli"
   ],
   "author": "",
-  "devDependencies": {
-    "playwright": "^1.60.0"
-  }
+  "devDependencies": {}
 }

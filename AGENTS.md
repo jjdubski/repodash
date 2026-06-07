@@ -25,7 +25,7 @@ dashboard/style.css      — light + dark theme via custom properties
 | Command                               | Notes                                                        |
 | ------------------------------------- | ------------------------------------------------------------ |
 | `npm start`                           | Runs `node bin/insights.js` (no args → shows usage)          |
-| `npm test`                            | **Only runs 3 of 6 test files** (imports, aggregate, server) |
+| `npm test`                            | Runs **all 6** test files (imports, aggregate, server, git, dashboard, index) |
 | `node --test tests/*.test.js`         | Runs **all 6** test files                                    |
 | `node --test tests/aggregate.test.js` | Single test file                                             |
 | `node bin/insights.js /path/to/repo`  | Generate dashboard                                           |
@@ -33,10 +33,10 @@ dashboard/style.css      — light + dark theme via custom properties
 ## Testing quirks
 
 - Framework: built-in `node:test` + `node:assert` (no Jest, no Vitest).
-- `npm test` skips `git.test.js`, `dashboard.test.js`, `index.test.js` — must run manually with `node --test`.
+- `npm test` runs all 6 test files.
 - `git.test.js` creates real temp git repos (needs actual git on PATH).
 - `aggregate.test.js` has performance assertions (<500ms for 5000 commits).
-- No CI, no pre-commit hooks, no lint, no typecheck — zero devDependencies.
+- No CI, no pre-commit hooks, no lint, no typecheck — zero runtime devDependencies.
 
 ## Dependencies
 
