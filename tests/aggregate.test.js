@@ -62,6 +62,20 @@ function assertEmptyResult(result, branchCount) {
   assert.deepStrictEqual(result.activity.topFiles, []);
 }
 
+function noreplyEmail(username, id = '') {
+  const prefix = id ? `${id}+` : '';
+  return `${prefix}${username}@users.noreply.github.com`;
+}
+
+function assertMergedContributor(result, expected) {
+  assert.strictEqual(result.contributors.length, 1);
+  const c = result.contributors[0];
+  assert.strictEqual(c.totalCommits, expected.totalCommits);
+  if (expected.additions !== undefined) assert.strictEqual(c.additions, expected.additions);
+  if (expected.deletions !== undefined) assert.strictEqual(c.deletions, expected.deletions);
+  if (expected.email !== undefined) assert.strictEqual(c.email, expected.email);
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -623,7 +637,7 @@ describe('aggregate (pure function)', () => {
         }),
         makeCommit({
           hash: 'c2',
-          author: { name: 'Full Name', email: 'johndoe@users.noreply.github.com' },
+          author: { name: 'Full Name', email: noreplyEmail('johndoe') },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
           files: ['b.js'],
@@ -631,17 +645,12 @@ describe('aggregate (pure function)', () => {
       ];
       const result = aggregate(commits, 1);
 
-      assert.strictEqual(result.contributors.length, 1);
-
-      // Email should be the noreply one (first-seen or canonical)
-      assert.strictEqual(result.contributors[0].email, 'johndoe@users.noreply.github.com');
-
-      // Total commits should be combined
-      assert.strictEqual(result.contributors[0].totalCommits, 2);
-
-      // Stats should be combined
-      assert.strictEqual(result.contributors[0].additions, 15);
-      assert.strictEqual(result.contributors[0].deletions, 3);
+      assertMergedContributor(result, {
+        totalCommits: 2,
+        additions: 15,
+        deletions: 3,
+        email: noreplyEmail('johndoe'),
+      });
     });
 
     it('should not merge when noreply username matches no other contributor', () => {
@@ -653,7 +662,7 @@ describe('aggregate (pure function)', () => {
         }),
         makeCommit({
           hash: 'c2',
-          author: { name: 'bobsmith', email: 'bobsmith@users.noreply.github.com' },
+          author: { name: 'bobsmith', email: noreplyEmail('bobsmith') },
           date: '2025-01-16T10:00:00Z',
         }),
       ];
@@ -674,7 +683,7 @@ describe('aggregate (pure function)', () => {
         }),
         makeCommit({
           hash: 'c2',
-          author: { name: 'Another Name', email: 'ghuser@users.noreply.github.com' },
+          author: { name: 'Another Name', email: noreplyEmail('ghuser') },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
           files: ['b.js'],
@@ -682,8 +691,7 @@ describe('aggregate (pure function)', () => {
       ];
       const result = aggregate(commits, 1);
 
-      assert.strictEqual(result.contributors.length, 1);
-      assert.strictEqual(result.contributors[0].totalCommits, 2);
+      assertMergedContributor(result, { totalCommits: 2 });
     });
 
     it('should merge contributions from the same day', () => {
@@ -697,7 +705,7 @@ describe('aggregate (pure function)', () => {
         }),
         makeCommit({
           hash: 'c2',
-          author: { name: 'johndoe', email: 'johndoe@users.noreply.github.com' },
+          author: { name: 'johndoe', email: noreplyEmail('johndoe') },
           date: '2025-01-15T14:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
           files: ['b.js'],
@@ -705,9 +713,7 @@ describe('aggregate (pure function)', () => {
       ];
       const result = aggregate(commits, 1);
 
-      // One contributor
-      assert.strictEqual(result.contributors.length, 1);
-      assert.strictEqual(result.contributors[0].totalCommits, 2);
+      assertMergedContributor(result, { totalCommits: 2 });
 
       // One day, author should be the target name
       assert.strictEqual(result.contributions.length, 1);
@@ -728,7 +734,7 @@ describe('aggregate (pure function)', () => {
         }),
         makeCommit({
           hash: 'c2',
-          author: { name: 'Jake', email: 'jake@users.noreply.github.com' },
+          author: { name: 'Jake', email: noreplyEmail('jake') },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
           files: ['b.js'],
@@ -736,9 +742,7 @@ describe('aggregate (pure function)', () => {
       ];
       const result = aggregate(commits, 1);
 
-      // Should merge despite "Jake" (capitalized) vs "jake" (lowercase GH username)
-      assert.strictEqual(result.contributors.length, 1);
-      assert.strictEqual(result.contributors[0].totalCommits, 2);
+      assertMergedContributor(result, { totalCommits: 2 });
     });
 
     it('should reflect correct totalContributors in summary after merge', () => {
@@ -750,7 +754,7 @@ describe('aggregate (pure function)', () => {
         }),
         makeCommit({
           hash: 'c2',
-          author: { name: 'johndoe', email: 'johndoe@users.noreply.github.com' },
+          author: { name: 'johndoe', email: noreplyEmail('johndoe') },
           date: '2025-01-16T10:00:00Z',
         }),
         makeCommit({
@@ -779,7 +783,7 @@ describe('aggregate (pure function)', () => {
           hash: 'm2',
           author: {
             name: 'Nivek Xyz',
-            email: '31807746+nivekxyz@users.noreply.github.com',
+            email: noreplyEmail('nivekxyz', '31807746'),
           },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
@@ -788,10 +792,11 @@ describe('aggregate (pure function)', () => {
       ];
       const result = aggregate(commits, 1);
 
-      assert.strictEqual(result.contributors.length, 1);
-      assert.strictEqual(result.contributors[0].totalCommits, 2);
-      assert.strictEqual(result.contributors[0].additions, 15);
-      assert.strictEqual(result.contributors[0].deletions, 3);
+      assertMergedContributor(result, {
+        totalCommits: 2,
+        additions: 15,
+        deletions: 3,
+      });
     });
 
     it('should NOT merge when noreply username does not match name or email local part (Kevin Cordia case: me@kevco.dev vs 31807746+nivekxyz@users.noreply.github.com)', () => {
@@ -807,7 +812,7 @@ describe('aggregate (pure function)', () => {
           hash: 'k2',
           author: {
             name: 'Kevin Cordia',
-            email: '31807746+nivekxyz@users.noreply.github.com',
+            email: noreplyEmail('nivekxyz', '31807746'),
           },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
@@ -834,7 +839,7 @@ describe('aggregate (pure function)', () => {
           hash: 'j2',
           author: {
             name: 'jjdubski',
-            email: '12345+jjdubski@users.noreply.github.com',
+            email: noreplyEmail('jjdubski', '12345'),
           },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
@@ -843,10 +848,11 @@ describe('aggregate (pure function)', () => {
       ];
       const result = aggregate(commits, 1);
 
-      assert.strictEqual(result.contributors.length, 1);
-      assert.strictEqual(result.contributors[0].totalCommits, 2);
-      assert.strictEqual(result.contributors[0].additions, 15);
-      assert.strictEqual(result.contributors[0].deletions, 3);
+      assertMergedContributor(result, {
+        totalCommits: 2,
+        additions: 15,
+        deletions: 3,
+      });
     });
   });
 

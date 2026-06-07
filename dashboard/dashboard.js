@@ -458,21 +458,24 @@ function toggleTheme() {
 //  TAB SWITCHING & TIME FILTER
 // ═════════════════════════════════════════════════════════════════════
 
+function syncTabUI(tabName) {
+  document.querySelectorAll('.tab').forEach(function (btn) {
+    var match = btn.getAttribute('data-tab') === tabName;
+    btn.classList.toggle('active', match);
+    btn.setAttribute('aria-selected', String(match));
+  });
+  document.querySelectorAll('.tab-content').forEach(function (sec) {
+    sec.classList.toggle('active', sec.id === 'tab-' + tabName);
+  });
+}
+
 function switchTab(tabName) {
   if (state.activeTab === tabName) return;
   state.activeTab = tabName;
 
   window.location.hash = tabName;
 
-  document.querySelectorAll('.tab').forEach(function (btn) {
-    var match = btn.getAttribute('data-tab') === tabName;
-    btn.classList.toggle('active', match);
-    btn.setAttribute('aria-selected', String(match));
-  });
-
-  document.querySelectorAll('.tab-content').forEach(function (sec) {
-    sec.classList.toggle('active', sec.id === 'tab-' + tabName);
-  });
+  syncTabUI(tabName);
 
   renderCurrentTab();
 }
@@ -1289,14 +1292,7 @@ function init() {
   }
 
   // Sync active tab state with loaded activeTab
-  document.querySelectorAll('.tab').forEach(function (btn) {
-    var match = btn.getAttribute('data-tab') === state.activeTab;
-    btn.classList.toggle('active', match);
-    btn.setAttribute('aria-selected', String(match));
-  });
-  document.querySelectorAll('.tab-content').forEach(function (sec) {
-    sec.classList.toggle('active', sec.id === 'tab-' + state.activeTab);
-  });
+  syncTabUI(state.activeTab);
 
   TABS.forEach(function (t) {
     showLoading(t);
