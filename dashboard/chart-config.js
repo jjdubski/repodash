@@ -22,21 +22,21 @@
     Chart.PointElement,
     Chart.CategoryScale,
     Chart.LinearScale,
-    Chart.Filler
+    Chart.Filler,
   );
 
   // -------------------------------------------------------------------
   // Color palette — matches design spec
   // -------------------------------------------------------------------
   window.COLORS = {
-    blue:   '#58a6ff',
-    green:  '#3fb950',
-    amber:  '#d29922',
-    red:    '#f85149',
+    blue: '#58a6ff',
+    green: '#3fb950',
+    amber: '#d29922',
+    red: '#f85149',
     purple: '#a371f7',
     orange: '#db6d28',
-    cyan:   '#39d2c0',
-    pink:   '#f778ba',
+    cyan: '#39d2c0',
+    pink: '#f778ba',
   };
 
   // Convenience: ordered array for cycling through dataset colors
@@ -82,12 +82,12 @@
     return {
       x: {
         ticks: { color: textSecondary },
-        grid:  { display: false },
+        grid: { display: false },
       },
       y: {
         beginAtZero: true,
         ticks: { color: textSecondary },
-        grid:  { color: chartGrid },
+        grid: { color: chartGrid },
       },
     };
   };
@@ -96,9 +96,6 @@
   // Read current theme's text colour (used for legend labels, etc.)
   // -------------------------------------------------------------------
   window.getTextColor = function () {
-    return getComputedStyle(document.documentElement)
-      .getPropertyValue('--text')
-      .trim();
+    return getComputedStyle(document.documentElement).getPropertyValue('--text').trim();
   };
-
 })();

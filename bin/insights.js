@@ -10,7 +10,7 @@ if (!repoPath) {
   process.exit(1);
 }
 
-main(repoPath).catch(err => {
+main(repoPath).catch((err) => {
   console.error(chalk.red(`Error: ${err.message}`));
   process.exit(1);
 });

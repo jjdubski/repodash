@@ -1,0 +1,579 @@
+name: reviewdog
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        required: true
+  pull_request:
+    branches: [main]
+    types: [opened, ready_for_review]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.pr_number || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  eslint:
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'opened' &&
+       github.event.pull_request.draft == false) ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'ready_for_review')
+    name: runner / eslint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/head', github.event.inputs.pr_number) || '' }}
+      - name: Resolve PR number
+        id: pr-number
+        if: github.event_name != 'push'
+        run: echo "number=${{ github.event.inputs.pr_number || github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+      - name: Create pending check run
+        id: create-check-eslint
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const prNumber = ${{ steps.pr-number.outputs.number }};
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            const { data: check } = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'ESLint',
+              head_sha: pr.head.sha,
+              status: 'in_progress'
+            });
+            core.setOutput('check-run-id', check.id);
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Set PR context for reviewdog
+        if: github.event_name == 'issue_comment'
+        run: |
+          echo "GITHUB_EVENT_NAME=pull_request" >> $GITHUB_ENV
+          echo "GITHUB_REF=refs/pull/${{ github.event.issue.number }}/merge" >> $GITHUB_ENV
+      - uses: reviewdog/action-eslint@v1
+        id: eslint
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          level: warning
+          fail_level: warning
+          filter_mode: added
+          eslint_flags: 'src/ bin/ dashboard/ tests/'
+          reviewdog_flags: '-pr=${{ steps.pr-number.outputs.number }}'
+        env:
+          GITHUB_REF: refs/pull/${{ steps.pr-number.outputs.number }}/merge
+      - name: Complete check run
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const checkRunId = ${{ steps.create-check-eslint.outputs.check-run-id }};
+            if (!checkRunId) {
+              console.log('No pending check run found — creation may have failed.');
+              return;
+            }
+            const status = '${{ job.status }}';
+            const tool = 'ESLint';
+            const conclusion = status === 'success' ? 'success' : status === 'cancelled' ? 'cancelled' : 'failure';
+            const summaryText = conclusion === 'success'
+              ? 'No issues found.'
+              : conclusion === 'cancelled'
+                ? 'Check was cancelled.'
+                : 'Issues found. Check the annotations for details.';
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: checkRunId,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: `reviewdog/${tool}`,
+                summary: `**${tool}** — ${summaryText}`
+              }
+            });
+
+  actionlint:
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'opened' &&
+       github.event.pull_request.draft == false) ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'ready_for_review')
+    name: runner / actionlint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/head', github.event.inputs.pr_number) || '' }}
+      - name: Resolve PR number
+        id: pr-number
+        if: github.event_name != 'push'
+        run: echo "number=${{ github.event.inputs.pr_number || github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+      - name: Create pending check run
+        id: create-check-actionlint
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const prNumber = ${{ steps.pr-number.outputs.number }};
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            const { data: check } = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'actionlint',
+              head_sha: pr.head.sha,
+              status: 'in_progress'
+            });
+            core.setOutput('check-run-id', check.id);
+      - uses: reviewdog/action-actionlint@v1
+        id: actionlint
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          level: warning
+          fail_level: warning
+          filter_mode: added
+          reviewdog_flags: '-pr=${{ steps.pr-number.outputs.number }}'
+        env:
+          GITHUB_REF: refs/pull/${{ steps.pr-number.outputs.number }}/merge
+      - name: Complete check run
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const checkRunId = ${{ steps.create-check-actionlint.outputs.check-run-id }};
+            if (!checkRunId) {
+              console.log('No pending check run found — creation may have failed.');
+              return;
+            }
+            const status = '${{ job.status }}';
+            const tool = 'actionlint';
+            const conclusion = status === 'success' ? 'success' : status === 'cancelled' ? 'cancelled' : 'failure';
+            const summaryText = conclusion === 'success'
+              ? 'No issues found.'
+              : conclusion === 'cancelled'
+                ? 'Check was cancelled.'
+                : 'Issues found. Check the annotations for details.';
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: checkRunId,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: `reviewdog/${tool}`,
+                summary: `**${tool}** — ${summaryText}`
+              }
+            });
+
+  markdownlint:
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'opened' &&
+       github.event.pull_request.draft == false) ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'ready_for_review')
+    name: runner / markdownlint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/head', github.event.inputs.pr_number) || '' }}
+      - name: Resolve PR number
+        id: pr-number
+        if: github.event_name != 'push'
+        run: echo "number=${{ github.event.inputs.pr_number || github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+      - name: Create pending check run
+        id: create-check-markdownlint
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const prNumber = ${{ steps.pr-number.outputs.number }};
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            const { data: check } = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'markdownlint',
+              head_sha: pr.head.sha,
+              status: 'in_progress'
+            });
+            core.setOutput('check-run-id', check.id);
+      - uses: reviewdog/action-markdownlint@v0
+        id: markdownlint
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          level: warning
+          fail_level: warning
+          filter_mode: added
+          markdownlint_flags: '--ignore node_modules docs .husky .'
+          reviewdog_flags: '-pr=${{ steps.pr-number.outputs.number }}'
+        env:
+          GITHUB_REF: refs/pull/${{ steps.pr-number.outputs.number }}/merge
+      - name: Complete check run
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const checkRunId = ${{ steps.create-check-markdownlint.outputs.check-run-id }};
+            if (!checkRunId) {
+              console.log('No pending check run found — creation may have failed.');
+              return;
+            }
+            const status = '${{ job.status }}';
+            const tool = 'markdownlint';
+            const conclusion = status === 'success' ? 'success' : status === 'cancelled' ? 'cancelled' : 'failure';
+            const summaryText = conclusion === 'success'
+              ? 'No issues found.'
+              : conclusion === 'cancelled'
+                ? 'Check was cancelled.'
+                : 'Issues found. Check the annotations for details.';
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: checkRunId,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: `reviewdog/${tool}`,
+                summary: `**${tool}** — ${summaryText}`
+              }
+            });
+
+  shellcheck:
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'opened' &&
+       github.event.pull_request.draft == false) ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'ready_for_review')
+    name: runner / shellcheck
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/head', github.event.inputs.pr_number) || '' }}
+      - name: Resolve PR number
+        id: pr-number
+        if: github.event_name != 'push'
+        run: echo "number=${{ github.event.inputs.pr_number || github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+      - name: Create pending check run
+        id: create-check-shellcheck
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const prNumber = ${{ steps.pr-number.outputs.number }};
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            const { data: check } = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'shellcheck',
+              head_sha: pr.head.sha,
+              status: 'in_progress'
+            });
+            core.setOutput('check-run-id', check.id);
+      - uses: reviewdog/action-shellcheck@v1
+        id: shellcheck
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          level: warning
+          fail_level: warning
+          filter_mode: added
+          exclude: |
+            */.git/*
+            ./.husky/_/husky.sh
+            **/node_modules/**
+          reviewdog_flags: '-pr=${{ steps.pr-number.outputs.number }}'
+        env:
+          GITHUB_REF: refs/pull/${{ steps.pr-number.outputs.number }}/merge
+      - name: Complete check run
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const checkRunId = ${{ steps.create-check-shellcheck.outputs.check-run-id }};
+            if (!checkRunId) {
+              console.log('No pending check run found — creation may have failed.');
+              return;
+            }
+            const status = '${{ job.status }}';
+            const tool = 'shellcheck';
+            const conclusion = status === 'success' ? 'success' : status === 'cancelled' ? 'cancelled' : 'failure';
+            const summaryText = conclusion === 'success'
+              ? 'No issues found.'
+              : conclusion === 'cancelled'
+                ? 'Check was cancelled.'
+                : 'Issues found. Check the annotations for details.';
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: checkRunId,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: `reviewdog/${tool}`,
+                summary: `**${tool}** — ${summaryText}`
+              }
+            });
+
+  stylelint:
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'opened' &&
+       github.event.pull_request.draft == false) ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'ready_for_review')
+    name: runner / stylelint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      checks: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/head', github.event.inputs.pr_number) || '' }}
+      - name: Resolve PR number
+        id: pr-number
+        if: github.event_name != 'push'
+        run: echo "number=${{ github.event.inputs.pr_number || github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+      - name: Create pending check run
+        id: create-check-stylelint
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const prNumber = ${{ steps.pr-number.outputs.number }};
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            const { data: check } = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'stylelint',
+              head_sha: pr.head.sha,
+              status: 'in_progress'
+            });
+            core.setOutput('check-run-id', check.id);
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Add node_modules/.bin to PATH for reviewdog stylelint
+        run: echo "${{ github.workspace }}/node_modules/.bin" >> $GITHUB_PATH
+      - uses: reviewdog/action-stylelint@v1
+        id: stylelint
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-pr-review
+          level: warning
+          fail_level: warning
+          filter_mode: added
+          stylelint_input: '**/*.css'
+        env:
+          GITHUB_REF: refs/pull/${{ steps.pr-number.outputs.number }}/merge
+      - name: Complete check run
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const checkRunId = ${{ steps.create-check-stylelint.outputs.check-run-id }};
+            if (!checkRunId) {
+              console.log('No pending check run found — creation may have failed.');
+              return;
+            }
+            const status = '${{ job.status }}';
+            const tool = 'stylelint';
+            const conclusion = status === 'success' ? 'success' : status === 'cancelled' ? 'cancelled' : 'failure';
+            const summaryText = conclusion === 'success'
+              ? 'No issues found.'
+              : conclusion === 'cancelled'
+                ? 'Check was cancelled.'
+                : 'Issues found. Check the annotations for details.';
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: checkRunId,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: `reviewdog/${tool}`,
+                summary: `**${tool}** — ${summaryText}`
+              }
+            });
+
+  check:
+    if: github.event_name == 'push'
+    name: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: reviewdog/action-eslint@v1
+        id: eslint
+        continue-on-error: true
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-check
+          tool_name: reviewdog-eslint
+          level: warning
+          fail_level: error
+          filter_mode: nofilter
+          eslint_flags: 'src/ bin/ dashboard/ tests/'
+      - uses: reviewdog/action-actionlint@v1
+        id: actionlint
+        continue-on-error: true
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-check
+          tool_name: reviewdog-actionlint
+          level: warning
+          fail_level: error
+          filter_mode: nofilter
+      - uses: reviewdog/action-markdownlint@v0
+        id: markdownlint
+        continue-on-error: true
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-check
+          level: warning
+          fail_level: none
+          filter_mode: nofilter
+          markdownlint_flags: '--ignore node_modules docs .husky .'
+          reviewdog_flags: '-name reviewdog-markdownlint'
+      - uses: reviewdog/action-shellcheck@v1
+        id: shellcheck
+        continue-on-error: true
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-check
+          level: warning
+          fail_level: error
+          filter_mode: nofilter
+          exclude: |
+            */.git/*
+            ./.husky/_/husky.sh
+            **/node_modules/**
+          reviewdog_flags: '-name reviewdog-shellcheck'
+      - uses: reviewdog/action-stylelint@v1
+        id: stylelint
+        continue-on-error: true
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          reporter: github-check
+          level: warning
+          fail_level: error
+          filter_mode: nofilter
+          name: reviewdog-stylelint
+          stylelint_input: '**/*.css'
+      - name: Check results
+        if: always()
+        env:
+          ESLINT: ${{ steps.eslint.outcome }}
+          ACTIONLINT: ${{ steps.actionlint.outcome }}
+          MARKDOWNLINT: ${{ steps.markdownlint.outcome }}
+          SHELLCHECK: ${{ steps.shellcheck.outcome }}
+          STYLELINT: ${{ steps.stylelint.outcome }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" << 'EOF'
+          ## reviewdog Linter Results
+
+          | Linter | Status |
+          |--------|--------|
+          EOF
+
+          failures=()
+
+          add_result() {
+              local name="$1"
+              local status_var="$2"
+              if [[ "${!status_var}" == "success" ]]; then
+                  echo "| $name | Passed |" >> "$GITHUB_STEP_SUMMARY"
+              elif [[ "${!status_var}" == "failure" ]]; then
+                  echo "| $name | Failed |" >> "$GITHUB_STEP_SUMMARY"
+                  failures+=("$name")
+              elif [[ "${!status_var}" == "skipped" ]]; then
+                  echo "| $name | Skipped |" >> "$GITHUB_STEP_SUMMARY"
+              else
+                  echo "| $name | ${!status_var} |" >> "$GITHUB_STEP_SUMMARY"
+              fi
+          }
+
+          add_result ESLint ESLINT
+          add_result actionlint ACTIONLINT
+          add_result markdownlint MARKDOWNLINT
+          add_result shellcheck SHELLCHECK
+          add_result stylelint STYLELINT
+
+          if [[ ${#failures[@]} -gt 0 ]]; then
+              printf "\n**Linters with errors: %s**\n" "${failures[*]}" >> "$GITHUB_STEP_SUMMARY"
+              echo "Linters with errors: ${failures[*]}"
+              exit 1
+          else
+              printf "\n**All linters passed!**\n" >> "$GITHUB_STEP_SUMMARY"
+              echo "All linters passed"
+          fi

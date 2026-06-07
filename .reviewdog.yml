@@ -1,0 +1,29 @@
+runner:
+  eslint:
+    cmd: npx eslint -f rdjson src/ bin/ dashboard/ tests/
+    format: rdjson
+    name: ESLint
+    level: warning
+  actionlint:
+    cmd: actionlint
+    errorformat:
+      - '%f:%l:%c: %m'
+    name: actionlint
+    level: warning
+  markdownlint:
+    cmd: npx markdownlint --ignore node_modules --ignore docs/superpowers --ignore .husky --ignore AGENTS.md .
+    errorformat:
+      - '%f:%l:%c %m'
+    name: markdownlint
+    level: warning
+  shellcheck:
+    cmd: shellcheck -f gcc $(find . -name '*.sh' -not -path './node_modules/*' -not -path './.husky/_/husky.sh')
+    errorformat:
+      - '%f:%l:%c: %t%*[a-z]: %m'
+    name: ShellCheck
+    level: warning
+  stylelint:
+    cmd: npx stylelint '**/*.css' --rdjson
+    format: rdjson
+    name: stylelint
+    level: warning

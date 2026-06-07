@@ -68,10 +68,7 @@ before(() => {
   );
 
   // Commit 4: binary file (file with null bytes → detected as binary by git)
-  writeFileSync(
-    join(mainRepoPath, 'binary.bin'),
-    Buffer.from([0x00, 0xff, 0x00, 0x01, 0x00]),
-  );
+  writeFileSync(join(mainRepoPath, 'binary.bin'), Buffer.from([0x00, 0xff, 0x00, 0x01, 0x00]));
   execSync('git add binary.bin && git commit -m "Add binary file"', {
     cwd: mainRepoPath,
     stdio: 'pipe',
@@ -199,10 +196,7 @@ describe('getAllCommits()', () => {
       );
 
       // Files array
-      assert.ok(
-        Array.isArray(commit.files),
-        'commit.files should be an array',
-      );
+      assert.ok(Array.isArray(commit.files), 'commit.files should be an array');
     }
   });
 
@@ -268,9 +262,7 @@ describe('edge cases', () => {
   it('should handle binary files without crashing', async () => {
     const commits = await getAllCommits(mainRepoPath);
 
-    const binaryCommit = commits.find(
-      (c) => c.message === 'Add binary file',
-    );
+    const binaryCommit = commits.find((c) => c.message === 'Add binary file');
     assert.ok(binaryCommit, 'the binary-file commit should be present');
     assert.ok(
       binaryCommit.files.includes('binary.bin'),
@@ -287,13 +279,8 @@ describe('edge cases', () => {
   it('should capture commits from different authors correctly', async () => {
     const commits = await getAllCommits(mainRepoPath);
 
-    const devCommit = commits.find(
-      (c) => c.author.email === 'dev2@test.com',
-    );
-    assert.ok(
-      devCommit,
-      'a commit from Developer2 <dev2@test.com> should exist',
-    );
+    const devCommit = commits.find((c) => c.author.email === 'dev2@test.com');
+    assert.ok(devCommit, 'a commit from Developer2 <dev2@test.com> should exist');
     assert.strictEqual(devCommit.author.name, 'Developer2');
     assert.strictEqual(devCommit.message, 'Add feature B');
   });

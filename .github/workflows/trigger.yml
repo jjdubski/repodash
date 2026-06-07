@@ -1,0 +1,71 @@
+name: Workflow trigger
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: workflow-trigger-${{ github.event.issue.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  trigger:
+    if: |
+      github.event.issue.pull_request &&
+      contains(github.event.comment.body, '/workflow')
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+      checks: write
+      actions: write
+    steps:
+      - name: Clear all check runs on the PR
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            const headSha = pr.head.sha;
+            let page = 1;
+            let allChecks = [];
+            while (true) {
+              const { data } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: headSha,
+                per_page: 100,
+                page
+              });
+              allChecks.push(...data.check_runs);
+              if (data.check_runs.length < 100) break;
+              page++;
+            }
+            for (const check of allChecks) {
+              await github.rest.checks.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                check_run_id: check.id,
+                status: 'completed',
+                conclusion: 'neutral',
+                output: {
+                  title: 'Cleared by /workflow',
+                  summary: 'Superseded by a new workflow run.'
+                }
+              });
+            }
+      - name: Trigger all workflows
+        run: |
+          PR=${{ github.event.issue.number }}
+          REF=${{ github.event.repository.default_branch }}
+          gh workflow run "test.yml" -f pr_number=$PR --ref $REF -R ${{ github.repository }} &
+          gh workflow run "fallow.yml" -f pr_number=$PR --ref $REF -R ${{ github.repository }} &
+          gh workflow run "reviewdog.yml" -f pr_number=$PR --ref $REF -R ${{ github.repository }} &
+          wait
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

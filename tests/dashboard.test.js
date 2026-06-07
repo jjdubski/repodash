@@ -55,19 +55,16 @@ function exists(file) {
  * @returns {string|null} Function source including the `function` keyword
  */
 function extractFunction(name, src) {
-  const re = new RegExp(
-    `function\\s+${name}\\s*\\([^)]*\\)\\s*\\{`,
-  );
+  const re = new RegExp(`function\\s+${name}\\s*\\([^)]*\\)\\s*\\{`);
   const match = re.exec(src);
   if (!match) return null;
 
   const start = match.index;
-  let depth = 0;
   let i = match.index;
 
   // Advance past the opening brace
   while (i < src.length && src[i] !== '{') i++;
-  depth = 1;
+  let depth = 1;
   i++;
 
   while (i < src.length && depth > 0) {
@@ -79,38 +76,31 @@ function extractFunction(name, src) {
   return src.slice(start, i);
 }
 
-/**
- * Evaluate a function source string and return the function object.
- * Works for both function declarations and function expressions.
- */
-function evalFunction(fnSrc) {
-  // Wrap to make it an expression (so it evaluates to the function object)
-  return eval('(' + fnSrc + ')');
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 //  1. FILE STRUCTURE TESTS
 // ═══════════════════════════════════════════════════════════════════════════
 
 describe('Dashboard — file structure', () => {
   it('should have all 4 dashboard files', () => {
-    assert.ok(exists('index.html'),      'Missing: index.html');
-    assert.ok(exists('style.css'),       'Missing: style.css');
+    assert.ok(exists('index.html'), 'Missing: index.html');
+    assert.ok(exists('style.css'), 'Missing: style.css');
     assert.ok(exists('chart-config.js'), 'Missing: chart-config.js');
-    assert.ok(exists('dashboard.js'),    'Missing: dashboard.js');
+    assert.ok(exists('dashboard.js'), 'Missing: dashboard.js');
   });
 
   describe('CSS (style.css)', () => {
     let css;
 
-    before(() => { css = read('style.css'); });
+    before(() => {
+      css = read('style.css');
+    });
 
     it('should define CSS custom properties for theming', () => {
-      assert.ok(css.includes('--bg'),     'Missing --bg');
-      assert.ok(css.includes('--text'),   'Missing --text');
+      assert.ok(css.includes('--bg'), 'Missing --bg');
+      assert.ok(css.includes('--text'), 'Missing --text');
       assert.ok(css.includes('--accent'), 'Missing --accent');
-      assert.ok(css.includes('--green'),  'Missing --green');
-      assert.ok(css.includes('--red'),    'Missing --red');
+      assert.ok(css.includes('--green'), 'Missing --green');
+      assert.ok(css.includes('--red'), 'Missing --red');
     });
 
     it('should have a [data-theme="dark"] selector', () => {
@@ -125,21 +115,17 @@ describe('Dashboard — file structure', () => {
     });
 
     it('should define responsive breakpoints', () => {
-      assert.ok(
-        css.includes('@media (max-width: 900px)'),
-        'Missing tablet breakpoint',
-      );
-      assert.ok(
-        css.includes('@media (max-width: 560px)'),
-        'Missing mobile breakpoint',
-      );
+      assert.ok(css.includes('@media (max-width: 900px)'), 'Missing tablet breakpoint');
+      assert.ok(css.includes('@media (max-width: 560px)'), 'Missing mobile breakpoint');
     });
   });
 
   describe('HTML (index.html)', () => {
     let html;
 
-    before(() => { html = read('index.html'); });
+    before(() => {
+      html = read('index.html');
+    });
 
     it('should have a main content container', () => {
       const hasMain = html.includes('<main') || html.includes('id="app"');
@@ -151,14 +137,8 @@ describe('Dashboard — file structure', () => {
     });
 
     it('should link to Chart.js CDN', () => {
-      assert.ok(
-        html.includes('chart.js'),
-        'No Chart.js script reference',
-      );
-      assert.ok(
-        html.includes('cdn.jsdelivr.net'),
-        'Not using jsdelivr CDN',
-      );
+      assert.ok(html.includes('chart.js'), 'No Chart.js script reference');
+      assert.ok(html.includes('cdn.jsdelivr.net'), 'Not using jsdelivr CDN');
     });
 
     it('should have chart-config.js and dashboard.js scripts', () => {
@@ -181,10 +161,7 @@ describe('Dashboard — file structure', () => {
     it('should have chart canvases', () => {
       const canvases = html.match(/<canvas/g);
       assert.ok(canvases, 'No <canvas> elements found');
-      assert.ok(
-        canvases.length >= 6,
-        `Expected at least 6 canvases, got ${canvases.length}`,
-      );
+      assert.ok(canvases.length >= 6, `Expected at least 6 canvases, got ${canvases.length}`);
     });
 
     it('should have time filter pills', () => {
@@ -201,8 +178,8 @@ describe('Dashboard — file structure', () => {
 
     it('should have loading / error / empty state elements', () => {
       assert.ok(html.includes('Loading'), 'Missing loading state');
-      assert.ok(html.includes('-error'),  'Missing error state element');
-      assert.ok(html.includes('-empty'),  'Missing empty state element');
+      assert.ok(html.includes('-error'), 'Missing error state element');
+      assert.ok(html.includes('-empty'), 'Missing empty state element');
     });
   });
 });
@@ -233,7 +210,9 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           querySelectorAll: () => [],
           getElementById: () => null,
         },
-        renderCurrentTab: () => { renderCalled.value = true; },
+        renderCurrentTab: () => {
+          renderCalled.value = true;
+        },
       };
       const ctx = vm.createContext(sandbox);
       const src = read('dashboard.js');
@@ -259,7 +238,9 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           querySelectorAll: () => [],
           getElementById: () => null,
         },
-        renderCurrentTab: () => { renderCalled.value = true; },
+        renderCurrentTab: () => {
+          renderCalled.value = true;
+        },
       };
       const ctx = vm.createContext(sandbox);
       const src = read('dashboard.js');
@@ -284,7 +265,9 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           querySelectorAll: () => [],
           getElementById: () => null,
         },
-        renderCurrentTab: () => { renderCalled.value = true; },
+        renderCurrentTab: () => {
+          renderCalled.value = true;
+        },
       };
       const ctx = vm.createContext(sandbox);
       const src = read('dashboard.js');
@@ -309,7 +292,9 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           querySelectorAll: () => [],
           getElementById: () => null,
         },
-        renderCurrentTab: () => { renderCalled.value = true; },
+        renderCurrentTab: () => {
+          renderCalled.value = true;
+        },
       };
       const ctx = vm.createContext(sandbox);
       const src = read('dashboard.js');
@@ -329,12 +314,8 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
       const sandbox = {
         state: {
           data: {
-            contributions: [
-              { date: '2024-01-01', count: 1, authorDetails: [] },
-            ],
-            frequency: [
-              { date: '2024-01-01', additions: 10, deletions: 2 },
-            ],
+            contributions: [{ date: '2024-01-01', count: 1, authorDetails: [] }],
+            frequency: [{ date: '2024-01-01', additions: 10, deletions: 2 }],
             contributors: [],
             activity: { byHour: [], topFiles: [] },
           },
@@ -363,8 +344,11 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
       const result = fn();
 
       assert.ok(result, 'getFilteredData should return an object');
-      assert.strictEqual(result.activity, markerActivity,
-        'activity should be the result of computeFilteredActivity');
+      assert.strictEqual(
+        result.activity,
+        markerActivity,
+        'activity should be the result of computeFilteredActivity',
+      );
     });
 
     it('should call computeFilteredActivity with filtered contributions', () => {
@@ -372,9 +356,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
       const sandbox = {
         state: {
           data: {
-            contributions: [
-              { date: '2024-01-01', count: 1, authorDetails: [] },
-            ],
+            contributions: [{ date: '2024-01-01', count: 1, authorDetails: [] }],
             frequency: [],
             contributors: [],
             activity: { byHour: [{ hour: 0, count: 5 }], topFiles: [] },
@@ -397,8 +379,11 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
 
       fn();
 
-      assert.strictEqual(callArgs.contributions, sandbox.state.data.contributions,
-        'computeFilteredActivity should receive filtered contributions');
+      assert.strictEqual(
+        callArgs.contributions,
+        sandbox.state.data.contributions,
+        'computeFilteredActivity should receive filtered contributions',
+      );
     });
 
     it('should return null when state.data is null', () => {
@@ -431,14 +416,14 @@ describe('Dashboard — chart-config.js', () => {
     sandbox = vm.createContext({
       Chart: {
         register: () => {},
-        BarController:    {},
-        LineController:   {},
-        LineElement:      {},
-        BarElement:       {},
-        PointElement:     {},
-        CategoryScale:    {},
-        LinearScale:      {},
-        Filler:           {},
+        BarController: {},
+        LineController: {},
+        LineElement: {},
+        BarElement: {},
+        PointElement: {},
+        CategoryScale: {},
+        LinearScale: {},
+        Filler: {},
       },
       window: {},
       console: { error: () => {} },
@@ -458,24 +443,20 @@ describe('Dashboard — chart-config.js', () => {
 
     it('should have all 8 expected color keys', () => {
       const c = sandbox.window.COLORS;
-      assert.strictEqual(typeof c.blue,   'string');
-      assert.strictEqual(typeof c.green,  'string');
-      assert.strictEqual(typeof c.amber,  'string');
-      assert.strictEqual(typeof c.red,    'string');
+      assert.strictEqual(typeof c.blue, 'string');
+      assert.strictEqual(typeof c.green, 'string');
+      assert.strictEqual(typeof c.amber, 'string');
+      assert.strictEqual(typeof c.red, 'string');
       assert.strictEqual(typeof c.purple, 'string');
       assert.strictEqual(typeof c.orange, 'string');
-      assert.strictEqual(typeof c.cyan,   'string');
-      assert.strictEqual(typeof c.pink,   'string');
+      assert.strictEqual(typeof c.cyan, 'string');
+      assert.strictEqual(typeof c.pink, 'string');
     });
 
     it('should all be valid 6-digit hex colours', () => {
       const hex6 = /^#[0-9a-fA-F]{6}$/;
       for (const [key, val] of Object.entries(sandbox.window.COLORS)) {
-        assert.match(
-          val,
-          hex6,
-          `COLORS.${key} is not a valid hex colour: "${val}"`,
-        );
+        assert.match(val, hex6, `COLORS.${key} is not a valid hex colour: "${val}"`);
       }
     });
   });
@@ -521,7 +502,7 @@ describe('Dashboard — chart-config.js', () => {
     it('should have plugin defaults (legend + tooltip)', () => {
       const d = sandbox.window.CHART_DEFAULTS;
       assert.ok(d.plugins, 'Missing plugins config');
-      assert.ok(d.plugins.legend,  'Missing legend config');
+      assert.ok(d.plugins.legend, 'Missing legend config');
       assert.ok(d.plugins.tooltip, 'Missing tooltip config');
       assert.strictEqual(d.plugins.legend.position, 'bottom');
       assert.strictEqual(d.plugins.tooltip.mode, 'index');
@@ -530,7 +511,7 @@ describe('Dashboard — chart-config.js', () => {
 
     it('should have scale defaults (x + y)', () => {
       const d = sandbox.window.CHART_DEFAULTS;
-      assert.ok(d.scales,   'Missing scales config');
+      assert.ok(d.scales, 'Missing scales config');
       assert.ok(d.scales.x, 'Missing x scale');
       assert.ok(d.scales.y, 'Missing y scale');
       assert.strictEqual(d.scales.x.grid.display, false);
@@ -702,7 +683,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
 
     it('should return the same array when bounds is null', () => {
       const result = filterByDate(data, null);
-      assert.strictEqual(result, data);   // same reference
+      assert.strictEqual(result, data); // same reference
     });
 
     it('should filter out items before the start bound', () => {
@@ -755,20 +736,14 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     });
 
     it('should use a custom field name when provided', () => {
-      const d = [
-        { created: '2023-01-01' },
-        { created: '2024-06-01' },
-      ];
+      const d = [{ created: '2023-01-01' }, { created: '2024-06-01' }];
       const result = filterByDate(d, { start: '2024-01-01', end: null }, 'created');
       assert.strictEqual(result.length, 1);
       assert.strictEqual(result[0].created, '2024-06-01');
     });
 
     it('should default to "date" field when field is not supplied', () => {
-      const d = [
-        { date: '2023-01-01' },
-        { date: '2024-06-01' },
-      ];
+      const d = [{ date: '2023-01-01' }, { date: '2024-06-01' }];
       const result = filterByDate(d, { start: '2024-01-01', end: null });
       assert.strictEqual(result.length, 1);
     });
@@ -922,14 +897,16 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     it('should recompute topFiles from per-day contribution data', () => {
       const contributions = [
         {
-          date: '2024-01-01', count: 1,
+          date: '2024-01-01',
+          count: 1,
           topFiles: [
             { path: 'src/a.js', changes: 3 },
             { path: 'src/b.js', changes: 1 },
           ],
         },
         {
-          date: '2024-01-02', count: 2,
+          date: '2024-01-02',
+          count: 2,
           topFiles: [
             { path: 'src/a.js', changes: 2 },
             { path: 'src/c.js', changes: 4 },
@@ -949,9 +926,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     });
 
     it('should return empty byHour and topFiles when contributions lack per-day data', () => {
-      const contributions = [
-        { date: '2024-01-01', count: 1 },
-      ];
+      const contributions = [{ date: '2024-01-01', count: 1 }];
 
       const result = computeFilteredActivity(contributions);
 
@@ -972,9 +947,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     });
 
     it('should handle single contribution', () => {
-      const result = computeFilteredActivity(
-        [{ date: '2024-01-01', count: 7 }],
-      );
+      const result = computeFilteredActivity([{ date: '2024-01-01', count: 7 }]);
 
       assert.strictEqual(result.byDayOfWeek[0].count, 7);
       assert.strictEqual(result.byDayOfWeek[0].day, 'Mon');
@@ -1007,7 +980,12 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       }
 
       const contributions = [
-        { date: '2024-01-01', count: 2, byHour: make24({ 9: 3 }), topFiles: [{ path: 'src/a.js', changes: 5 }] },
+        {
+          date: '2024-01-01',
+          count: 2,
+          byHour: make24({ 9: 3 }),
+          topFiles: [{ path: 'src/a.js', changes: 5 }],
+        },
         { date: '2024-01-02', count: 1 },
       ];
 

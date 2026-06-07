@@ -8,10 +8,7 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" />
     <link rel="stylesheet" href="style.css" />
     <!-- Chart.js UMD build — registers as global `Chart` -->
-    <script
-      src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"
-      defer
-    ></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js" defer></script>
     <!-- Chart configuration: registers components, exports COLORS & CHART_DEFAULTS -->
     <script src="chart-config.js" defer></script>
     <!-- Main application logic -->
@@ -25,12 +22,7 @@
     <header class="header">
       <h1 class="header-title">Insights</h1>
       <div class="header-controls">
-        <button
-          id="export-pdf"
-          class="export-btn"
-          type="button"
-          title="Export dashboard as PDF"
-        >
+        <button id="export-pdf" class="export-btn" type="button" title="Export dashboard as PDF">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
@@ -43,9 +35,7 @@
             stroke-linejoin="round"
             aria-hidden="true"
           >
-            <path
-              d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
-            />
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
             <line x1="16" y1="13" x2="8" y2="13" />
             <line x1="16" y1="17" x2="8" y2="17" />
@@ -53,12 +43,7 @@
           </svg>
           <span>Export PDF</span>
         </button>
-        <button
-          id="theme-toggle"
-          class="theme-toggle"
-          aria-label="Toggle theme"
-          type="button"
-        >
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle theme" type="button">
           <!-- Sun icon (visible in light mode, hidden in dark) -->
           <svg
             class="icon sun-icon"
@@ -106,15 +91,9 @@
     <!-- ── Time filter ── -->
     <nav class="time-filter" aria-label="Time filter">
       <button class="pill" data-filter="allTime" type="button">All Time</button>
-      <button class="pill" data-filter="pastYear" type="button">
-        Past Year
-      </button>
-      <button class="pill active" data-filter="last3months" type="button">
-        Last 3 Months
-      </button>
-      <button class="pill" data-filter="thisWeek" type="button">
-        This Week
-      </button>
+      <button class="pill" data-filter="pastYear" type="button">Past Year</button>
+      <button class="pill active" data-filter="last3months" type="button">Last 3 Months</button>
+      <button class="pill" data-filter="thisWeek" type="button">This Week</button>
       <button class="pill" data-filter="custom" type="button">Custom</button>
     </nav>
     <div class="custom-date-range hidden" id="custom-date-range">
@@ -168,19 +147,9 @@
         aria-labelledby="tab-overview-label"
       >
         <!-- Loading / error / empty states -->
-        <div class="state-message" id="overview-loading" aria-live="polite">
-          Loading…
-        </div>
-        <div
-          class="state-message hidden"
-          id="overview-error"
-          role="alert"
-        ></div>
-        <div
-          class="state-message hidden"
-          id="overview-empty"
-          aria-live="polite"
-        >
+        <div class="state-message" id="overview-loading" aria-live="polite">Loading…</div>
+        <div class="state-message hidden" id="overview-error" role="alert"></div>
+        <div class="state-message hidden" id="overview-empty" aria-live="polite">
           No commits found in the selected time range.
         </div>
 
@@ -258,19 +227,9 @@
         role="tabpanel"
         aria-labelledby="tab-contributors-label"
       >
-        <div class="state-message" id="contributors-loading" aria-live="polite">
-          Loading…
-        </div>
-        <div
-          class="state-message hidden"
-          id="contributors-error"
-          role="alert"
-        ></div>
-        <div
-          class="state-message hidden"
-          id="contributors-empty"
-          aria-live="polite"
-        >
+        <div class="state-message" id="contributors-loading" aria-live="polite">Loading…</div>
+        <div class="state-message hidden" id="contributors-error" role="alert"></div>
+        <div class="state-message hidden" id="contributors-empty" aria-live="polite">
           No contributors found in this time range.
         </div>
 
@@ -307,19 +266,9 @@
         role="tabpanel"
         aria-labelledby="tab-activity-label"
       >
-        <div class="state-message" id="activity-loading" aria-live="polite">
-          Loading…
-        </div>
-        <div
-          class="state-message hidden"
-          id="activity-error"
-          role="alert"
-        ></div>
-        <div
-          class="state-message hidden"
-          id="activity-empty"
-          aria-live="polite"
-        >
+        <div class="state-message" id="activity-loading" aria-live="polite">Loading…</div>
+        <div class="state-message hidden" id="activity-error" role="alert"></div>
+        <div class="state-message hidden" id="activity-empty" aria-live="polite">
           No activity data in this time range.
         </div>
 

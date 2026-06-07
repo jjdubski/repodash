@@ -57,7 +57,13 @@ function processCommits(commits) {
 
     let dayEntry = contributionsMap.get(dateKey);
     if (!dayEntry) {
-      dayEntry = { date: dateKey, count: 0, authors: new Map(), byHour: new Array(24).fill(0), files: new Map() };
+      dayEntry = {
+        date: dateKey,
+        count: 0,
+        authors: new Map(),
+        byHour: new Array(24).fill(0),
+        files: new Map(),
+      };
       contributionsMap.set(dateKey, dayEntry);
     }
     dayEntry.count++;
@@ -148,7 +154,11 @@ function mergeNoreplyContributors(contributorsMap, contributionsMap) {
       }
     }
 
-    if (!matchedTarget && ghUsernameToEmail.has(lowerLocalPart) && ghUsernameToEmail.get(lowerLocalPart) !== email) {
+    if (
+      !matchedTarget &&
+      ghUsernameToEmail.has(lowerLocalPart) &&
+      ghUsernameToEmail.get(lowerLocalPart) !== email
+    ) {
       matchedTarget = ghUsernameToEmail.get(lowerLocalPart);
     }
 
@@ -231,7 +241,13 @@ function formatResults(processed, commitCount, branchCount) {
         .map(([path, changes]) => ({ path, changes }))
         .sort((a, b) => b.changes - a.changes || a.path.localeCompare(b.path)),
       authorDetails: Array.from(day.authors.entries())
-        .map(([email, { name, count, additions, deletions }]) => ({ author: name, email, count, additions, deletions }))
+        .map(([email, { name, count, additions, deletions }]) => ({
+          author: name,
+          email,
+          count,
+          additions,
+          deletions,
+        }))
         .sort((a, b) => b.count - a.count || a.author.localeCompare(b.author)),
     }))
     .sort((a, b) => a.date.localeCompare(b.date));

@@ -9,7 +9,20 @@
   },
   "scripts": {
     "start": "node bin/insights.js",
-    "test": "node -e \"import { run } from 'node:test'; import { spec } from 'node:test/reporters'; run({ files: ['tests/imports.test.js', 'tests/aggregate.test.js', 'tests/server.test.js', 'tests/git.test.js', 'tests/dashboard.test.js', 'tests/index.test.js'] }).compose(spec).pipe(process.stdout);\""
+    "test": "node -e \"import { run } from 'node:test'; import { spec } from 'node:test/reporters'; run({ files: ['tests/imports.test.js', 'tests/aggregate.test.js', 'tests/server.test.js', 'tests/git.test.js', 'tests/dashboard.test.js', 'tests/index.test.js'] }).compose(spec).pipe(process.stdout);\"",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.js": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "*.{css,json,md}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "chalk": "^5.4.1",
@@ -30,5 +43,16 @@
     "cli"
   ],
   "author": "",
-  "devDependencies": {}
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.4.1",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.6.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.0.7",
+    "markdownlint-cli": "^0.48.0",
+    "prettier": "^3.8.3",
+    "stylelint": "^17.13.0",
+    "stylelint-config-standard": "^40.0.0"
+  }
 }

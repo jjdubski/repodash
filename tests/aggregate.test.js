@@ -107,10 +107,7 @@ describe('aggregate (pure function)', () => {
       assert.strictEqual(result.contributions[0].date, '2025-01-15');
       assert.strictEqual(result.contributions[0].count, 1);
       assert.strictEqual(result.contributions[0].authorDetails.length, 1);
-      assert.strictEqual(
-        result.contributions[0].authorDetails[0].author,
-        'Test User',
-      );
+      assert.strictEqual(result.contributions[0].authorDetails[0].author, 'Test User');
       assert.strictEqual(result.contributions[0].authorDetails[0].count, 1);
       assert.strictEqual(result.contributions[0].authorDetails[0].additions, 10);
       assert.strictEqual(result.contributions[0].authorDetails[0].deletions, 5);
@@ -139,15 +136,7 @@ describe('aggregate (pure function)', () => {
       // 2025-01-15 is a Wednesday  (jsDay=3 → mapDayOfWeek(3)=(3+6)%7=2 → 'Wed')
       assert.strictEqual(result.activity.byDayOfWeek.length, 7);
       const dayNames = result.activity.byDayOfWeek.map((d) => d.day);
-      assert.deepStrictEqual(dayNames, [
-        'Mon',
-        'Tue',
-        'Wed',
-        'Thu',
-        'Fri',
-        'Sat',
-        'Sun',
-      ]);
+      assert.deepStrictEqual(dayNames, ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
       // Wednesday should have count 1, all others 0
       for (let i = 0; i < 7; i++) {
         const expected = i === 2 ? 1 : 0;
@@ -164,11 +153,7 @@ describe('aggregate (pure function)', () => {
       assert.strictEqual(result.activity.byHour.length, 24);
       for (let i = 0; i < 24; i++) {
         const expected = i === 10 ? 1 : 0;
-        assert.strictEqual(
-          result.activity.byHour[i].count,
-          expected,
-          `hour[${i}] count mismatch`,
-        );
+        assert.strictEqual(result.activity.byHour[i].count, expected, `hour[${i}] count mismatch`);
         assert.strictEqual(result.activity.byHour[i].hour, i);
       }
     });
@@ -185,14 +170,8 @@ describe('aggregate (pure function)', () => {
     });
 
     it('should include email field in authorDetails', () => {
-      assert.strictEqual(
-        result.contributions[0].authorDetails[0].email,
-        'test@test.com',
-      );
-      assert.strictEqual(
-        result.contributions[0].authorDetails[0].author,
-        'Test User',
-      );
+      assert.strictEqual(result.contributions[0].authorDetails[0].email, 'test@test.com');
+      assert.strictEqual(result.contributions[0].authorDetails[0].author, 'Test User');
     });
 
     it('should include per-day byHour in contributions', () => {
@@ -587,7 +566,11 @@ describe('aggregate (pure function)', () => {
       assert.strictEqual(result.contributors.length, 2);
       assert.strictEqual(result.contributors[0].totalCommits, 1);
       assert.strictEqual(result.contributors[1].totalCommits, 1);
-      const emails = result.contributors.map(function (c) { return c.email; }).sort();
+      const emails = result.contributors
+        .map(function (c) {
+          return c.email;
+        })
+        .sort();
       assert.deepStrictEqual(emails, ['new@test.com', 'old@test.com']);
     });
 
@@ -897,46 +880,28 @@ describe('aggregate (pure function)', () => {
       const result = aggregate(commits, 1);
 
       // Total additions should match sum of contributions' additions
-      const freqAdditions = result.frequency.reduce(
-        (sum, d) => sum + d.additions,
-        0,
-      );
+      const freqAdditions = result.frequency.reduce((sum, d) => sum + d.additions, 0);
       assert.strictEqual(result.summary.totalAdditions, freqAdditions);
 
       // Total deletions should match sum of frequency deletions
-      const freqDeletions = result.frequency.reduce(
-        (sum, d) => sum + d.deletions,
-        0,
-      );
+      const freqDeletions = result.frequency.reduce((sum, d) => sum + d.deletions, 0);
       assert.strictEqual(result.summary.totalDeletions, freqDeletions);
 
       // Total commits should equal sum of all contribution counts
-      const contribCommits = result.contributions.reduce(
-        (sum, d) => sum + d.count,
-        0,
-      );
+      const contribCommits = result.contributions.reduce((sum, d) => sum + d.count, 0);
       assert.strictEqual(result.summary.totalCommits, contribCommits);
 
       // Contributors' total additions should match summary total additions
-      const contribAdditions = result.contributors.reduce(
-        (s, c) => s + c.additions,
-        0,
-      );
+      const contribAdditions = result.contributors.reduce((s, c) => s + c.additions, 0);
       assert.strictEqual(result.summary.totalAdditions, contribAdditions);
 
       // Contributors' total commits should match summary total commits
-      const contribTotalCommits = result.contributors.reduce(
-        (s, c) => s + c.totalCommits,
-        0,
-      );
+      const contribTotalCommits = result.contributors.reduce((s, c) => s + c.totalCommits, 0);
       assert.strictEqual(result.summary.totalCommits, contribTotalCommits);
     });
 
     it('should not mutate the input array', () => {
-      const commits = [
-        makeCommit({ hash: 'mut1' }),
-        makeCommit({ hash: 'mut2' }),
-      ];
+      const commits = [makeCommit({ hash: 'mut1' }), makeCommit({ hash: 'mut2' })];
       const frozen = structuredClone(commits);
       aggregate(commits, 1);
       assert.deepStrictEqual(commits, frozen);

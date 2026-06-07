@@ -16,7 +16,7 @@ function validateRepoPath(repoPath) {
       throw new Error(`Not a git repository: ${repoPath}`);
     }
   } catch (e) {
-    if (e.code === 'ENOENT') throw new Error(`Not a git repository: ${repoPath}`);
+    if (e.code === 'ENOENT') throw new Error(`Not a git repository: ${repoPath}`, { cause: e });
     throw e;
   }
 }
@@ -86,13 +86,8 @@ export function getAllCommits(repoPath) {
   return new Promise((resolve, reject) => {
     const child = spawn(
       'git',
-      [
-        'log',
-        '--all',
-        `--pretty=format:${COMMIT_DELIMITER}%n%H|%an|%ae|%ai|%s`,
-        '--numstat',
-      ],
-      { cwd: repoPath }
+      ['log', '--all', `--pretty=format:${COMMIT_DELIMITER}%n%H|%an|%ae|%ai|%s`, '--numstat'],
+      { cwd: repoPath },
     );
 
     const commits = [];
@@ -124,9 +119,7 @@ export function getAllCommits(repoPath) {
 
     child.on('close', (code) => {
       if (code !== 0) {
-        reject(
-          new Error(stderr.trim() || `git command failed with exit code ${code}`)
-        );
+        reject(new Error(stderr.trim() || `git command failed with exit code ${code}`));
         return;
       }
 
@@ -171,9 +164,7 @@ export function getLocalBranchCount(repoPath) {
 
     child.on('close', (code) => {
       if (code !== 0) {
-        reject(
-          new Error(stderr.trim() || `git command failed with exit code ${code}`)
-        );
+        reject(new Error(stderr.trim() || `git command failed with exit code ${code}`));
         return;
       }
       const branches = stdout.trim().split('\n').filter(Boolean);

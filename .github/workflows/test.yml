@@ -1,0 +1,92 @@
+name: Run tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        required: true
+  pull_request:
+    branches: [main]
+    types: [opened, ready_for_review]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.inputs.pr_number || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: |
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'opened' &&
+       github.event.pull_request.draft == false) ||
+      (github.event_name == 'pull_request' &&
+       github.event.action == 'ready_for_review') ||
+      github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      checks: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/head', github.event.inputs.pr_number) || '' }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - name: Resolve PR number
+        id: pr-number
+        if: github.event_name == 'workflow_dispatch'
+        run: echo "number=${{ github.event.inputs.pr_number || github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+      - name: Create pending check run
+        id: create-check
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const prNumber = ${{ steps.pr-number.outputs.number }};
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+            const { data: check } = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: 'Run tests',
+              head_sha: pr.head.sha,
+              status: 'in_progress'
+            });
+            core.setOutput('check-run-id', check.id);
+      - run: npm ci
+      - run: npm test
+      - name: Complete check run
+        if: always() && github.event_name == 'workflow_dispatch'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const checkRunId = ${{ steps.create-check.outputs.check-run-id }};
+            if (!checkRunId) {
+              console.log('No pending check run found — creation may have failed.');
+              return;
+            }
+            const status = '${{ job.status }}';
+            const conclusion = status === 'success' ? 'success' : status === 'cancelled' ? 'cancelled' : 'failure';
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: checkRunId,
+              status: 'completed',
+              conclusion: conclusion,
+              output: {
+                title: 'npm test',
+                summary: `Tests completed with status: ${status}`
+              }
+            });

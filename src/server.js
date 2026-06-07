@@ -132,7 +132,7 @@ function createTempDir() {
   try {
     tmpDir = mkdtempSync(join(tmpdir(), 'insights-'));
   } catch (err) {
-    throw new Error(`Failed to create temp directory: ${err.message}`);
+    throw new Error(`Failed to create temp directory: ${err.message}`, { cause: err });
   }
   let dataDir;
   try {
@@ -140,7 +140,7 @@ function createTempDir() {
     mkdirSync(dataDir);
   } catch (err) {
     rmSync(tmpDir, { recursive: true, force: true });
-    throw new Error(`Failed to create data directory: ${err.message}`);
+    throw new Error(`Failed to create data directory: ${err.message}`, { cause: err });
   }
   return { tmpDir, dataDir };
 }
@@ -148,12 +148,18 @@ function createTempDir() {
 function writeDataFiles(dataDir, data) {
   try {
     writeFileSync(join(dataDir, 'summary.json'), JSON.stringify(data.summary ?? {}, null, 2));
-    writeFileSync(join(dataDir, 'contributions.json'), JSON.stringify(data.contributions ?? {}, null, 2));
-    writeFileSync(join(dataDir, 'contributors.json'), JSON.stringify(data.contributors ?? {}, null, 2));
+    writeFileSync(
+      join(dataDir, 'contributions.json'),
+      JSON.stringify(data.contributions ?? {}, null, 2),
+    );
+    writeFileSync(
+      join(dataDir, 'contributors.json'),
+      JSON.stringify(data.contributors ?? {}, null, 2),
+    );
     writeFileSync(join(dataDir, 'frequency.json'), JSON.stringify(data.frequency ?? {}, null, 2));
     writeFileSync(join(dataDir, 'activity.json'), JSON.stringify(data.activity ?? {}, null, 2));
   } catch (err) {
-    throw new Error(`Failed to write data files: ${err.message}`);
+    throw new Error(`Failed to write data files: ${err.message}`, { cause: err });
   }
 }
 
@@ -212,7 +218,7 @@ export async function serveDashboard(data, dashboardDir, port = 0) {
     actualPort = await resolvePort(port);
   } catch (err) {
     rmSync(tmpDir, { recursive: true, force: true });
-    throw new Error(`Port error: ${err.message}`);
+    throw new Error(`Port error: ${err.message}`, { cause: err });
   }
 
   // -----------------------------------------------------------------------

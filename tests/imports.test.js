@@ -52,9 +52,7 @@ describe('module imports', () => {
       // Assert
       assert.ok(mod);
     } catch (err) {
-      assert.fail(
-        `bin/insights.js failed to import as ES module: ${err.message}`,
-      );
+      assert.fail(`bin/insights.js failed to import as ES module: ${err.message}`);
     } finally {
       // Cleanup
       process.exit = originalExit;

@@ -1,12 +1,6 @@
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
-import {
-  mkdtempSync,
-  writeFileSync,
-  rmSync,
-  readFileSync,
-  existsSync,
-} from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { serveDashboard } from '../src/server.js';
@@ -119,9 +113,7 @@ describe('serveDashboard', () => {
     }
 
     // Deep-compare summary.json against the input data as a correctness check
-    const summary = JSON.parse(
-      readFileSync(join(dataDir, 'summary.json'), 'utf-8'),
-    );
+    const summary = JSON.parse(readFileSync(join(dataDir, 'summary.json'), 'utf-8'));
     assert.deepStrictEqual(summary, testData.summary);
   });
 
@@ -152,40 +144,27 @@ describe('serveDashboard', () => {
       const res = await fetch(`http://localhost:${handle.port}/dashboard.js`);
 
       assert.strictEqual(res.status, 200);
-      assert.strictEqual(
-        res.headers.get('content-type'),
-        'application/javascript',
-      );
+      assert.strictEqual(res.headers.get('content-type'), 'application/javascript');
 
       const body = await res.text();
       assert.ok(body.includes('console.log'));
     });
 
     it('should serve /data/summary.json with status 200 and application/json', async () => {
-      const res = await fetch(
-        `http://localhost:${handle.port}/data/summary.json`,
-      );
+      const res = await fetch(`http://localhost:${handle.port}/data/summary.json`);
 
       assert.strictEqual(res.status, 200);
-      assert.strictEqual(
-        res.headers.get('content-type'),
-        'application/json',
-      );
+      assert.strictEqual(res.headers.get('content-type'), 'application/json');
 
       const body = await res.json();
       assert.deepStrictEqual(body, testData.summary);
     });
 
     it('should serve /data/contributions.json with correct data', async () => {
-      const res = await fetch(
-        `http://localhost:${handle.port}/data/contributions.json`,
-      );
+      const res = await fetch(`http://localhost:${handle.port}/data/contributions.json`);
 
       assert.strictEqual(res.status, 200);
-      assert.strictEqual(
-        res.headers.get('content-type'),
-        'application/json',
-      );
+      assert.strictEqual(res.headers.get('content-type'), 'application/json');
 
       const body = await res.json();
       assert.deepStrictEqual(body, testData.contributions);
@@ -202,9 +181,7 @@ describe('serveDashboard', () => {
     });
 
     it('should return 404 for nonexistent files', async () => {
-      const res = await fetch(
-        `http://localhost:${handle.port}/nonexistent.html`,
-      );
+      const res = await fetch(`http://localhost:${handle.port}/nonexistent.html`);
 
       assert.strictEqual(res.status, 404);
       assert.strictEqual(res.headers.get('content-type'), 'text/plain');

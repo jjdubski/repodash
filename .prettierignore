@@ -1,0 +1,5 @@
+node_modules
+.fallow/
+.superpowers/
+templates/
+.husky/_/

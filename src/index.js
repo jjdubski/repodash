@@ -22,12 +22,12 @@ export async function main(repoPath) {
   const result = aggregate(commits, branchCount);
 
   // Derive a human-readable repo name from the path
-  result.summary.repoName = repoPath.replace(/[/\\]$/, "").split(/[/\\]/).pop().replace(/\.git$/, "");
+  result.summary.repoName = repoPath
+    .replace(/[/\\]$/, '')
+    .split(/[/\\]/)
+    .pop()
+    .replace(/\.git$/, '');
 
-  const dashboardDir = join(
-    dirname(fileURLToPath(import.meta.url)),
-    '..',
-    'dashboard'
-  );
+  const dashboardDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
   await serveDashboard(result, dashboardDir);
 }
