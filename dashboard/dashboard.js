@@ -23,8 +23,8 @@ const state = {
 
 export function formatNumber(n) {
   if (n == null || isNaN(n)) return '\u2014'; // em dash
-  var abs = Math.abs(n);
-  var sign = n < 0 ? '-' : '';
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
   if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M';
   if (abs >= 1000) return sign + (abs / 1000).toFixed(1) + 'K';
   return String(n);
@@ -51,14 +51,14 @@ export function clampDate(dateStr, minStr, maxStr) {
 }
 
 function getTodayLocal() {
-  var d = new Date();
-  var year = d.getFullYear();
-  var month = String(d.getMonth() + 1).padStart(2, '0');
-  var day = String(d.getDate()).padStart(2, '0');
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
   return year + '-' + month + '-' + day;
 }
 
-var _escapeDiv = null;
+let _escapeDiv = null;
 
 function escapeHtml(str) {
   if (!_escapeDiv) _escapeDiv = document.createElement('div');
@@ -67,12 +67,12 @@ function escapeHtml(str) {
 }
 
 function getDateRangeLabel(d) {
-  var startLabel, endLabel;
+  let startLabel, endLabel;
   if (state.timeFilter === 'allTime' && d && d.summary) {
     startLabel = formatDate(d.summary.firstCommit);
     endLabel = formatDate(d.summary.lastCommit);
   } else {
-    var bounds = getCutoffDate(state.timeFilter);
+    const bounds = getCutoffDate(state.timeFilter);
     if (!bounds) {
       startLabel = d && d.summary ? formatDate(d.summary.firstCommit) : 'Beginning';
       endLabel = d && d.summary ? formatDate(d.summary.lastCommit) : 'Present';
@@ -94,8 +94,8 @@ export function getCutoffDate(filter) {
       end: state.customEndDate || null,
     };
   }
-  var now = new Date();
-  var d = new Date(now);
+  const now = new Date();
+  const d = new Date(now);
   switch (filter) {
     case 'thisWeek':
       d.setDate(now.getDate() - 7);
@@ -123,23 +123,23 @@ export function filterByDate(arr, bounds, field) {
 }
 
 function computeFilteredSummary(contributions, frequency) {
-  var totalCommits = contributions.reduce(function (sum, d) {
+  const totalCommits = contributions.reduce(function (sum, d) {
     return sum + d.count;
   }, 0);
-  var totalAdditions = frequency.reduce(function (sum, d) {
+  const totalAdditions = frequency.reduce(function (sum, d) {
     return sum + d.additions;
   }, 0);
-  var totalDeletions = frequency.reduce(function (sum, d) {
+  const totalDeletions = frequency.reduce(function (sum, d) {
     return sum + d.deletions;
   }, 0);
 
-  var authorSet = {};
+  const authorSet = {};
   contributions.forEach(function (day) {
     (day.authorDetails || []).forEach(function (a) {
       authorSet[a.email || a.author] = true;
     });
   });
-  var totalContributors = Object.keys(authorSet).length;
+  const totalContributors = Object.keys(authorSet).length;
 
   return {
     totalCommits: totalCommits,
@@ -153,10 +153,10 @@ function computeFilteredSummary(contributions, frequency) {
 }
 
 export function computeFilteredContributors(contributions, allContributors) {
-  var authorStats = {};
+  const authorStats = {};
   contributions.forEach(function (day) {
     (day.authorDetails || []).forEach(function (a) {
-      var key = a.email || a.author;
+      const key = a.email || a.author;
       if (!authorStats[key]) {
         authorStats[key] = {
           totalCommits: 0,
@@ -175,7 +175,7 @@ export function computeFilteredContributors(contributions, allContributors) {
       return Object.hasOwn(authorStats, c.email);
     })
     .map(function (c) {
-      var stats = authorStats[c.email] || {
+      const stats = authorStats[c.email] || {
         totalCommits: 0,
         additions: 0,
         deletions: 0,
@@ -196,40 +196,40 @@ export function computeFilteredContributors(contributions, allContributors) {
 }
 
 export function computeFilteredActivity(contributions) {
-  var dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  var dayCounts = [0, 0, 0, 0, 0, 0, 0];
-  var hourCounts = new Array(24).fill(0);
-  var fileMap = {};
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const dayCounts = [0, 0, 0, 0, 0, 0, 0];
+  const hourCounts = new Array(24).fill(0);
+  const fileMap = {};
 
-  for (var i = 0; i < contributions.length; i++) {
-    var c = contributions[i];
-    var jsDay = new Date(c.date + 'T00:00:00Z').getUTCDay();
-    var idx = (jsDay + 6) % 7;
+  for (let i = 0; i < contributions.length; i++) {
+    const c = contributions[i];
+    const jsDay = new Date(c.date + 'T00:00:00Z').getUTCDay();
+    const idx = (jsDay + 6) % 7;
     dayCounts[idx] += c.count;
 
     if (c.byHour) {
-      for (var h = 0; h < c.byHour.length; h++) {
+      for (let h = 0; h < c.byHour.length; h++) {
         hourCounts[h] += c.byHour[h].count;
       }
     }
 
     if (c.topFiles) {
-      for (var j = 0; j < c.topFiles.length; j++) {
-        var f = c.topFiles[j];
+      for (let j = 0; j < c.topFiles.length; j++) {
+        const f = c.topFiles[j];
         fileMap[f.path] = (fileMap[f.path] || 0) + f.changes;
       }
     }
   }
 
-  var byDayOfWeek = dayNames.map(function (day, i) {
+  const byDayOfWeek = dayNames.map(function (day, i) {
     return { day: day, count: dayCounts[i] };
   });
 
-  var byHour = Array.from(hourCounts, function (count, hour) {
+  const byHour = Array.from(hourCounts, function (count, hour) {
     return { hour: hour, count: count };
   });
 
-  var topFiles = Object.keys(fileMap)
+  const topFiles = Object.keys(fileMap)
     .map(function (path) {
       return { path: path, changes: fileMap[path] };
     })
@@ -255,13 +255,13 @@ export function computeFilteredActivity(contributions) {
  * are deep-merged so theme ticks/grid colours flow through correctly.
  */
 function buildOptions(override) {
-  var D = window.CHART_DEFAULTS;
-  var theme = window.getScaleDefaults();
-  var text = window.getTextColor();
+  const D = window.CHART_DEFAULTS;
+  const theme = window.getScaleDefaults();
+  const text = window.getTextColor();
 
   // Start with a shallow copy of DEFAULTS
-  var opts = {};
-  var key;
+  const opts = {};
+  let key;
   for (key in D) {
     if (Object.hasOwn(D, key)) opts[key] = D[key];
   }
@@ -274,7 +274,7 @@ function buildOptions(override) {
   }
 
   // Deep-merge scales: DEFAULTS.scales → theme → override.scales
-  var srcScales = (override && override.scales) || {};
+  const srcScales = (override && override.scales) || {};
   opts.scales = opts.scales || {};
   opts.scales.x = Object.assign({}, D.scales.x, theme.x, srcScales.x || {});
   opts.scales.y = Object.assign({}, D.scales.y, theme.y, srcScales.y || {});
@@ -309,9 +309,9 @@ function destroyChart(id) {
 
 function createChart(id, type, data, optionsOverride) {
   destroyChart(id);
-  var canvas = document.getElementById(id);
+  const canvas = document.getElementById(id);
   if (!canvas) return null;
-  var ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d');
   state.charts[id] = new window.Chart(ctx, {
     type: type,
     data: data,
@@ -321,13 +321,13 @@ function createChart(id, type, data, optionsOverride) {
 }
 
 function updateAllChartColors() {
-  var theme = window.getScaleDefaults();
-  var text = window.getTextColor();
+  const theme = window.getScaleDefaults();
+  const text = window.getTextColor();
   Object.keys(state.charts).forEach(function (id) {
-    var chart = state.charts[id];
+    const chart = state.charts[id];
     if (!chart) return;
 
-    var scales = chart.scales || {};
+    const scales = chart.scales || {};
     if (scales.x) {
       scales.x.options.ticks.color = theme.x.ticks.color;
     }
@@ -336,7 +336,7 @@ function updateAllChartColors() {
       scales.y.options.grid.color = theme.y.grid.color;
     }
 
-    var legend = chart.legend;
+    const legend = chart.legend;
     if (legend && legend.options && legend.options.labels) {
       legend.options.labels.color = text;
     }
@@ -349,14 +349,14 @@ function updateAllChartColors() {
 //  DATA LOADING & STATE MESSAGES
 // ═════════════════════════════════════════════════════════════════════
 
-var TABS = ['overview', 'contributors', 'activity'];
+const TABS = ['overview', 'contributors', 'activity'];
 
 function showElem(id) {
-  var e = document.getElementById(id);
+  const e = document.getElementById(id);
   if (e) e.classList.remove('hidden');
 }
 function hideElem(id) {
-  var e = document.getElementById(id);
+  const e = document.getElementById(id);
   if (e) e.classList.add('hidden');
 }
 
@@ -364,7 +364,7 @@ function showLoading(tab) {
   showElem(tab + '-loading');
 }
 function showError(tab, msg) {
-  var el = document.getElementById(tab + '-error');
+  const el = document.getElementById(tab + '-error');
   if (el) {
     el.textContent = msg;
     showElem(tab + '-error');
@@ -381,7 +381,7 @@ function clearStates(tab) {
 }
 
 function loadData() {
-  var fetches = [
+  const fetches = [
     fetch('/data/summary.json').then(function (r) {
       return r.json();
     }),
@@ -427,7 +427,7 @@ function loadData() {
 // ═════════════════════════════════════════════════════════════════════
 
 function detectTheme() {
-  var saved = localStorage.getItem('insights-theme');
+  const saved = localStorage.getItem('insights-theme');
   if (saved === 'dark' || saved === 'light') return saved;
   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
     return 'dark';
@@ -440,7 +440,7 @@ function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   localStorage.setItem('insights-theme', theme);
 
-  var meta = document.querySelector('meta[name="theme-color"]');
+  const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
     meta.setAttribute(
       'content',
@@ -460,7 +460,7 @@ function toggleTheme() {
 
 function syncTabUI(tabName) {
   document.querySelectorAll('.tab').forEach(function (btn) {
-    var match = btn.getAttribute('data-tab') === tabName;
+    const match = btn.getAttribute('data-tab') === tabName;
     btn.classList.toggle('active', match);
     btn.setAttribute('aria-selected', String(match));
   });
@@ -485,7 +485,7 @@ function setTimeFilter(filter) {
   state.timeFilter = filter;
 
   try {
-    var url = new URL(window.location.href);
+    const url = new URL(window.location.href);
     url.searchParams.set('filter', filter);
     if (filter === 'custom') {
       if (state.customStartDate) url.searchParams.set('start', state.customStartDate);
@@ -502,7 +502,7 @@ function setTimeFilter(filter) {
     btn.classList.toggle('active', btn.getAttribute('data-filter') === filter);
   });
 
-  var customRange = document.getElementById('custom-date-range');
+  const customRange = document.getElementById('custom-date-range');
   if (customRange) {
     customRange.classList.toggle('hidden', filter !== 'custom');
   }
@@ -512,13 +512,13 @@ function setTimeFilter(filter) {
 
 function getFilteredData() {
   if (!state.data) return null;
-  var bounds = getCutoffDate(state.timeFilter);
+  const bounds = getCutoffDate(state.timeFilter);
 
-  var filteredContributions = filterByDate(state.data.contributions, bounds);
-  var filteredFrequency = filterByDate(state.data.frequency, bounds);
+  const filteredContributions = filterByDate(state.data.contributions, bounds);
+  const filteredFrequency = filterByDate(state.data.frequency, bounds);
 
-  var filteredSummary = computeFilteredSummary(filteredContributions, filteredFrequency);
-  var filteredContributors = computeFilteredContributors(
+  const filteredSummary = computeFilteredSummary(filteredContributions, filteredFrequency);
+  const filteredContributors = computeFilteredContributors(
     filteredContributions,
     state.data.contributors,
   );
@@ -534,7 +534,7 @@ function getFilteredData() {
 
 function renderCurrentTab() {
   if (!state.data) return;
-  var d = getFilteredData();
+  const d = getFilteredData();
   switch (state.activeTab) {
     case 'overview':
       renderOverview(d);
@@ -591,21 +591,21 @@ function renderContributionChart(contributions, frequency, mode, contributors) {
 }
 
 function renderContributionAuthor(contributions, contributors) {
-  var TOP = 10;
-  var seen = {};
-  var authorKeys = [];
+  const TOP = 10;
+  const seen = {};
+  const authorKeys = [];
   (contributors || []).forEach(function (c) {
-    var key = c.name || c.email;
+    const key = c.name || c.email;
     if (!seen[key]) {
       seen[key] = true;
       authorKeys.push({ key: key, label: key });
     }
   });
-  var topAuthors = authorKeys.slice(0, TOP);
-  var hasOthers = authorKeys.length > TOP;
+  const topAuthors = authorKeys.slice(0, TOP);
+  const hasOthers = authorKeys.length > TOP;
 
   // Build a lookup from key -> { date -> count }
-  var authorDayIndex = {};
+  const authorDayIndex = {};
   topAuthors.forEach(function (a) {
     authorDayIndex[a.key] = {};
   });
@@ -618,9 +618,9 @@ function renderContributionAuthor(contributions, contributors) {
     });
   });
 
-  var datasets = [];
+  const datasets = [];
   topAuthors.forEach(function (a, i) {
-    var lookup = authorDayIndex[a.key] || {};
+    const lookup = authorDayIndex[a.key] || {};
     datasets.push({
       label: a.label,
       data: contributions.map(function (day) {
@@ -633,14 +633,14 @@ function renderContributionAuthor(contributions, contributors) {
   });
 
   if (hasOthers) {
-    var topSet = {};
+    const topSet = {};
     topAuthors.forEach(function (x) {
       topSet[x.key] = true;
     });
     datasets.push({
       label: 'Others',
       data: contributions.map(function (day) {
-        var sum = 0;
+        let sum = 0;
         (day.authorDetails || []).forEach(function (a) {
           if (!topSet[a.author]) sum += a.count;
         });
@@ -782,9 +782,9 @@ function renderContributionLines(frequency) {
 function renderTopContributorsChart(contributors, mode) {
   if (!contributors || !contributors.length) return;
   mode = mode || 'commits';
-  var top = contributors.slice(0, 10);
+  const top = contributors.slice(0, 10);
 
-  var label, data;
+  let label, data;
   if (mode === 'additions') {
     label = 'Additions';
     data = top.map(function (c) {
@@ -902,10 +902,10 @@ function renderContributors(d) {
   }
 
   // -- Table --
-  var tbody = document.querySelector('#contributors-table tbody');
+  const tbody = document.querySelector('#contributors-table tbody');
   tbody.innerHTML = '';
   d.contributors.forEach(function (c) {
-    var tr = document.createElement('tr');
+    const tr = document.createElement('tr');
     tr.innerHTML =
       '<td>' +
       escapeHtml(c.name || c.email) +
@@ -929,13 +929,13 @@ function renderContributors(d) {
   });
 
   // -- Distribution bar chart (top N that fit, reversed so top is first) --
-  var barHeight = 14;
-  var maxChartHeight = 560;
-  var maxBars = Math.floor(maxChartHeight / barHeight);
-  var list = d.contributors.slice(0, maxBars).reverse();
-  var chartHeight = Math.max(320, list.length * barHeight);
+  const barHeight = 14;
+  const maxChartHeight = 560;
+  const maxBars = Math.floor(maxChartHeight / barHeight);
+  const list = d.contributors.slice(0, maxBars).reverse();
+  const chartHeight = Math.max(320, list.length * barHeight);
 
-  var wrap = document.getElementById('chart-contributor-distribution').parentElement;
+  const wrap = document.getElementById('chart-contributor-distribution').parentElement;
   wrap.style.height = chartHeight + 'px';
 
   createChart(
@@ -980,23 +980,23 @@ function renderContributors(d) {
 
 function renderActivity(d) {
   clearStates('activity');
-  var a = d.activity;
+  const a = d.activity;
   if (!a) {
     showEmpty('activity');
     return;
   }
 
-  var hasWeek =
+  const hasWeek =
     a.byDayOfWeek &&
     a.byDayOfWeek.some(function (x) {
       return x.count > 0;
     });
-  var hasHour =
+  const hasHour =
     a.byHour &&
     a.byHour.some(function (x) {
       return x.count > 0;
     });
-  var hasFiles = a.topFiles && a.topFiles.length > 0;
+  const hasFiles = a.topFiles && a.topFiles.length > 0;
 
   if (!hasWeek && !hasHour && !hasFiles) {
     destroyChart('chart-dayofweek');
@@ -1061,12 +1061,12 @@ function renderActivity(d) {
   }
 
   // Top files table
-  var tbody = document.querySelector('#topfiles-table tbody');
+  const tbody = document.querySelector('#topfiles-table tbody');
   if (tbody) tbody.innerHTML = '';
   if (a.topFiles && a.topFiles.length) {
-    var fileCount = document.body.classList.contains('printing') ? 20 : 10;
+    const fileCount = document.body.classList.contains('printing') ? 20 : 10;
     a.topFiles.slice(0, fileCount).forEach(function (f) {
-      var tr = document.createElement('tr');
+      const tr = document.createElement('tr');
       tr.innerHTML =
         '<td><code class="file-path">' +
         escapeHtml(f.path) +
@@ -1086,20 +1086,20 @@ function renderActivity(d) {
 function setupEvents() {
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
-  var exportBtn = document.getElementById('export-pdf');
+  const exportBtn = document.getElementById('export-pdf');
   if (exportBtn) {
     exportBtn.addEventListener('click', function () {
-      var filtered = getFilteredData();
+      const filtered = getFilteredData();
       if (!filtered || !filtered.contributions || !filtered.contributions.length) return;
 
-      var titleEl = document.querySelector('.header-title');
-      var originalTitle = titleEl ? titleEl.textContent : 'Insights';
+      const titleEl = document.querySelector('.header-title');
+      const originalTitle = titleEl ? titleEl.textContent : 'Insights';
 
-      var dateLabel = getDateRangeLabel(filtered);
-      var repoName = (state.data.summary && state.data.summary.repoName) || '';
-      var printTitle = repoName ? repoName + ' Insights: ' + dateLabel : 'Insights: ' + dateLabel;
+      const dateLabel = getDateRangeLabel(filtered);
+      const repoName = (state.data.summary && state.data.summary.repoName) || '';
+      const printTitle = repoName ? repoName + ' Insights: ' + dateLabel : 'Insights: ' + dateLabel;
       if (titleEl) titleEl.textContent = printTitle;
-      var originalDocTitle = document.title;
+      const originalDocTitle = document.title;
       document.title = printTitle;
 
       // Force dark text for print so canvas text is visible on white paper
@@ -1125,7 +1125,7 @@ function setupEvents() {
       });
 
       // After print (or cancel), restore original state
-      var cleanup = function () {
+      const cleanup = function () {
         window.removeEventListener('afterprint', cleanup);
         document.body.classList.remove('printing');
         document.documentElement.style.removeProperty('--text');
@@ -1151,7 +1151,7 @@ function setupEvents() {
 
   // Sync tab from URL hash on browser back/forward
   window.addEventListener('hashchange', function () {
-    var tab = window.location.hash.replace('#', '');
+    const tab = window.location.hash.replace('#', '');
     if (tab && TABS.indexOf(tab) !== -1) {
       switchTab(tab);
     }
@@ -1169,12 +1169,12 @@ function setupEvents() {
     });
   });
 
-  var contributionSelect = document.getElementById('contribution-mode');
+  const contributionSelect = document.getElementById('contribution-mode');
   if (contributionSelect) {
     contributionSelect.addEventListener('change', function () {
       state.contributionMode = contributionSelect.value;
       if (state.activeTab === 'overview') {
-        var d = getFilteredData();
+        const d = getFilteredData();
         if (d && d.contributions) {
           renderContributionChart(
             d.contributions,
@@ -1187,12 +1187,12 @@ function setupEvents() {
     });
   }
 
-  var topContribSelect = document.getElementById('topcontributors-mode');
+  const topContribSelect = document.getElementById('topcontributors-mode');
   if (topContribSelect) {
     topContribSelect.addEventListener('change', function () {
       state.topContributorsMode = topContribSelect.value;
       if (state.activeTab === 'overview') {
-        var d = getFilteredData();
+        const d = getFilteredData();
         if (d && d.contributors) {
           renderTopContributorsChart(d.contributors, state.topContributorsMode);
         }
@@ -1200,13 +1200,13 @@ function setupEvents() {
     });
   }
 
-  var dateStart = document.getElementById('date-start');
-  var dateEnd = document.getElementById('date-end');
+  const dateStart = document.getElementById('date-start');
+  const dateEnd = document.getElementById('date-end');
   if (dateStart) {
     dateStart.addEventListener('change', function () {
-      var today = getTodayLocal();
-      var min = state.data && state.data.summary ? state.data.summary.firstCommit : null;
-      var date = clampDate(dateStart.value || null, min, today);
+      const today = getTodayLocal();
+      const min = state.data && state.data.summary ? state.data.summary.firstCommit : null;
+      const date = clampDate(dateStart.value || null, min, today);
       state.customStartDate = date;
       dateStart.value = date || '';
       if (date && state.customEndDate && state.customEndDate < date) {
@@ -1218,9 +1218,9 @@ function setupEvents() {
   }
   if (dateEnd) {
     dateEnd.addEventListener('change', function () {
-      var today = getTodayLocal();
-      var min = state.customStartDate || null;
-      var date = clampDate(dateEnd.value || null, min, today);
+      const today = getTodayLocal();
+      const min = state.customStartDate || null;
+      const date = clampDate(dateEnd.value || null, min, today);
       state.customEndDate = date;
       dateEnd.value = date || '';
       setTimeFilter('custom');
@@ -1228,19 +1228,19 @@ function setupEvents() {
   }
 
   // Arrow-key navigation within tabs
-  var tabsBar = document.querySelector('.tabs');
+  const tabsBar = document.querySelector('.tabs');
   if (tabsBar) {
     tabsBar.addEventListener('keydown', function (e) {
-      var tabs = Array.prototype.slice.call(tabsBar.querySelectorAll('.tab'));
-      var idx = tabs.indexOf(document.activeElement);
+      const tabs = Array.prototype.slice.call(tabsBar.querySelectorAll('.tab'));
+      const idx = tabs.indexOf(document.activeElement);
       if (idx === -1) return;
 
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
         e.preventDefault();
-        var next =
+        const next =
           e.key === 'ArrowRight' ? (idx + 1) % tabs.length : (idx - 1 + tabs.length) % tabs.length;
-        var nextTab = tabs[next];
-        var tabName = nextTab.getAttribute('data-tab');
+        const nextTab = tabs[next];
+        const tabName = nextTab.getAttribute('data-tab');
         if (tabName) switchTab(tabName);
         nextTab.focus();
       }
@@ -1254,18 +1254,18 @@ function setupEvents() {
 
 function init() {
   // Restore state from URL (if present)
-  var hashTab = window.location.hash.replace('#', '');
+  const hashTab = window.location.hash.replace('#', '');
   if (hashTab && TABS.indexOf(hashTab) !== -1) {
     state.activeTab = hashTab;
   }
   try {
-    var params = new URL(window.location.href).searchParams;
-    var filterParam = params.get('filter');
+    const params = new URL(window.location.href).searchParams;
+    const filterParam = params.get('filter');
     if (filterParam && getCutoffDate(filterParam) !== undefined) {
       state.timeFilter = filterParam;
     }
-    var startParam = params.get('start');
-    var endParam = params.get('end');
+    const startParam = params.get('start');
+    const endParam = params.get('end');
     if (startParam) state.customStartDate = startParam;
     if (endParam) state.customEndDate = endParam;
   } catch (_) {
@@ -1280,7 +1280,7 @@ function init() {
     btn.classList.toggle('active', btn.getAttribute('data-filter') === state.timeFilter);
   });
 
-  var customRange = document.getElementById('custom-date-range');
+  const customRange = document.getElementById('custom-date-range');
   if (customRange) {
     customRange.classList.toggle('hidden', state.timeFilter !== 'custom');
   }
@@ -1301,17 +1301,21 @@ function init() {
   loadData()
     .then(function () {
       // Clamp custom dates restored from URL params
-      var startEl = document.getElementById('date-start');
-      var endEl = document.getElementById('date-end');
-      var today = getTodayLocal();
+      const startEl = document.getElementById('date-start');
+      const endEl = document.getElementById('date-end');
+      const today = getTodayLocal();
       if (startEl && state.customStartDate) {
-        var clampedStart = clampDate(state.customStartDate, state.data.summary.firstCommit, today);
+        const clampedStart = clampDate(
+          state.customStartDate,
+          state.data.summary.firstCommit,
+          today,
+        );
         state.customStartDate = clampedStart;
         startEl.value = clampedStart;
       }
       if (endEl && state.customEndDate) {
-        var endClampStart = state.customStartDate || state.data.summary.firstCommit || null;
-        var clampedEnd = clampDate(state.customEndDate, endClampStart, today);
+        const endClampStart = state.customStartDate || state.data.summary.firstCommit || null;
+        const clampedEnd = clampDate(state.customEndDate, endClampStart, today);
         state.customEndDate = clampedEnd;
         endEl.value = clampedEnd;
       }

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": ["src/index.{js,jsx,mjs}", "src/main.{js,jsx,mjs}"],
+  "duplicates": {
+    "minOccurrences": 2,
+    "ignore": [
+      "**/docs/**",
+      "**/node_modules/**",
+      "**/__tests__/**",
+      "**/*.test.{js,jsx,mjs,cjs,ts,tsx}"
+    ],
+    "mode": "semantic"
+  },
+  "rules": {}
+}

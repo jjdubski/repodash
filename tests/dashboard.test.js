@@ -76,6 +76,14 @@ function extractFunction(name, src) {
   return src.slice(start, i);
 }
 
+function loadFn(name, sandbox) {
+  const ctx = vm.createContext(sandbox);
+  const src = read('dashboard.js');
+  const fnSrc = extractFunction(name, src);
+  if (!fnSrc) throw new Error(`${name} not found in dashboard.js`);
+  return vm.runInContext('(' + fnSrc + ')', ctx);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  1. FILE STRUCTURE TESTS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -214,11 +222,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           renderCalled.value = true;
         },
       };
-      const ctx = vm.createContext(sandbox);
-      const src = read('dashboard.js');
-      const fnSrc = extractFunction('setTimeFilter', src);
-      assert.ok(fnSrc, 'setTimeFilter not found in dashboard.js');
-      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+      const fn = loadFn('setTimeFilter', sandbox);
 
       fn('custom');
 
@@ -242,10 +246,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           renderCalled.value = true;
         },
       };
-      const ctx = vm.createContext(sandbox);
-      const src = read('dashboard.js');
-      const fnSrc = extractFunction('setTimeFilter', src);
-      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+      const fn = loadFn('setTimeFilter', sandbox);
 
       fn('last3months');
 
@@ -269,10 +270,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           renderCalled.value = true;
         },
       };
-      const ctx = vm.createContext(sandbox);
-      const src = read('dashboard.js');
-      const fnSrc = extractFunction('setTimeFilter', src);
-      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+      const fn = loadFn('setTimeFilter', sandbox);
 
       fn('custom');
 
@@ -296,10 +294,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           renderCalled.value = true;
         },
       };
-      const ctx = vm.createContext(sandbox);
-      const src = read('dashboard.js');
-      const fnSrc = extractFunction('setTimeFilter', src);
-      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+      const fn = loadFn('setTimeFilter', sandbox);
 
       fn('allTime');
 
@@ -335,11 +330,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
         computeFilteredContributors: () => [],
         computeFilteredActivity: () => markerActivity,
       };
-      const ctx = vm.createContext(sandbox);
-      const src = read('dashboard.js');
-      const fnSrc = extractFunction('getFilteredData', src);
-      assert.ok(fnSrc, 'getFilteredData not found in dashboard.js');
-      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+      const fn = loadFn('getFilteredData', sandbox);
 
       const result = fn();
 
@@ -372,10 +363,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           return { byDayOfWeek: [] };
         },
       };
-      const ctx = vm.createContext(sandbox);
-      const src = read('dashboard.js');
-      const fnSrc = extractFunction('getFilteredData', src);
-      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+      const fn = loadFn('getFilteredData', sandbox);
 
       fn();
 
@@ -391,10 +379,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
         state: { data: null, timeFilter: 'allTime' },
         getCutoffDate: () => null,
       };
-      const ctx = vm.createContext(sandbox);
-      const src = read('dashboard.js');
-      const fnSrc = extractFunction('getFilteredData', src);
-      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+      const fn = loadFn('getFilteredData', sandbox);
 
       const result = fn();
 

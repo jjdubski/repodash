@@ -1,8 +1,7 @@
 runner:
   eslint:
-    cmd: npx eslint -f unix src/ bin/ dashboard/ tests/
-    errorformat:
-      - '%f:%l:%c: %m'
+    cmd: npx eslint -f rdjson src/ bin/ dashboard/ tests/
+    format: rdjson
     name: ESLint
     level: warning
   actionlint:
