@@ -144,19 +144,13 @@ function createTempDir() {
   return { tmpDir, dataDir };
 }
 
+const DATA_FILE_KEYS = ['summary', 'contributions', 'contributors', 'frequency', 'activity'];
+
 function writeDataFiles(dataDir, data) {
   try {
-    writeFileSync(join(dataDir, 'summary.json'), JSON.stringify(data.summary ?? {}, null, 2));
-    writeFileSync(
-      join(dataDir, 'contributions.json'),
-      JSON.stringify(data.contributions ?? {}, null, 2),
-    );
-    writeFileSync(
-      join(dataDir, 'contributors.json'),
-      JSON.stringify(data.contributors ?? {}, null, 2),
-    );
-    writeFileSync(join(dataDir, 'frequency.json'), JSON.stringify(data.frequency ?? {}, null, 2));
-    writeFileSync(join(dataDir, 'activity.json'), JSON.stringify(data.activity ?? {}, null, 2));
+    for (const key of DATA_FILE_KEYS) {
+      writeFileSync(join(dataDir, `${key}.json`), JSON.stringify(data[key] ?? {}, null, 2));
+    }
   } catch (err) {
     throw new Error(`Failed to write data files: ${err.message}`, { cause: err });
   }

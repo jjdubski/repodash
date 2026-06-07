@@ -254,6 +254,8 @@ function formatResults(processed, commitCount, branchCount) {
     lastCommit,
   } = processed;
 
+  const byDate = (a, b) => a.date.localeCompare(b.date);
+
   const contributions = Array.from(contributionsMap.values())
     .map((day) => ({
       date: day.date,
@@ -272,7 +274,7 @@ function formatResults(processed, commitCount, branchCount) {
         }))
         .sort((a, b) => b.count - a.count || a.author.localeCompare(b.author)),
     }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort(byDate);
 
   const contributors = Array.from(contributorsMap.values())
     .map((c) => {
@@ -298,7 +300,7 @@ function formatResults(processed, commitCount, branchCount) {
 
   const frequency = Array.from(frequencyMap.entries())
     .map(([date, { additions, deletions }]) => ({ date, additions, deletions }))
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort(byDate);
 
   const topFiles = Array.from(fileChangesMap.entries())
     .map(([path, changes]) => ({ path, changes }))
