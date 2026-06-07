@@ -2,19 +2,10 @@
    Insights Dashboard — Application Logic
    ═════════════════════════════════════════════════════════════════════ */
 
-(function () {
-  "use strict";
+"use strict";
 
-  // ── Guard ────────────────────────────────────────────────────────────
-  if (typeof Chart === "undefined") {
-    document.body.innerHTML =
-      '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--red,#f85149);font-family:var(--font-sans,sans-serif);font-size:16px;padding:24px;">Failed to load Chart.js. Check your network connection.</div>';
-    return;
-  }
-  if (!window.COLORS || !window.getScaleDefaults) return; // config didn't load
-
-  // ── State ───────────────────────────────────────────────────────────
-  var state = {
+// ── State ───────────────────────────────────────────────────────────
+const state = {
     data: null,
     activeTab: "overview",
     timeFilter: "last3months",
@@ -30,7 +21,7 @@
   //  UTILITIES
   // ═════════════════════════════════════════════════════════════════════
 
-  function formatNumber(n) {
+  export function formatNumber(n) {
     if (n == null || isNaN(n)) return "\u2014"; // em dash
     var abs = Math.abs(n);
     var sign = n < 0 ? "-" : "";
@@ -39,7 +30,7 @@
     return String(n);
   }
 
-  function formatDate(iso) {
+  export function formatDate(iso) {
     if (!iso) return "\u2014";
     try {
       return new Date(iso).toLocaleDateString(undefined, {
@@ -52,14 +43,14 @@
     }
   }
 
-  function clampDate(dateStr, minStr, maxStr) {
+  export function clampDate(dateStr, minStr, maxStr) {
     if (!dateStr) return dateStr;
     if (minStr && dateStr < minStr) return minStr;
     if (maxStr && dateStr > maxStr) return maxStr;
     return dateStr;
   }
 
-  function getTodayLocal() {
+  export function getTodayLocal() {
     var d = new Date();
     var year = d.getFullYear();
     var month = String(d.getMonth() + 1).padStart(2, "0");
@@ -100,7 +91,7 @@
 
   // ── Time filter helpers ──────────────────────────────────────────────
 
-  function getCutoffDate(filter) {
+  export function getCutoffDate(filter) {
     if (filter === "custom") {
       return {
         start: state.customStartDate || null,
@@ -125,7 +116,7 @@
     return { start: d.toISOString().slice(0, 10), end: null };
   }
 
-  function filterByDate(arr, bounds, field) {
+  export function filterByDate(arr, bounds, field) {
     if (!arr || !arr.length || !bounds) return arr;
     field = field || "date";
     return arr.filter(function (item) {
@@ -165,7 +156,7 @@
     };
   }
 
-  function computeFilteredContributors(contributions, allContributors) {
+  export function computeFilteredContributors(contributions, allContributors) {
     var authorStats = {};
     contributions.forEach(function (day) {
       (day.authorDetails || []).forEach(function (a) {
@@ -211,7 +202,7 @@
       });
   }
 
-  function computeFilteredActivity(contributions) {
+  export function computeFilteredActivity(contributions) {
     var dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     var dayCounts = [0, 0, 0, 0, 0, 0, 0];
     var hourCounts = new Array(24).fill(0);
@@ -328,7 +319,7 @@
     var canvas = document.getElementById(id);
     if (!canvas) return null;
     var ctx = canvas.getContext("2d");
-    state.charts[id] = new Chart(ctx, {
+    state.charts[id] = new window.Chart(ctx, {
       type: type,
       data: data,
       options: buildOptions(optionsOverride),
@@ -1410,9 +1401,17 @@
       });
   }
 
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
+  if (typeof document !== 'undefined') {
+    if (typeof window.Chart === "undefined") {
+      document.body.innerHTML =
+        '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--red,#f85149);font-family:var(--font-sans,sans-serif);font-size:16px;padding:24px;">Failed to load Chart.js. Check your network connection.</div>';
+    } else if (!window.COLORS || !window.getScaleDefaults) {
+      // config didn't load — module must continue to exist for exports
+    } else {
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+      } else {
+        init();
+      }
+    }
   }
-})();

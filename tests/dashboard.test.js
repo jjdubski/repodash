@@ -19,6 +19,16 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
+import {
+  formatNumber,
+  formatDate,
+  getCutoffDate,
+  filterByDate,
+  computeFilteredContributors,
+  computeFilteredActivity,
+  clampDate,
+} from '../dashboard/dashboard.js';
+
 // ── Paths ──────────────────────────────────────────────────────────────────
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -557,9 +567,8 @@ describe('Dashboard — chart-config.js', () => {
 //  3. dashboard.js — PURE UTILITY FUNCTION TESTS
 // ═══════════════════════════════════════════════════════════════════════════
 //
-// The pure functions (formatNumber, formatDate, getCutoffDate, filterByDate)
-// are defined inside the IIFE and not exported. We extract each one via
-// brace-counting and evaluate it in isolation — no DOM stubs needed.
+// The pure functions are exported from the ES module and imported directly.
+// No DOM stubs needed.
 //
 // Note: escapeHtml (also defined in dashboard.js) depends on `document`
 // and can only be verified in a browser or with a full DOM polyfill like
@@ -569,46 +578,6 @@ describe('Dashboard — chart-config.js', () => {
 // exist in the actual dashboard.js source — it is therefore not tested.
 
 describe('Dashboard — dashboard.js (pure functions)', () => {
-  /** @type {Function} */
-  let formatNumber;
-  /** @type {Function} */
-  let formatDate;
-  /** @type {Function} */
-  let getCutoffDate;
-  /** @type {Function} */
-  let filterByDate;
-  /** @type {Function} */
-  let computeFilteredContributors;
-  let computeFilteredActivity;
-  let clampDate;
-  let setTimeFilter;
-
-  before(() => {
-    const src = read('dashboard.js');
-
-    const fnSrc = extractFunction('formatNumber', src);
-    assert.ok(fnSrc, 'formatNumber not found in dashboard.js');
-    formatNumber = evalFunction(fnSrc);
-
-    formatDate = evalFunction(extractFunction('formatDate', src));
-    assert.ok(formatDate, 'formatDate not found in dashboard.js');
-
-    getCutoffDate = evalFunction(extractFunction('getCutoffDate', src));
-    assert.ok(getCutoffDate, 'getCutoffDate not found in dashboard.js');
-
-    filterByDate = evalFunction(extractFunction('filterByDate', src));
-    assert.ok(filterByDate, 'filterByDate not found in dashboard.js');
-
-    computeFilteredContributors = evalFunction(extractFunction('computeFilteredContributors', src));
-    assert.ok(computeFilteredContributors, 'computeFilteredContributors not found in dashboard.js');
-
-    computeFilteredActivity = evalFunction(extractFunction('computeFilteredActivity', src));
-    assert.ok(computeFilteredActivity, 'computeFilteredActivity not found in dashboard.js');
-
-    clampDate = evalFunction(extractFunction('clampDate', src));
-    assert.ok(clampDate, 'clampDate not found in dashboard.js');
-  });
-
   // ── formatNumber ─────────────────────────────────────────────────────────
 
   describe('formatNumber', () => {
