@@ -386,6 +386,96 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
       assert.strictEqual(result, null);
     });
   });
+
+  describe('buildOptions', () => {
+    let fn;
+
+    before(() => {
+      const sandbox = {
+        window: {
+          CHART_DEFAULTS: {
+            scales: {
+              x: { ticks: { color: '#666' }, grid: { color: '#ddd' } },
+              y: { ticks: { color: '#666' }, grid: { color: '#ddd' } },
+            },
+            plugins: {
+              legend: { display: true, position: 'bottom' },
+            },
+          },
+          getScaleDefaults: () => ({
+            x: { ticks: { color: '#333' }, grid: { color: '#eee' } },
+            y: { ticks: { color: '#333' }, grid: { color: '#eee' } },
+          }),
+          getTextColor: () => '#ffffff',
+        },
+      };
+      fn = loadFn('buildOptions', sandbox);
+    });
+
+    it('should return a copy of CHART_DEFAULTS when no override given', () => {
+      const result = fn(undefined);
+
+      // scales.x merged from theme (theme value '#333' overrides DEFAULTS '#666')
+      assert.strictEqual(result.scales.x.ticks.color, '#333');
+      assert.strictEqual(result.scales.x.grid.color, '#eee');
+
+      // scales.y merged from theme
+      assert.strictEqual(result.scales.y.ticks.color, '#333');
+      assert.strictEqual(result.scales.y.grid.color, '#eee');
+
+      // plugins carried through from DEFAULTS
+      assert.strictEqual(result.plugins.legend.display, true);
+      assert.strictEqual(result.plugins.legend.position, 'bottom');
+
+      // legend labels color injected from getTextColor()
+      assert.strictEqual(result.plugins.legend.labels.color, '#ffffff');
+    });
+
+    it('should deep-merge override.scales over theme defaults', () => {
+      const result = fn({
+        scales: { x: { ticks: { color: '#ff0000' } } },
+      });
+
+      // override wins for ticks.color
+      assert.strictEqual(result.scales.x.ticks.color, '#ff0000');
+      // theme properties not overridden still present
+      assert.strictEqual(result.scales.x.grid.color, '#eee');
+      // y still gets full theme merge (no override for y)
+      assert.strictEqual(result.scales.y.ticks.color, '#333');
+    });
+
+    it('should let override.plugins win over DEFAULTS.plugins', () => {
+      const result = fn({
+        plugins: { legend: { display: false } },
+      });
+
+      assert.strictEqual(result.plugins.legend.display, false);
+    });
+
+    it('should preserve existing legend.labels.color when override sets it', () => {
+      const result = fn({
+        plugins: { legend: { labels: { color: '#123456' } } },
+      });
+
+      // explicit color from override — not overwritten by getTextColor()
+      assert.strictEqual(result.plugins.legend.labels.color, '#123456');
+    });
+
+    it('should handle null/undefined override gracefully', () => {
+      const nullResult = fn(null);
+      const undefinedResult = fn(undefined);
+
+      // null produces same merged result as undefined
+      assert.strictEqual(nullResult.scales.x.ticks.color, '#333');
+      assert.strictEqual(nullResult.scales.y.ticks.color, '#333');
+      assert.strictEqual(nullResult.plugins.legend.labels.color, '#ffffff');
+
+      // undefined path also correct
+      assert.strictEqual(undefinedResult.scales.x.ticks.color, '#333');
+      assert.strictEqual(undefinedResult.scales.y.ticks.color, '#333');
+      assert.strictEqual(undefinedResult.plugins.legend.labels.color, '#ffffff');
+    });
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
