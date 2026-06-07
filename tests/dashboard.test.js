@@ -1,5 +1,5 @@
 /* ═════════════════════════════════════════════════════════════════════
-   Insights Dashboard — Tests (Phase 6)
+   Insights Dashboard — Tests (Phase 6+)
    ═════════════════════════════════════════════════════════════════════
    Tests cover:
      1. File structure — all 4 dashboard files, CSS custom properties,
@@ -8,6 +8,8 @@
         getTextColor via vm sandbox
      3. dashboard.js — pure utility functions extracted via brace-
         counting and evaluated in isolation
+     4. dashboard.js — stateful functions tested via vm sandbox with
+        stubs for DOM/state dependencies
    ═════════════════════════════════════════════════════════════════════ */
 
 import { describe, it, before } from 'node:test';
@@ -154,25 +156,24 @@ describe('Dashboard — file structure', () => {
       assert.ok(html.includes('dashboard.js'));
     });
 
-    it('should have all 4 tab labels', () => {
+    it('should have all 3 tab labels', () => {
       assert.ok(html.includes('Overview'));
       assert.ok(html.includes('Contributors'));
-      assert.ok(html.includes('Code Frequency'));
       assert.ok(html.includes('Activity'));
     });
 
     it('should have tab navigation buttons with data-tab attributes', () => {
       const tabs = html.match(/data-tab="\w+"/g);
       assert.ok(tabs, 'No data-tab attributes found');
-      assert.strictEqual(tabs.length, 4, 'Expected 4 tabs');
+      assert.strictEqual(tabs.length, 3, 'Expected 3 tabs');
     });
 
     it('should have chart canvases', () => {
       const canvases = html.match(/<canvas/g);
       assert.ok(canvases, 'No <canvas> elements found');
       assert.ok(
-        canvases.length >= 5,
-        `Expected at least 5 canvases, got ${canvases.length}`,
+        canvases.length >= 6,
+        `Expected at least 6 canvases, got ${canvases.length}`,
       );
     });
 
@@ -192,6 +193,217 @@ describe('Dashboard — file structure', () => {
       assert.ok(html.includes('Loading'), 'Missing loading state');
       assert.ok(html.includes('-error'),  'Missing error state element');
       assert.ok(html.includes('-empty'),  'Missing empty state element');
+    });
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  4. dashboard.js — STATEFUL FUNCTION TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// setTimeFilter and getFilteredData depend on `state`, `document`, `window`,
+// and sibling functions. We extract them via brace-counting and run them in
+// a vm sandbox with stubs for all dependencies.
+
+describe('Dashboard — dashboard.js (stateful functions)', () => {
+  describe('setTimeFilter', () => {
+    it('should not return early when filter is "custom" even if already in custom mode', () => {
+      const renderCalled = { value: false };
+      const sandbox = {
+        state: {
+          timeFilter: 'custom',
+          customStartDate: '2024-01-01',
+          customEndDate: '2024-01-31',
+        },
+        window: {
+          location: { href: 'http://localhost:3000/' },
+          history: { replaceState: () => {} },
+        },
+        document: {
+          querySelectorAll: () => [],
+          getElementById: () => null,
+        },
+        renderCurrentTab: () => { renderCalled.value = true; },
+      };
+      const ctx = vm.createContext(sandbox);
+      const src = read('dashboard.js');
+      const fnSrc = extractFunction('setTimeFilter', src);
+      assert.ok(fnSrc, 'setTimeFilter not found in dashboard.js');
+      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+
+      fn('custom');
+
+      assert.strictEqual(sandbox.state.timeFilter, 'custom');
+      assert.ok(renderCalled.value, 'renderCurrentTab should have been called');
+    });
+
+    it('should return early when filter matches and is not custom', () => {
+      const renderCalled = { value: false };
+      const sandbox = {
+        state: { timeFilter: 'last3months' },
+        window: {
+          location: { href: 'http://localhost:3000/' },
+          history: { replaceState: () => {} },
+        },
+        document: {
+          querySelectorAll: () => [],
+          getElementById: () => null,
+        },
+        renderCurrentTab: () => { renderCalled.value = true; },
+      };
+      const ctx = vm.createContext(sandbox);
+      const src = read('dashboard.js');
+      const fnSrc = extractFunction('setTimeFilter', src);
+      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+
+      fn('last3months');
+
+      assert.strictEqual(sandbox.state.timeFilter, 'last3months');
+      assert.strictEqual(renderCalled.value, false, 'renderCurrentTab should NOT have been called');
+    });
+
+    it('should not return early when switching to custom from another filter', () => {
+      const renderCalled = { value: false };
+      const sandbox = {
+        state: { timeFilter: 'last3months' },
+        window: {
+          location: { href: 'http://localhost:3000/' },
+          history: { replaceState: () => {} },
+        },
+        document: {
+          querySelectorAll: () => [],
+          getElementById: () => null,
+        },
+        renderCurrentTab: () => { renderCalled.value = true; },
+      };
+      const ctx = vm.createContext(sandbox);
+      const src = read('dashboard.js');
+      const fnSrc = extractFunction('setTimeFilter', src);
+      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+
+      fn('custom');
+
+      assert.strictEqual(sandbox.state.timeFilter, 'custom');
+      assert.ok(renderCalled.value, 'renderCurrentTab should have been called');
+    });
+
+    it('should return early when switching to the same non-custom filter', () => {
+      const renderCalled = { value: false };
+      const sandbox = {
+        state: { timeFilter: 'allTime' },
+        window: {
+          location: { href: 'http://localhost:3000/' },
+          history: { replaceState: () => {} },
+        },
+        document: {
+          querySelectorAll: () => [],
+          getElementById: () => null,
+        },
+        renderCurrentTab: () => { renderCalled.value = true; },
+      };
+      const ctx = vm.createContext(sandbox);
+      const src = read('dashboard.js');
+      const fnSrc = extractFunction('setTimeFilter', src);
+      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+
+      fn('allTime');
+
+      assert.strictEqual(sandbox.state.timeFilter, 'allTime');
+      assert.strictEqual(renderCalled.value, false, 'renderCurrentTab should NOT have been called');
+    });
+  });
+
+  describe('getFilteredData', () => {
+    it('should use computeFilteredActivity result as activity', () => {
+      const markerActivity = { byDayOfWeek: [], byHour: [], topFiles: [], marker: true };
+      const sandbox = {
+        state: {
+          data: {
+            contributions: [
+              { date: '2024-01-01', count: 1, authorDetails: [] },
+            ],
+            frequency: [
+              { date: '2024-01-01', additions: 10, deletions: 2 },
+            ],
+            contributors: [],
+            activity: { byHour: [], topFiles: [] },
+          },
+          timeFilter: 'last3months',
+        },
+        getCutoffDate: () => ({ start: '2024-01-01', end: null }),
+        filterByDate: (arr) => arr,
+        computeFilteredSummary: (c, f) => ({
+          totalCommits: 1,
+          totalContributors: 1,
+          totalAdditions: 10,
+          totalDeletions: 2,
+          firstCommit: '2024-01-01',
+          lastCommit: '2024-01-01',
+          activeBranches: 1,
+        }),
+        computeFilteredContributors: () => [],
+        computeFilteredActivity: () => markerActivity,
+      };
+      const ctx = vm.createContext(sandbox);
+      const src = read('dashboard.js');
+      const fnSrc = extractFunction('getFilteredData', src);
+      assert.ok(fnSrc, 'getFilteredData not found in dashboard.js');
+      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+
+      const result = fn();
+
+      assert.ok(result, 'getFilteredData should return an object');
+      assert.strictEqual(result.activity, markerActivity,
+        'activity should be the result of computeFilteredActivity');
+    });
+
+    it('should call computeFilteredActivity with filtered contributions', () => {
+      const callArgs = { contributions: null };
+      const sandbox = {
+        state: {
+          data: {
+            contributions: [
+              { date: '2024-01-01', count: 1, authorDetails: [] },
+            ],
+            frequency: [],
+            contributors: [],
+            activity: { byHour: [{ hour: 0, count: 5 }], topFiles: [] },
+          },
+          timeFilter: 'custom',
+        },
+        getCutoffDate: () => ({ start: '2024-01-01', end: '2024-01-31' }),
+        filterByDate: (arr) => arr,
+        computeFilteredSummary: () => ({}),
+        computeFilteredContributors: () => [],
+        computeFilteredActivity: (c) => {
+          callArgs.contributions = c;
+          return { byDayOfWeek: [] };
+        },
+      };
+      const ctx = vm.createContext(sandbox);
+      const src = read('dashboard.js');
+      const fnSrc = extractFunction('getFilteredData', src);
+      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+
+      fn();
+
+      assert.strictEqual(callArgs.contributions, sandbox.state.data.contributions,
+        'computeFilteredActivity should receive filtered contributions');
+    });
+
+    it('should return null when state.data is null', () => {
+      const sandbox = {
+        state: { data: null, timeFilter: 'allTime' },
+        getCutoffDate: () => null,
+      };
+      const ctx = vm.createContext(sandbox);
+      const src = read('dashboard.js');
+      const fnSrc = extractFunction('getFilteredData', src);
+      const fn = vm.runInContext('(' + fnSrc + ')', ctx);
+
+      const result = fn();
+
+      assert.strictEqual(result, null);
     });
   });
 });
@@ -367,6 +579,9 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
   let filterByDate;
   /** @type {Function} */
   let computeFilteredContributors;
+  let computeFilteredActivity;
+  let clampDate;
+  let setTimeFilter;
 
   before(() => {
     const src = read('dashboard.js');
@@ -386,6 +601,12 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
 
     computeFilteredContributors = evalFunction(extractFunction('computeFilteredContributors', src));
     assert.ok(computeFilteredContributors, 'computeFilteredContributors not found in dashboard.js');
+
+    computeFilteredActivity = evalFunction(extractFunction('computeFilteredActivity', src));
+    assert.ok(computeFilteredActivity, 'computeFilteredActivity not found in dashboard.js');
+
+    clampDate = evalFunction(extractFunction('clampDate', src));
+    assert.ok(clampDate, 'clampDate not found in dashboard.js');
   });
 
   // ── formatNumber ─────────────────────────────────────────────────────────
@@ -676,6 +897,199 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       assert.strictEqual(result.length, 2);
       const emails = result.map((c) => c.email).sort();
       assert.deepStrictEqual(emails, ['email1@test.com', 'email2@test.com']);
+    });
+  });
+
+  // ── computeFilteredActivity ───────────────────────────────────────────────
+
+  describe('computeFilteredActivity', () => {
+    it('should recompute byDayOfWeek from filtered contributions', () => {
+      // 2024-01-01 = Monday, 2024-01-02 = Tuesday, 2024-01-03 = Wednesday
+      const contributions = [
+        { date: '2024-01-01', count: 3 },
+        { date: '2024-01-02', count: 5 },
+        { date: '2024-01-03', count: 2 },
+      ];
+
+      const result = computeFilteredActivity(contributions);
+
+      assert.strictEqual(result.byDayOfWeek.length, 7);
+      assert.strictEqual(result.byDayOfWeek[0].day, 'Mon');
+      assert.strictEqual(result.byDayOfWeek[0].count, 3);
+      assert.strictEqual(result.byDayOfWeek[1].day, 'Tue');
+      assert.strictEqual(result.byDayOfWeek[1].count, 5);
+      assert.strictEqual(result.byDayOfWeek[2].day, 'Wed');
+      assert.strictEqual(result.byDayOfWeek[2].count, 2);
+      assert.strictEqual(result.byDayOfWeek[3].count, 0);
+      assert.strictEqual(result.byDayOfWeek[4].count, 0);
+      assert.strictEqual(result.byDayOfWeek[5].count, 0);
+      assert.strictEqual(result.byDayOfWeek[6].count, 0);
+    });
+
+    it('should recompute byHour from per-day contribution data', () => {
+      function make24(fills) {
+        var arr = new Array(24);
+        for (var i = 0; i < 24; i++) arr[i] = { hour: i, count: 0 };
+        Object.keys(fills).forEach(function (h) {
+          arr[h] = { hour: Number(h), count: fills[h] };
+        });
+        return arr;
+      }
+
+      const contributions = [
+        { date: '2024-01-01', count: 2, byHour: make24({ 0: 1, 9: 1 }) },
+        { date: '2024-01-02', count: 3, byHour: make24({ 9: 2, 14: 1 }) },
+      ];
+
+      const result = computeFilteredActivity(contributions);
+
+      assert.strictEqual(result.byHour.length, 24);
+      assert.strictEqual(result.byHour[0].count, 1);
+      assert.strictEqual(result.byHour[9].count, 3);
+      assert.strictEqual(result.byHour[12].count, 0);
+      assert.strictEqual(result.byHour[14].count, 1);
+    });
+
+    it('should recompute topFiles from per-day contribution data', () => {
+      const contributions = [
+        {
+          date: '2024-01-01', count: 1,
+          topFiles: [
+            { path: 'src/a.js', changes: 3 },
+            { path: 'src/b.js', changes: 1 },
+          ],
+        },
+        {
+          date: '2024-01-02', count: 2,
+          topFiles: [
+            { path: 'src/a.js', changes: 2 },
+            { path: 'src/c.js', changes: 4 },
+          ],
+        },
+      ];
+
+      const result = computeFilteredActivity(contributions);
+
+      assert.strictEqual(result.topFiles.length, 3);
+      assert.strictEqual(result.topFiles[0].path, 'src/a.js');
+      assert.strictEqual(result.topFiles[0].changes, 5);
+      assert.strictEqual(result.topFiles[1].path, 'src/c.js');
+      assert.strictEqual(result.topFiles[1].changes, 4);
+      assert.strictEqual(result.topFiles[2].path, 'src/b.js');
+      assert.strictEqual(result.topFiles[2].changes, 1);
+    });
+
+    it('should return empty byHour and topFiles when contributions lack per-day data', () => {
+      const contributions = [
+        { date: '2024-01-01', count: 1 },
+      ];
+
+      const result = computeFilteredActivity(contributions);
+
+      assert.strictEqual(result.byHour.length, 24);
+      result.byHour.forEach(function (h) {
+        assert.strictEqual(h.count, 0);
+      });
+      assert.deepStrictEqual(result.topFiles, []);
+    });
+
+    it('should handle empty contributions array', () => {
+      const result = computeFilteredActivity([]);
+
+      assert.strictEqual(result.byDayOfWeek.length, 7);
+      result.byDayOfWeek.forEach(function (d) {
+        assert.strictEqual(d.count, 0);
+      });
+    });
+
+    it('should handle single contribution', () => {
+      const result = computeFilteredActivity(
+        [{ date: '2024-01-01', count: 7 }],
+      );
+
+      assert.strictEqual(result.byDayOfWeek[0].count, 7);
+      assert.strictEqual(result.byDayOfWeek[0].day, 'Mon');
+    });
+
+    it('should map weekend days correctly', () => {
+      // 2024-01-06 = Saturday (getUTCDay() = 6 → (6+6)%7 = 5 = "Sat")
+      // 2024-01-07 = Sunday   (getUTCDay() = 0 → (0+6)%7 = 6 = "Sun")
+      const contributions = [
+        { date: '2024-01-06', count: 10 }, // Saturday
+        { date: '2024-01-07', count: 20 }, // Sunday
+      ];
+
+      const result = computeFilteredActivity(contributions);
+
+      assert.strictEqual(result.byDayOfWeek[5].day, 'Sat');
+      assert.strictEqual(result.byDayOfWeek[5].count, 10);
+      assert.strictEqual(result.byDayOfWeek[6].day, 'Sun');
+      assert.strictEqual(result.byDayOfWeek[6].count, 20);
+    });
+
+    it('should handle mixed contributions with and without per-day data', () => {
+      function make24(fills) {
+        var arr = new Array(24);
+        for (var i = 0; i < 24; i++) arr[i] = { hour: i, count: 0 };
+        Object.keys(fills).forEach(function (h) {
+          arr[h] = { hour: Number(h), count: fills[h] };
+        });
+        return arr;
+      }
+
+      const contributions = [
+        { date: '2024-01-01', count: 2, byHour: make24({ 9: 3 }), topFiles: [{ path: 'src/a.js', changes: 5 }] },
+        { date: '2024-01-02', count: 1 },
+      ];
+
+      const result = computeFilteredActivity(contributions);
+
+      assert.strictEqual(result.byHour[9].count, 3);
+      assert.strictEqual(result.topFiles.length, 1);
+      assert.strictEqual(result.topFiles[0].path, 'src/a.js');
+      assert.strictEqual(result.topFiles[0].changes, 5);
+    });
+  });
+
+  // ── clampDate ─────────────────────────────────────────────────────────────
+
+  describe('clampDate', () => {
+    it('should return min when date is below min', () => {
+      assert.strictEqual(clampDate('2020-01-01', '2023-01-01', '2024-12-31'), '2023-01-01');
+    });
+
+    it('should return max when date is above max', () => {
+      assert.strictEqual(clampDate('2025-01-01', '2023-01-01', '2024-12-31'), '2024-12-31');
+    });
+
+    it('should return date unchanged when within range', () => {
+      assert.strictEqual(clampDate('2024-06-15', '2024-01-01', '2024-12-31'), '2024-06-15');
+    });
+
+    it('should return falsy/null/empty date unchanged', () => {
+      assert.strictEqual(clampDate(null, '2024-01-01', '2024-12-31'), null);
+      assert.strictEqual(clampDate(undefined, '2024-01-01', '2024-12-31'), undefined);
+      assert.strictEqual(clampDate('', '2024-01-01', '2024-12-31'), '');
+    });
+
+    it('should work with only min constraint (no max)', () => {
+      assert.strictEqual(clampDate('2020-01-01', '2023-01-01', null), '2023-01-01');
+      assert.strictEqual(clampDate('2024-06-15', '2023-01-01', null), '2024-06-15');
+    });
+
+    it('should work with only max constraint (no min)', () => {
+      assert.strictEqual(clampDate('2025-01-01', null, '2024-12-31'), '2024-12-31');
+      assert.strictEqual(clampDate('2024-06-15', null, '2024-12-31'), '2024-06-15');
+    });
+
+    it('should return date when both min and max are null', () => {
+      assert.strictEqual(clampDate('2024-06-15', null, null), '2024-06-15');
+    });
+
+    it('should treat equal boundaries correctly', () => {
+      assert.strictEqual(clampDate('2024-06-15', '2024-06-15', '2024-06-15'), '2024-06-15');
+      assert.strictEqual(clampDate('2024-06-14', '2024-06-15', '2024-06-15'), '2024-06-15');
+      assert.strictEqual(clampDate('2024-06-16', '2024-06-15', '2024-06-15'), '2024-06-15');
     });
   });
 });

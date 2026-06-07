@@ -147,16 +147,6 @@
         Contributors
       </button>
       <button
-        id="tab-codefrequency-label"
-        class="tab"
-        role="tab"
-        aria-selected="false"
-        data-tab="codefrequency"
-        type="button"
-      >
-        Code Frequency
-      </button>
-      <button
         id="tab-activity-label"
         class="tab"
         role="tab"
@@ -251,6 +241,14 @@
             <canvas id="chart-top-contributors"></canvas>
           </div>
         </div>
+
+        <!-- Additions & Deletions Over Time -->
+        <div class="chart-card">
+          <h2 class="chart-title">Additions &amp; Deletions Over Time</h2>
+          <div class="chart-wrap chart-wrap-lg">
+            <canvas id="chart-frequency-overview"></canvas>
+          </div>
+        </div>
       </section>
 
       <!-- ══════════════ CONTRIBUTORS TAB ══════════════ -->
@@ -298,41 +296,6 @@
           <h2 class="chart-title">Commit Distribution</h2>
           <div class="chart-wrap">
             <canvas id="chart-contributor-distribution"></canvas>
-          </div>
-        </div>
-      </section>
-
-      <!-- ══════════════ CODE FREQUENCY TAB ══════════════ -->
-      <section
-        id="tab-codefrequency"
-        class="tab-content"
-        role="tabpanel"
-        aria-labelledby="tab-codefrequency-label"
-      >
-        <div
-          class="state-message"
-          id="codefrequency-loading"
-          aria-live="polite"
-        >
-          Loading…
-        </div>
-        <div
-          class="state-message hidden"
-          id="codefrequency-error"
-          role="alert"
-        ></div>
-        <div
-          class="state-message hidden"
-          id="codefrequency-empty"
-          aria-live="polite"
-        >
-          No frequency data in this time range.
-        </div>
-
-        <div class="chart-card">
-          <h2 class="chart-title">Additions &amp; Deletions Over Time</h2>
-          <div class="chart-wrap chart-wrap-lg">
-            <canvas id="chart-frequency"></canvas>
           </div>
         </div>
       </section>

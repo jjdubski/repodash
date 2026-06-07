@@ -90,10 +90,11 @@ export function aggregate(commits, branchCount) {
     // -- contributions (per-day, per-author) --------------------------------
     let dayEntry = contributionsMap.get(dateKey);
     if (!dayEntry) {
-      dayEntry = { date: dateKey, count: 0, authors: new Map() };
+      dayEntry = { date: dateKey, count: 0, authors: new Map(), byHour: new Array(24).fill(0), files: new Map() };
       contributionsMap.set(dateKey, dayEntry);
     }
     dayEntry.count++;
+    dayEntry.byHour[jsDate.getUTCHours()]++;
     const prev = dayEntry.authors.get(email) ?? { name, count: 0, additions: 0, deletions: 0 };
     dayEntry.authors.set(email, {
       name,
@@ -140,6 +141,7 @@ export function aggregate(commits, branchCount) {
     // -- top files ----------------------------------------------------------
     for (const file of commit.files ?? []) {
       fileChangesMap.set(file, (fileChangesMap.get(file) ?? 0) + 1);
+      dayEntry.files.set(file, (dayEntry.files.get(file) ?? 0) + 1);
     }
   }
 
@@ -249,6 +251,12 @@ export function aggregate(commits, branchCount) {
     .map((day) => ({
       date: day.date,
       count: day.count,
+      byHour: Array.from(day.byHour, (count, hour) => ({ hour, count })),
+      // per-day topFiles sort is for deterministic JSON output only;
+      // the client reaggregates and re-sorts per its own criteria.
+      topFiles: Array.from(day.files.entries())
+        .map(([path, changes]) => ({ path, changes }))
+        .sort((a, b) => b.changes - a.changes || a.path.localeCompare(b.path)),
       authorDetails: Array.from(day.authors.entries())
         .map(([email, { name, count, additions, deletions }]) => ({ author: name, email, count, additions, deletions }))
         .sort((a, b) => b.count - a.count || a.author.localeCompare(b.author)),

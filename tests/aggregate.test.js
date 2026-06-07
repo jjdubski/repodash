@@ -194,6 +194,28 @@ describe('aggregate (pure function)', () => {
         'Test User',
       );
     });
+
+    it('should include per-day byHour in contributions', () => {
+      const day = result.contributions[0];
+      assert.strictEqual(day.byHour.length, 24);
+      for (let i = 0; i < 24; i++) {
+        const expected = i === 10 ? 1 : 0;
+        assert.strictEqual(
+          day.byHour[i].count,
+          expected,
+          `contributions[0].byHour[${i}] count mismatch`,
+        );
+      }
+    });
+
+    it('should include per-day topFiles in contributions', () => {
+      const day = result.contributions[0];
+      assert.strictEqual(day.topFiles.length, 2);
+      assert.strictEqual(day.topFiles[0].path, 'src/file1.js');
+      assert.strictEqual(day.topFiles[0].changes, 1);
+      assert.strictEqual(day.topFiles[1].path, 'src/file2.js');
+      assert.strictEqual(day.topFiles[1].changes, 1);
+    });
   });
 
   // ----- 3. Same day, different authors -----------------------------------
@@ -268,6 +290,35 @@ describe('aggregate (pure function)', () => {
       assert.strictEqual(day2.authorDetails[0].count, 1);
       assert.strictEqual(day2.authorDetails[0].additions, 3);
       assert.strictEqual(day2.authorDetails[0].deletions, 0);
+    });
+
+    it('should aggregate per-day byHour correctly across multiple commits', () => {
+      const day1 = result.contributions[0]; // 2025-01-15: 3 commits at 10, 11, 12
+      assert.strictEqual(day1.byHour.length, 24);
+      assert.strictEqual(day1.byHour[10].count, 1);
+      assert.strictEqual(day1.byHour[11].count, 1);
+      assert.strictEqual(day1.byHour[12].count, 1);
+      // all other hours should be 0
+      for (let i = 0; i < 24; i++) {
+        if (i !== 10 && i !== 11 && i !== 12) {
+          assert.strictEqual(day1.byHour[i].count, 0, `day1 hour ${i} should be 0`);
+        }
+      }
+    });
+
+    it('should aggregate per-day topFiles correctly across multiple commits', () => {
+      const day1 = result.contributions[0]; // 2025-01-15
+      assert.strictEqual(day1.topFiles.length, 4);
+      const day1Paths = day1.topFiles.map((f) => f.path);
+      assert.deepStrictEqual(day1Paths, ['a.js', 'b.js', 'c.js', 'd.js']);
+      for (const f of day1.topFiles) {
+        assert.strictEqual(f.changes, 1, `${f.path} should have 1 change`);
+      }
+
+      const day2 = result.contributions[1]; // 2025-01-16
+      assert.strictEqual(day2.topFiles.length, 1);
+      assert.strictEqual(day2.topFiles[0].path, 'e.js');
+      assert.strictEqual(day2.topFiles[0].changes, 1);
     });
 
     it('should have 2 contributors sorted by commit count desc', () => {

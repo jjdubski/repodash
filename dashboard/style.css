@@ -6,8 +6,8 @@
 :root {
   --bg: #ffffff;
   --bg-secondary: #f6f8fa;
-  --text: #1f2328;
-  --text-secondary: #656d76;
+  --text: #000000;
+  --text-secondary: #3c4043;
   --border: #d0d7de;
   --accent: #58a6ff;
   --green: #3fb950;
@@ -127,7 +127,7 @@ body {
 .header-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 15px;
 }
 
 /* ── Theme toggle ───────────────────────────────────────────────────── */
@@ -138,7 +138,7 @@ body {
   width: 36px;
   height: 36px;
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 100%;
   background: var(--bg-secondary);
   color: var(--text-secondary);
   cursor: pointer;
@@ -502,7 +502,7 @@ body {
 }
 
 .num-col {
-  text-align: right;
+  text-align: center !important;
   font-variant-numeric: tabular-nums;
 }
 

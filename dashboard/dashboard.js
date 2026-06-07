@@ -52,6 +52,21 @@
     }
   }
 
+  function clampDate(dateStr, minStr, maxStr) {
+    if (!dateStr) return dateStr;
+    if (minStr && dateStr < minStr) return minStr;
+    if (maxStr && dateStr > maxStr) return maxStr;
+    return dateStr;
+  }
+
+  function getTodayLocal() {
+    var d = new Date();
+    var year = d.getFullYear();
+    var month = String(d.getMonth() + 1).padStart(2, "0");
+    var day = String(d.getDate()).padStart(2, "0");
+    return year + "-" + month + "-" + day;
+  }
+
   var _escapeDiv = null;
 
   function escapeHtml(str) {
@@ -74,7 +89,9 @@
           d && d.summary ? formatDate(d.summary.lastCommit) : "Present";
       } else {
         startLabel = bounds.start ? formatDate(bounds.start) : "Beginning";
-        endLabel = bounds.end ? formatDate(bounds.end) : "Present";
+        endLabel = bounds.end
+          ? formatDate(bounds.end)
+          : formatDate(getTodayLocal());
       }
     }
     if (startLabel === endLabel) return startLabel;
@@ -194,6 +211,56 @@
       });
   }
 
+  function computeFilteredActivity(contributions) {
+    var dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    var dayCounts = [0, 0, 0, 0, 0, 0, 0];
+    var hourCounts = new Array(24).fill(0);
+    var fileMap = {};
+
+    for (var i = 0; i < contributions.length; i++) {
+      var c = contributions[i];
+      var jsDay = new Date(c.date + "T00:00:00Z").getUTCDay();
+      var idx = (jsDay + 6) % 7;
+      dayCounts[idx] += c.count;
+
+      if (c.byHour) {
+        for (var h = 0; h < c.byHour.length; h++) {
+          hourCounts[h] += c.byHour[h].count;
+        }
+      }
+
+      if (c.topFiles) {
+        for (var j = 0; j < c.topFiles.length; j++) {
+          var f = c.topFiles[j];
+          fileMap[f.path] = (fileMap[f.path] || 0) + f.changes;
+        }
+      }
+    }
+
+    var byDayOfWeek = dayNames.map(function (day, i) {
+      return { day: day, count: dayCounts[i] };
+    });
+
+    var byHour = Array.from(hourCounts, function (count, hour) {
+      return { hour: hour, count: count };
+    });
+
+    var topFiles = Object.keys(fileMap)
+      .map(function (path) {
+        return { path: path, changes: fileMap[path] };
+      })
+      .sort(function (a, b) {
+        return b.changes - a.changes || a.path.localeCompare(b.path);
+      })
+      .slice(0, 20);
+
+    return {
+      byDayOfWeek: byDayOfWeek,
+      byHour: byHour,
+      topFiles: topFiles,
+    };
+  }
+
   // ═════════════════════════════════════════════════════════════════════
   //  CHART MANAGEMENT
   // ═════════════════════════════════════════════════════════════════════
@@ -269,11 +336,6 @@
     return state.charts[id];
   }
 
-  /**
-   * After a theme change, update all existing chart instances to use
-   * the new colour scheme.  We rebuild the scale/legend config and
-   * call chart.update('none') so no animation replays.
-   */
   function updateAllChartColors() {
     var theme = window.getScaleDefaults();
     var text = window.getTextColor();
@@ -281,24 +343,21 @@
       var chart = state.charts[id];
       if (!chart) return;
 
-      var scales = chart.options.scales || {};
+      var scales = chart.scales || {};
       if (scales.x) {
-        scales.x.ticks = scales.x.ticks || {};
-        scales.x.ticks.color = theme.x.ticks.color;
+        scales.x.options.ticks.color = theme.x.ticks.color;
       }
       if (scales.y) {
-        scales.y.ticks = scales.y.ticks || {};
-        scales.y.ticks.color = theme.y.ticks.color;
-        scales.y.grid = scales.y.grid || {};
-        scales.y.grid.color = theme.y.grid.color;
+        scales.y.options.ticks.color = theme.y.ticks.color;
+        scales.y.options.grid.color = theme.y.grid.color;
       }
 
-      var plugins = chart.options.plugins || {};
-      if (plugins.legend && plugins.legend.labels) {
-        plugins.legend.labels.color = text;
+      var legend = chart.legend;
+      if (legend && legend.options && legend.options.labels) {
+        legend.options.labels.color = text;
       }
 
-      chart.update("none");
+      chart.update();
     });
   }
 
@@ -306,7 +365,7 @@
   //  DATA LOADING & STATE MESSAGES
   // ═════════════════════════════════════════════════════════════════════
 
-  var TABS = ["overview", "contributors", "codefrequency", "activity"];
+  var TABS = ["overview", "contributors", "activity"];
 
   function showElem(id) {
     var e = document.getElementById(id);
@@ -443,7 +502,7 @@
   }
 
   function setTimeFilter(filter) {
-    if (state.timeFilter === filter) return;
+    if (state.timeFilter === filter && filter !== "custom") return;
     state.timeFilter = filter;
 
     try {
@@ -498,7 +557,7 @@
       contributions: filteredContributions,
       contributors: filteredContributors,
       frequency: filteredFrequency,
-      activity: state.data.activity,
+      activity: computeFilteredActivity(filteredContributions),
     };
   }
 
@@ -511,9 +570,6 @@
         break;
       case "contributors":
         renderContributors(d);
-        break;
-      case "codefrequency":
-        renderCodeFrequency(d);
         break;
       case "activity":
         renderActivity(d);
@@ -542,6 +598,9 @@
     );
 
     if (!d.contributions || !d.contributions.length) {
+      destroyChart("chart-contribution");
+      destroyChart("chart-top-contributors");
+      destroyChart("chart-frequency-overview");
       showEmpty("overview");
       return;
     }
@@ -553,7 +612,7 @@
       d.contributors,
     );
     renderTopContributorsChart(d.contributors, state.topContributorsMode);
-    renderFrequencyMiniChart(d.frequency);
+    renderFrequencyOverviewChart(d.frequency);
   }
 
   // -- Contribution chart (multi-mode) -----------------------------------
@@ -577,7 +636,7 @@
   }
 
   function renderContributionAuthor(contributions, contributors) {
-    var TOP = 7;
+    var TOP = 10;
     var seen = {};
     var authorKeys = [];
     (contributors || []).forEach(function (c) {
@@ -817,48 +876,53 @@
     );
   }
 
-  // -- Code frequency mini area chart ------------------------------------
+  // -- Code frequency overview chart -----------------------------------
 
-  function renderFrequencyMiniChart(frequency) {
-    if (!frequency || !frequency.length) return;
+  function renderFrequencyOverviewChart(frequency) {
+    if (!frequency || !frequency.length) {
+      destroyChart("chart-frequency-overview");
+      return;
+    }
 
     createChart(
-      "chart-frequency-mini",
+      "chart-frequency-overview",
       "line",
       {
-        labels: frequency.map(function (d) {
-          return d.date;
+        labels: frequency.map(function (x) {
+          return x.date;
         }),
         datasets: [
           {
             label: "Additions",
-            data: frequency.map(function (d) {
-              return d.additions;
+            data: frequency.map(function (x) {
+              return x.additions;
             }),
             borderColor: window.COLORS.green,
-            backgroundColor: window.COLORS.green + "20",
+            backgroundColor: window.COLORS.green + "30",
             fill: true,
             tension: 0.3,
-            pointRadius: 0,
+            pointRadius: frequency.length < 60 ? 2 : 0,
+            pointHoverRadius: 4,
             borderWidth: 2,
           },
           {
             label: "Deletions",
-            data: frequency.map(function (d) {
-              return d.deletions;
+            data: frequency.map(function (x) {
+              return x.deletions;
             }),
             borderColor: window.COLORS.red,
-            backgroundColor: window.COLORS.red + "20",
+            backgroundColor: window.COLORS.red + "30",
             fill: true,
             tension: 0.3,
-            pointRadius: 0,
+            pointRadius: frequency.length < 60 ? 2 : 0,
+            pointHoverRadius: 4,
             borderWidth: 2,
           },
         ],
       },
       {
         scales: {
-          x: { maxTicksLimit: frequency.length > 60 ? 8 : undefined },
+          x: { maxTicksLimit: frequency.length > 90 ? 12 : undefined },
         },
         plugins: {
           legend: {
@@ -878,6 +942,7 @@
   function renderContributors(d) {
     clearStates("contributors");
     if (!d.contributors || !d.contributors.length) {
+      destroyChart("chart-contributor-distribution");
       showEmpty("contributors");
       return;
     }
@@ -909,8 +974,17 @@
       tbody.appendChild(tr);
     });
 
-    // -- Distribution bar chart (all contributors, reversed so top is first) --
-    var list = d.contributors.slice().reverse();
+    // -- Distribution bar chart (top N that fit, reversed so top is first) --
+    var barHeight = 14;
+    var maxChartHeight = 560;
+    var maxBars = Math.floor(maxChartHeight / barHeight);
+    var list = d.contributors.slice(0, maxBars).reverse();
+    var chartHeight = Math.max(320, list.length * barHeight);
+
+    var wrap = document.getElementById(
+      "chart-contributor-distribution",
+    ).parentElement;
+    wrap.style.height = chartHeight + "px";
 
     createChart(
       "chart-contributor-distribution",
@@ -930,78 +1004,20 @@
             }),
             borderWidth: 0,
             borderRadius: 2,
+            barThickness: 12,
           },
         ],
       },
       {
         indexAxis: "y",
         scales: {
-          y: { ticks: { font: { size: 11 } }, grid: { display: false } },
+          y: {
+            ticks: { font: { size: 11 }, autoSkip: false },
+            grid: { display: false },
+          },
+          x: { beginAtZero: true },
         },
         plugins: { legend: { display: false } },
-      },
-    );
-  }
-
-  // ═════════════════════════════════════════════════════════════════════
-  //  CODE FREQUENCY TAB
-  // ═════════════════════════════════════════════════════════════════════
-
-  function renderCodeFrequency(d) {
-    clearStates("codefrequency");
-    if (!d.frequency || !d.frequency.length) {
-      showEmpty("codefrequency");
-      return;
-    }
-
-    var freq = d.frequency;
-    createChart(
-      "chart-frequency",
-      "line",
-      {
-        labels: freq.map(function (x) {
-          return x.date;
-        }),
-        datasets: [
-          {
-            label: "Additions",
-            data: freq.map(function (x) {
-              return x.additions;
-            }),
-            borderColor: window.COLORS.green,
-            backgroundColor: window.COLORS.green + "30",
-            fill: true,
-            tension: 0.3,
-            pointRadius: freq.length < 60 ? 2 : 0,
-            pointHoverRadius: 4,
-            borderWidth: 2,
-          },
-          {
-            label: "Deletions",
-            data: freq.map(function (x) {
-              return x.deletions;
-            }),
-            borderColor: window.COLORS.red,
-            backgroundColor: window.COLORS.red + "30",
-            fill: true,
-            tension: 0.3,
-            pointRadius: freq.length < 60 ? 2 : 0,
-            pointHoverRadius: 4,
-            borderWidth: 2,
-          },
-        ],
-      },
-      {
-        scales: {
-          x: { maxTicksLimit: freq.length > 90 ? 12 : undefined },
-        },
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: { boxWidth: 12, padding: 12, usePointStyle: true },
-          },
-        },
-        interaction: { mode: "nearest", axis: "x", intersect: false },
       },
     );
   }
@@ -1031,6 +1047,8 @@
     var hasFiles = a.topFiles && a.topFiles.length > 0;
 
     if (!hasWeek && !hasHour && !hasFiles) {
+      destroyChart("chart-dayofweek");
+      destroyChart("chart-hour");
       showEmpty("activity");
       return;
     }
@@ -1063,6 +1081,7 @@
     }
 
     // Hour-of-day bar chart
+    destroyChart("chart-hour");
     if (a.byHour && a.byHour.length) {
       createChart(
         "chart-hour",
@@ -1090,10 +1109,10 @@
     }
 
     // Top files table
+    var tbody = document.querySelector("#topfiles-table tbody");
+    if (tbody) tbody.innerHTML = "";
     if (a.topFiles && a.topFiles.length) {
       var fileCount = document.body.classList.contains("printing") ? 20 : 10;
-      var tbody = document.querySelector("#topfiles-table tbody");
-      tbody.innerHTML = "";
       a.topFiles.slice(0, fileCount).forEach(function (f) {
         var tr = document.createElement("tr");
         tr.innerHTML =
@@ -1142,7 +1161,7 @@
         document.title = printTitle;
 
         // Force dark text for print so canvas text is visible on white paper
-        document.documentElement.style.setProperty("--text", "#1f2328");
+        document.documentElement.style.setProperty("--text", "#000000");
 
         // Show all tab panels so canvases have dimensions when charts render
         document.body.classList.add("printing");
@@ -1152,7 +1171,6 @@
         // Render all tabs so every canvas has a chart before printing
         renderOverview(filtered);
         renderContributors(filtered);
-        renderCodeFrequency(filtered);
         renderActivity(filtered);
 
         // Ensure Chart.js instances recalculate sizes to match print CSS
@@ -1225,7 +1243,6 @@
               state.contributionMode,
               d.contributors,
             );
-            renderFrequencyMiniChart(d.frequency);
           }
         }
       });
@@ -1251,13 +1268,28 @@
     var dateEnd = document.getElementById("date-end");
     if (dateStart) {
       dateStart.addEventListener("change", function () {
-        state.customStartDate = dateStart.value || null;
+        var today = getTodayLocal();
+        var min =
+          state.data && state.data.summary
+            ? state.data.summary.firstCommit
+            : null;
+        var date = clampDate(dateStart.value || null, min, today);
+        state.customStartDate = date;
+        dateStart.value = date || "";
+        if (date && state.customEndDate && state.customEndDate < date) {
+          state.customEndDate = clampDate(date, null, today);
+          if (dateEnd) dateEnd.value = state.customEndDate;
+        }
         setTimeFilter("custom");
       });
     }
     if (dateEnd) {
       dateEnd.addEventListener("change", function () {
-        state.customEndDate = dateEnd.value || null;
+        var today = getTodayLocal();
+        var min = state.customStartDate || null;
+        var date = clampDate(dateEnd.value || null, min, today);
+        state.customEndDate = date;
+        dateEnd.value = date || "";
         setTimeFilter("custom");
       });
     }
@@ -1347,6 +1379,27 @@
 
     loadData()
       .then(function () {
+        // Clamp custom dates restored from URL params
+        var startEl = document.getElementById("date-start");
+        var endEl = document.getElementById("date-end");
+        var today = getTodayLocal();
+        if (startEl && state.customStartDate) {
+          var clampedStart = clampDate(
+            state.customStartDate,
+            state.data.summary.firstCommit,
+            today,
+          );
+          state.customStartDate = clampedStart;
+          startEl.value = clampedStart;
+        }
+        if (endEl && state.customEndDate) {
+          var endClampStart =
+            state.customStartDate || state.data.summary.firstCommit || null;
+          var clampedEnd = clampDate(state.customEndDate, endClampStart, today);
+          state.customEndDate = clampedEnd;
+          endEl.value = clampedEnd;
+        }
+
         TABS.forEach(function (t) {
           clearStates(t);
         });
