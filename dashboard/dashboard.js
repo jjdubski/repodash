@@ -427,7 +427,12 @@ function loadData() {
 // ═════════════════════════════════════════════════════════════════════
 
 function detectTheme() {
-  const saved = localStorage.getItem('insights-theme');
+  let saved;
+  try {
+    saved = localStorage.getItem('insights-theme');
+  } catch (_) {
+    /* localStorage unavailable */
+  }
   if (saved === 'dark' || saved === 'light') return saved;
   if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
     return 'dark';
@@ -438,7 +443,11 @@ function detectTheme() {
 function applyTheme(theme) {
   state.theme = theme;
   document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('insights-theme', theme);
+  try {
+    localStorage.setItem('insights-theme', theme);
+  } catch (_) {
+    /* localStorage unavailable */
+  }
 
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta) {
@@ -1006,6 +1015,7 @@ function renderActivity(d) {
   }
 
   // Day-of-week bar chart
+  destroyChart('chart-dayofweek');
   if (a.byDayOfWeek && a.byDayOfWeek.length) {
     createChart(
       'chart-dayofweek',
@@ -1143,7 +1153,13 @@ function setupEvents() {
 
   if (window.matchMedia) {
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
-      if (!localStorage.getItem('insights-theme')) {
+      let saved;
+      try {
+        saved = localStorage.getItem('insights-theme');
+      } catch (_) {
+        /* localStorage unavailable */
+      }
+      if (!saved) {
         applyTheme(e.matches ? 'dark' : 'light');
       }
     });
