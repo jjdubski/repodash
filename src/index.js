@@ -22,6 +22,9 @@ export async function main(repoPath, options = {}) {
     getAllCommits(repoPath),
     getLocalBranchCount(repoPath),
     timings,
+    options.timing
+      ? (label, elapsed) => console.error(`    ${label.padEnd(20)} ${elapsed.toFixed(2)}s`)
+      : undefined,
   );
 
   result.summary.repoName = repoPath
@@ -89,9 +92,6 @@ export async function main(repoPath, options = {}) {
 
   if (options.timing) {
     console.error(`  Scan + aggregate     ${((genStart - scanStart) / 1000).toFixed(2)}s`);
-    for (const t of timings) {
-      console.error(`    ${t.label.padEnd(20)} ${t.elapsed.toFixed(2)}s`);
-    }
     console.error(`  Generate output     ${((performance.now() - genStart) / 1000).toFixed(2)}s`);
     console.error(`  ───────────────────────────`);
     console.error(`  Total               ${((performance.now() - totalStart) / 1000).toFixed(2)}s`);

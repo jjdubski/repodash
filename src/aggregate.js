@@ -359,10 +359,14 @@ export function aggregate(commits, branchCount) {
   return formatResults(processed, processed.commitCount, branchCount);
 }
 
-export async function aggregateStream(commitsStream, branchCount, timings) {
+export async function aggregateStream(commitsStream, branchCount, timings, onTiming) {
   let t = performance.now();
   const [processed, bc] = await Promise.all([processCommitsStream(commitsStream), branchCount]);
-  if (timings) timings.push({ label: 'Parse commits', elapsed: (performance.now() - t) / 1000 });
+  if (timings) {
+    const elapsed = (performance.now() - t) / 1000;
+    timings.push({ label: 'Parse commits', elapsed });
+    if (onTiming) onTiming('Parse commits', elapsed);
+  }
 
   const commitCount = processed.commitCount;
 
@@ -370,11 +374,18 @@ export async function aggregateStream(commitsStream, branchCount, timings) {
   if (processed.contributorsMap.size > 0) {
     t = performance.now();
     mergeNoreplyContributors(processed.contributorsMap, processed.contributionsMap);
-    if (timings)
-      timings.push({ label: 'Merge contributors', elapsed: (performance.now() - t) / 1000 });
+    if (timings) {
+      const elapsed = (performance.now() - t) / 1000;
+      timings.push({ label: 'Merge contributors', elapsed });
+      if (onTiming) onTiming('Merge contributors', elapsed);
+    }
   }
   t = performance.now();
   const result = formatResults(processed, commitCount, bc);
-  if (timings) timings.push({ label: 'Format results', elapsed: (performance.now() - t) / 1000 });
+  if (timings) {
+    const elapsed = (performance.now() - t) / 1000;
+    timings.push({ label: 'Format results', elapsed });
+    if (onTiming) onTiming('Format results', elapsed);
+  }
   return result;
 }
