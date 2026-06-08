@@ -272,6 +272,7 @@ describe('main orchestrator (src/index.js)', () => {
       assert.ok(allErrors.includes('Scan + aggregate'));
       assert.ok(allErrors.includes('Generate output'));
       assert.ok(allErrors.includes('Total'));
+      assert.ok(allErrors.includes('Parse commits'));
     } finally {
       console.log = originalLog;
       console.error = originalErr;

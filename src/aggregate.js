@@ -359,13 +359,22 @@ export function aggregate(commits, branchCount) {
   return formatResults(processed, processed.commitCount, branchCount);
 }
 
-export async function aggregateStream(commitsStream, branchCount) {
+export async function aggregateStream(commitsStream, branchCount, timings) {
+  let t = performance.now();
   const [processed, bc] = await Promise.all([processCommitsStream(commitsStream), branchCount]);
+  if (timings) timings.push({ label: 'Parse commits', elapsed: (performance.now() - t) / 1000 });
+
   const commitCount = processed.commitCount;
 
   if (commitCount === 0) return createEmptyResult(bc);
   if (processed.contributorsMap.size > 0) {
+    t = performance.now();
     mergeNoreplyContributors(processed.contributorsMap, processed.contributionsMap);
+    if (timings)
+      timings.push({ label: 'Merge contributors', elapsed: (performance.now() - t) / 1000 });
   }
-  return formatResults(processed, commitCount, bc);
+  t = performance.now();
+  const result = formatResults(processed, commitCount, bc);
+  if (timings) timings.push({ label: 'Format results', elapsed: (performance.now() - t) / 1000 });
+  return result;
 }

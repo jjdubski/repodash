@@ -16,8 +16,13 @@ export async function main(repoPath, options = {}) {
   // Load + aggregate are one combined step because getAllCommits() returns
   // a lazy async generator — the actual git child-process spawn and parsing
   // happen interleaved inside aggregateStream.
+  const timings = [];
   const scanStart = performance.now();
-  const result = await aggregateStream(getAllCommits(repoPath), getLocalBranchCount(repoPath));
+  const result = await aggregateStream(
+    getAllCommits(repoPath),
+    getLocalBranchCount(repoPath),
+    timings,
+  );
 
   result.summary.repoName = repoPath
     .replace(/[/\\]$/, '')
@@ -83,7 +88,10 @@ export async function main(repoPath, options = {}) {
   }
 
   if (options.timing) {
-    console.error(`  Scan + aggregate    ${((genStart - scanStart) / 1000).toFixed(2)}s`);
+    console.error(`  Scan + aggregate     ${((genStart - scanStart) / 1000).toFixed(2)}s`);
+    for (const t of timings) {
+      console.error(`    ${t.label.padEnd(20)} ${t.elapsed.toFixed(2)}s`);
+    }
     console.error(`  Generate output     ${((performance.now() - genStart) / 1000).toFixed(2)}s`);
     console.error(`  ───────────────────────────`);
     console.error(`  Total               ${((performance.now() - totalStart) / 1000).toFixed(2)}s`);

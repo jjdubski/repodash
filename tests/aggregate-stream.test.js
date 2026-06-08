@@ -476,7 +476,48 @@ describe('aggregateStream (async stream function)', () => {
     });
   });
 
-  // ----- g. Noreply merging works with streams ----------------------------
+  // ----- g. Timing reporting ----------------------------------------------
+
+  describe('timing reporting', () => {
+    it('should populate timings array with three sub-steps when passed', async () => {
+      const commits = [
+        makeCommit({
+          hash: 't1',
+          author: { name: 'Alice', email: 'alice@test.com' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 2, files: 1 },
+          files: ['a.js'],
+        }),
+      ];
+      const timings = [];
+      await aggregateStream(toStream(commits), 1, timings);
+
+      assert.strictEqual(timings.length, 3);
+      assert.strictEqual(timings[0].label, 'Parse commits');
+      assert.strictEqual(timings[1].label, 'Merge contributors');
+      assert.strictEqual(timings[2].label, 'Format results');
+      for (const entry of timings) {
+        assert.ok(typeof entry.elapsed === 'number');
+        assert.ok(entry.elapsed >= 0);
+      }
+    });
+
+    it('should produce same result with and without timings array', async () => {
+      const commits = [
+        makeCommit({
+          hash: 'tw1',
+          author: { name: 'Alice', email: 'alice@test.com' },
+          date: '2025-01-15T10:00:00Z',
+        }),
+      ];
+      const resultWithout = await aggregateStream(toStream(commits), 1);
+      const resultWith = await aggregateStream(toStream(commits), 1, []);
+
+      assert.deepStrictEqual(resultWith, resultWithout);
+    });
+  });
+
+  // ----- h. Noreply merging works with streams ----------------------------
 
   describe('noreply merging with streams', () => {
     it('should merge same person when name matches GH username', async () => {
