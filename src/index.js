@@ -91,7 +91,6 @@ export async function main(repoPath, options = {}) {
   }
 
   if (options.timing) {
-    console.error(`  Scan + aggregate     ${((genStart - scanStart) / 1000).toFixed(2)}s`);
     console.error(`  Generate output     ${((performance.now() - genStart) / 1000).toFixed(2)}s`);
     console.error(`  ───────────────────────────`);
     console.error(`  Total               ${((performance.now() - totalStart) / 1000).toFixed(2)}s`);

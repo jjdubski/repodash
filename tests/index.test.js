@@ -269,10 +269,11 @@ describe('main orchestrator (src/index.js)', () => {
       await main(repoPath, { json: true, timing: true });
 
       const allErrors = errors.join('\n');
-      assert.ok(allErrors.includes('Scan + aggregate'));
+      assert.ok(allErrors.includes('Parse commits'));
+      assert.ok(allErrors.includes('Merge contributors'));
+      assert.ok(allErrors.includes('Format results'));
       assert.ok(allErrors.includes('Generate output'));
       assert.ok(allErrors.includes('Total'));
-      assert.ok(allErrors.includes('Parse commits'));
     } finally {
       console.log = originalLog;
       console.error = originalErr;
@@ -292,7 +293,7 @@ describe('main orchestrator (src/index.js)', () => {
       await main(repoPath, { json: true });
 
       const allErrors = errors.join('\n');
-      assert.ok(!allErrors.includes('Scan + aggregate'));
+      assert.ok(!allErrors.includes('Parse commits'));
       assert.ok(!allErrors.includes('Generate output'));
     } finally {
       console.log = originalLog;
