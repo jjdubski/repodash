@@ -269,8 +269,7 @@ describe('main orchestrator (src/index.js)', () => {
       await main(repoPath, { json: true, timing: true });
 
       const allErrors = errors.join('\n');
-      assert.ok(allErrors.includes('Load git history'));
-      assert.ok(allErrors.includes('Aggregate data'));
+      assert.ok(allErrors.includes('Scan + aggregate'));
       assert.ok(allErrors.includes('Generate output'));
       assert.ok(allErrors.includes('Total'));
     } finally {
@@ -292,7 +291,7 @@ describe('main orchestrator (src/index.js)', () => {
       await main(repoPath, { json: true });
 
       const allErrors = errors.join('\n');
-      assert.ok(!allErrors.includes('Load git history'));
+      assert.ok(!allErrors.includes('Scan + aggregate'));
       assert.ok(!allErrors.includes('Generate output'));
     } finally {
       console.log = originalLog;

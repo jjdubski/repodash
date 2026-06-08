@@ -13,20 +13,11 @@ export async function main(repoPath, options = {}) {
 
   const totalStart = performance.now();
 
-  const t1 = performance.now();
-  const commitsStream = getAllCommits(repoPath);
-  const branchCountPromise = getLocalBranchCount(repoPath);
-  if (options.timing) {
-    const elapsed = (performance.now() - t1) / 1000;
-    console.error(`  Load git history    ${elapsed.toFixed(2)}s`);
-  }
-
-  const t2 = performance.now();
-  const result = await aggregateStream(commitsStream, branchCountPromise);
-  if (options.timing) {
-    const elapsed = (performance.now() - t2) / 1000;
-    console.error(`  Aggregate data      ${elapsed.toFixed(2)}s`);
-  }
+  // Load + aggregate are one combined step because getAllCommits() returns
+  // a lazy async generator — the actual git child-process spawn and parsing
+  // happen interleaved inside aggregateStream.
+  const scanStart = performance.now();
+  const result = await aggregateStream(getAllCommits(repoPath), getLocalBranchCount(repoPath));
 
   result.summary.repoName = repoPath
     .replace(/[/\\]$/, '')
@@ -34,7 +25,7 @@ export async function main(repoPath, options = {}) {
     .pop()
     .replace(/\.git$/, '');
 
-  const t3 = performance.now();
+  const genStart = performance.now();
 
   if (options.json) {
     const filtered = filterDatasets(result, options);
@@ -92,11 +83,10 @@ export async function main(repoPath, options = {}) {
   }
 
   if (options.timing) {
-    const genTime = (performance.now() - t3) / 1000;
-    const totalTime = (performance.now() - totalStart) / 1000;
-    console.error(`  Generate output     ${genTime.toFixed(2)}s`);
+    console.error(`  Scan + aggregate    ${((genStart - scanStart) / 1000).toFixed(2)}s`);
+    console.error(`  Generate output     ${((performance.now() - genStart) / 1000).toFixed(2)}s`);
     console.error(`  ───────────────────────────`);
-    console.error(`  Total               ${totalTime.toFixed(2)}s`);
+    console.error(`  Total               ${((performance.now() - totalStart) / 1000).toFixed(2)}s`);
   }
 }
 
