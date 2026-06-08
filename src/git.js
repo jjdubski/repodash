@@ -118,15 +118,26 @@ function parseCommit(lines) {
  * iteration early, preventing resource leaks on large repos.
  *
  * @param {string} repoPath - Path to the git repository
+ * @param {object} [options]
+ * @param {boolean} [options.noMerges=false] - If true, exclude merge commits
  * @returns {AsyncGenerator<object>} Parsed commit objects yielded one at a time
  */
-export async function* getAllCommits(repoPath) {
+export async function* getAllCommits(repoPath, options = {}) {
   validateRepoPath(repoPath);
 
   const ac = new AbortController();
+  // --no-merges excludes merge commits (which have 0 stats and 0 files).
+  // For large repos like the Linux kernel this cuts processing time in half.
+  const noMergesFlag = options.noMerges ? ['--no-merges'] : [];
   const child = spawn(
     'git',
-    ['log', '--all', `--pretty=format:${DELIMITER_LINE}%n%H|%an|%ae|%ai|%s`, '--numstat'],
+    [
+      'log',
+      '--all',
+      ...noMergesFlag,
+      `--pretty=format:${DELIMITER_LINE}%n%H|%an|%ae|%ai|%s`,
+      '--numstat',
+    ],
     { cwd: repoPath, signal: ac.signal },
   );
 

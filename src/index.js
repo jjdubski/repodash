@@ -17,9 +17,8 @@ export async function main(repoPath, options = {}) {
   if (options.timing) console.error();
 
   const timings = [];
-  const scanStart = performance.now();
   const result = await aggregateStream(
-    getAllCommits(repoPath),
+    getAllCommits(repoPath, { noMerges: options['no-merges'] }),
     getLocalBranchCount(repoPath),
     timings,
     options.timing

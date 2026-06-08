@@ -9,6 +9,7 @@ Options:
   --json                Print datasets as JSON to stdout
   --file [path]         Write datasets as JSON to a file (default: repo dir)
   --timing              Show timing breakdown for each step
+  --no-merges           Exclude merge commits (faster for large repos)
   --summary             Include summary dataset
   --contributions       Include contributions dataset
   --contributors        Include contributors dataset
@@ -56,6 +57,7 @@ export function parseAndValidate(argv) {
       frequency: { type: 'boolean' },
       activity: { type: 'boolean' },
       timing: { type: 'boolean' },
+      'no-merges': { type: 'boolean' },
     },
     strict: false,
     allowPositionals: true,
@@ -101,7 +103,8 @@ export function parseAndValidate(argv) {
     process.exit(1);
   }
 
-  const { help, ...cleanValues } = values;
+  // help is handled above (process.exit), strip it from returned values
+  delete values.help;
 
-  return { repoPath, values: cleanValues };
+  return { repoPath, values };
 }

@@ -285,7 +285,8 @@ function formatResults(processed, commitCount, branchCount) {
       byHour: Array.from(day.byHour, (count, hour) => ({ hour, count })),
       topFiles: Array.from(day.files.entries())
         .map(([path, changes]) => ({ path, changes }))
-        .sort((a, b) => b.changes - a.changes || a.path.localeCompare(b.path)),
+        .sort((a, b) => b.changes - a.changes || a.path.localeCompare(b.path))
+        .slice(0, 20),
       authorDetails: Array.from(day.authors.entries())
         .map(([email, { name, count, additions, deletions }]) => ({
           author: name,

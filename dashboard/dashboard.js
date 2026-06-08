@@ -97,6 +97,25 @@ function getDateRangeLabel(d) {
   return startLabel + ' \u2014 ' + endLabel;
 }
 
+// ── Downsample ──────────────────────────────────────────────────────
+
+const MAX_CHART_POINTS = 500;
+
+/**
+ * Downsample an array to at most maxPoints by evenly-spaced sampling.
+ * Preserves the first and last elements. Used to prevent Chart.js from
+ * freezing when rendering repos with thousands of days of history.
+ */
+function downsampleData(arr, maxPoints) {
+  if (!arr || arr.length <= maxPoints) return arr;
+  const step = (arr.length - 1) / (maxPoints - 1);
+  const result = [];
+  for (let i = 0; i < maxPoints; i++) {
+    result.push(arr[Math.round(i * step)]);
+  }
+  return result;
+}
+
 // ── Time filter helpers ──────────────────────────────────────────────
 
 export function getCutoffDate(filter) {
@@ -262,7 +281,9 @@ export function computeFilteredActivity(contributions) {
 // ═════════════════════════════════════════════════════════════════════
 
 function lineChartOptions(frequency) {
+  const large = frequency && frequency.length > 200;
   return {
+    animation: large ? { duration: 0 } : undefined,
     scales: {
       x: { maxTicksLimit: frequency.length > 90 ? 12 : undefined },
     },
@@ -276,11 +297,18 @@ function lineChartOptions(frequency) {
   };
 }
 
+function downsampleFrequency(frequency) {
+  if (!frequency || frequency.length <= MAX_CHART_POINTS) return frequency;
+  return downsampleData(frequency, MAX_CHART_POINTS);
+}
+
 function renderFrequencyLineChart(frequency, chartId, alpha, pointRadius, pointHoverRadius) {
   if (!frequency || !frequency.length) {
     destroyChart(chartId);
     return;
   }
+
+  frequency = downsampleFrequency(frequency);
 
   createChart(
     chartId,
@@ -384,6 +412,14 @@ function createChart(id, type, data, optionsOverride) {
   destroyChart(id);
   const canvas = document.getElementById(id);
   if (!canvas) return null;
+
+  // Disable animation for large datasets (prevents multi-second freezes)
+  if (data && data.labels && data.labels.length > 200) {
+    optionsOverride = Object.assign({}, optionsOverride, {
+      animation: { duration: 0 },
+    });
+  }
+
   const ctx = canvas.getContext('2d');
   state.charts[id] = new window.Chart(ctx, {
     type: type,
@@ -652,6 +688,11 @@ function renderContributionChart(contributions, frequency, mode, contributors) {
   }
 }
 
+function downsampleContributions(contributions) {
+  if (!contributions || contributions.length <= MAX_CHART_POINTS) return contributions;
+  return downsampleData(contributions, MAX_CHART_POINTS);
+}
+
 function buildOthersDataset(contributions, topAuthors) {
   if (!topAuthors.length) return null;
   const topSet = {};
@@ -674,6 +715,7 @@ function buildOthersDataset(contributions, topAuthors) {
 }
 
 function renderContributionAuthor(contributions, contributors) {
+  contributions = downsampleContributions(contributions);
   const TOP = 10;
   const seen = {};
   const authorKeys = [];
@@ -752,17 +794,18 @@ function renderContributionAuthor(contributions, contributors) {
 }
 
 function renderContributionCommits(contributions) {
+  const display = downsampleContributions(contributions);
   createChart(
     'chart-contribution',
     'bar',
     {
-      labels: contributions.map(function (d) {
+      labels: display.map(function (d) {
         return d.date;
       }),
       datasets: [
         {
           label: 'Commits',
-          data: contributions.map(function (d) {
+          data: display.map(function (d) {
             return d.count;
           }),
           backgroundColor: window.COLORS.blue,
@@ -775,7 +818,7 @@ function renderContributionCommits(contributions) {
       scales: {
         x: {
           stacked: false,
-          maxTicksLimit: contributions.length > 90 ? 12 : undefined,
+          maxTicksLimit: display.length > 90 ? 12 : undefined,
         },
         y: {
           stacked: false,

@@ -108,6 +108,17 @@ describe('parseAndValidate', () => {
     assert.strictEqual(result.values.timing, true);
   });
 
+  it('should parse --no-merges flag', () => {
+    const result = parseAndValidate(['--no-merges', '/path/to/repo']);
+    assert.strictEqual(result.repoPath, '/path/to/repo');
+    assert.strictEqual(result.values['no-merges'], true);
+  });
+
+  it('should not set no-merges when flag is absent', () => {
+    const result = parseAndValidate(['/path/to/repo']);
+    assert.strictEqual(Object.keys(result.values).length, 0);
+  });
+
   it('should parse multiple combined flags', () => {
     const result = parseAndValidate([
       '--json',
