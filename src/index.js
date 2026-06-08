@@ -13,9 +13,9 @@ export async function main(repoPath, options = {}) {
 
   const totalStart = performance.now();
 
-  // Load + aggregate are one combined step because getAllCommits() returns
-  // a lazy async generator — the actual git child-process spawn and parsing
-  // happen interleaved inside aggregateStream.
+  // Print a blank line to visually separate the scan announcement from timing output
+  if (options.timing) console.error();
+
   const timings = [];
   const scanStart = performance.now();
   const result = await aggregateStream(
@@ -23,7 +23,7 @@ export async function main(repoPath, options = {}) {
     getLocalBranchCount(repoPath),
     timings,
     options.timing
-      ? (label, elapsed) => console.error(`    ${label.padEnd(20)} ${elapsed.toFixed(2)}s`)
+      ? (label, elapsed) => console.error(`  ${label.padEnd(20)} ${elapsed.toFixed(2)}s`)
       : undefined,
   );
 
@@ -34,6 +34,9 @@ export async function main(repoPath, options = {}) {
     .replace(/\.git$/, '');
 
   const genStart = performance.now();
+
+  /** @type {string|undefined} */
+  let dashboardUrl;
 
   if (options.json) {
     const filtered = filterDatasets(result, options);
@@ -54,7 +57,7 @@ export async function main(repoPath, options = {}) {
     const { port, tmpDir, server } = await serveDashboard(result, dashboardDir);
 
     const addr = `http://localhost:${port}`;
-    console.log(chalk.cyan('📊 insights dashboard:'), chalk.underline(addr));
+    dashboardUrl = addr;
 
     open(addr).catch((err) => {
       console.warn(chalk.yellow(`Could not open browser: ${err.message}`));
@@ -94,6 +97,11 @@ export async function main(repoPath, options = {}) {
     console.error(`  Generate output     ${((performance.now() - genStart) / 1000).toFixed(2)}s`);
     console.error(`  ───────────────────────────`);
     console.error(`  Total               ${((performance.now() - totalStart) / 1000).toFixed(2)}s`);
+  }
+
+  if (dashboardUrl) {
+    console.log();
+    console.log(chalk.cyan('📊 insights dashboard:'), chalk.underline(dashboardUrl));
   }
 }
 
