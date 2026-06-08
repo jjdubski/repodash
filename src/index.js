@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { rmSync } from 'node:fs';
 import open from 'open';
 import { getAllCommits, getLocalBranchCount } from './git.js';
-import { aggregate } from './aggregate.js';
+import { aggregateStream } from './aggregate.js';
 import { serveDashboard } from './server.js';
 
 /**
@@ -19,9 +19,7 @@ import { serveDashboard } from './server.js';
 export async function main(repoPath) {
   console.log(chalk.cyan(`insights: scanning repo at ${repoPath}`));
 
-  const commits = await getAllCommits(repoPath);
-  const branchCount = await getLocalBranchCount(repoPath);
-  const result = aggregate(commits, branchCount);
+  const result = await aggregateStream(getAllCommits(repoPath), getLocalBranchCount(repoPath));
 
   // Derive a human-readable repo name from the path
   result.summary.repoName = repoPath

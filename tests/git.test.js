@@ -137,13 +137,19 @@ describe('getLocalBranchCount()', () => {
 // ---------------------------------------------------------------------------
 describe('getAllCommits()', () => {
   it('should return correct number of commits', async () => {
-    const commits = await getAllCommits(mainRepoPath);
+    const commits = [];
+    for await (const commit of getAllCommits(mainRepoPath)) {
+      commits.push(commit);
+    }
 
     assert.strictEqual(commits.length, 5);
   });
 
   it('each commit should have the expected shape', async () => {
-    const commits = await getAllCommits(mainRepoPath);
+    const commits = [];
+    for await (const commit of getAllCommits(mainRepoPath)) {
+      commits.push(commit);
+    }
 
     assert.ok(commits.length > 0);
     for (const commit of commits) {
@@ -201,7 +207,10 @@ describe('getAllCommits()', () => {
   });
 
   it('should handle a repo with a single commit', async () => {
-    const commits = await getAllCommits(singleRepoPath);
+    const commits = [];
+    for await (const commit of getAllCommits(singleRepoPath)) {
+      commits.push(commit);
+    }
 
     assert.strictEqual(commits.length, 1);
     assert.strictEqual(commits[0].stats.files, 1);
@@ -209,20 +218,44 @@ describe('getAllCommits()', () => {
     assert.ok(commits[0].files[0].endsWith('readme.md'));
   });
 
-  it('should throw synchronously for a non-existent path', () => {
-    assert.throws(
-      () => getAllCommits('/nonexistent/path/for/testing'),
+  it('should reject for a non-existent path', async () => {
+    await assert.rejects(
+      () => getAllCommits('/nonexistent/path/for/testing').next(),
       { name: 'Error' },
-      'should throw a descriptive error for invalid paths',
+      'should reject for invalid paths',
     );
   });
 
   it('should return an empty array for an empty repo (no commits)', async () => {
     // git log --all on a repo with zero commits returns empty output (exit 0)
-    const commits = await getAllCommits(emptyRepoPath);
+    const commits = [];
+    for await (const commit of getAllCommits(emptyRepoPath)) {
+      commits.push(commit);
+    }
 
     assert.ok(Array.isArray(commits));
     assert.strictEqual(commits.length, 0);
+  });
+
+  it('should work with for-await-of', async () => {
+    let count = 0;
+    for await (const commit of getAllCommits(mainRepoPath)) {
+      assert.ok(commit.hash);
+      assert.ok(commit.author);
+      assert.ok(commit.stats);
+      count++;
+    }
+    assert.strictEqual(count, 5);
+  });
+
+  it('should handle cancellation (early break) without error', async () => {
+    let count = 0;
+    for await (const commit of getAllCommits(mainRepoPath)) {
+      assert.ok(commit);
+      count++;
+      if (count === 2) break;
+    }
+    assert.strictEqual(count, 2);
   });
 });
 
@@ -231,7 +264,7 @@ describe('getAllCommits()', () => {
 // ---------------------------------------------------------------------------
 describe('edge cases', () => {
   it('getLocalBranchCount should reject for a non-existent path', () => {
-    // getLocalBranchCount now has upfront path validation like getAllCommits,
+    // getLocalBranchCount has upfront path validation,
     // so it throws synchronously.
     assert.throws(
       () => getLocalBranchCount('/nonexistent/path/for/testing'),
@@ -248,7 +281,10 @@ describe('edge cases', () => {
   });
 
   it('should handle commits with no file changes (empty/merge commits)', async () => {
-    const commits = await getAllCommits(mainRepoPath);
+    const commits = [];
+    for await (const commit of getAllCommits(mainRepoPath)) {
+      commits.push(commit);
+    }
 
     // git log returns newest-first, so the empty commit comes first.
     const emptyCommit = commits[0];
@@ -260,7 +296,10 @@ describe('edge cases', () => {
   });
 
   it('should handle binary files without crashing', async () => {
-    const commits = await getAllCommits(mainRepoPath);
+    const commits = [];
+    for await (const commit of getAllCommits(mainRepoPath)) {
+      commits.push(commit);
+    }
 
     const binaryCommit = commits.find((c) => c.message === 'Add binary file');
     assert.ok(binaryCommit, 'the binary-file commit should be present');
@@ -277,7 +316,10 @@ describe('edge cases', () => {
   });
 
   it('should capture commits from different authors correctly', async () => {
-    const commits = await getAllCommits(mainRepoPath);
+    const commits = [];
+    for await (const commit of getAllCommits(mainRepoPath)) {
+      commits.push(commit);
+    }
 
     const devCommit = commits.find((c) => c.author.email === 'dev2@test.com');
     assert.ok(devCommit, 'a commit from Developer2 <dev2@test.com> should exist');
@@ -289,7 +331,7 @@ describe('edge cases', () => {
     // A regular directory passes statSync().isDirectory(), so the function
     // spawns git which fails asynchronously (not a repo). Must use rejects().
     await assert.rejects(
-      () => getAllCommits(nonGitDir),
+      () => getAllCommits(nonGitDir).next(),
       { name: 'Error' },
       'should reject for a regular directory without .git',
     );

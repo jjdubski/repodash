@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { createInterface } from 'node:readline';
 import { statSync } from 'node:fs';
 
 // Using %s (subject-only) in the pretty=format is intentional — commit
@@ -6,6 +7,11 @@ import { statSync } from 'node:fs';
 // delimiter. A full-body format (%B) could contain arbitrary characters
 // including the delimiter itself, corrupting the parse.
 const COMMIT_DELIMITER = '---COMMIT---';
+
+// Printed twice in the git format string so the full delimiter line
+// appears alone before each commit block.  Checked by the streaming
+// parser to decide when to flush accumulated lines.
+const DELIMITER_LINE = COMMIT_DELIMITER + COMMIT_DELIMITER;
 
 function validateRepoPath(repoPath) {
   if (typeof repoPath !== 'string' || repoPath.length === 0) {
@@ -100,35 +106,79 @@ function parseCommit(lines) {
 }
 
 /**
- * Extract all commits from a local git repository.
+ * Stream-parse commits from a local git repository using an AsyncGenerator.
  *
- * Runs `git log --all --numstat` in a single pass, streaming output
- * through a child process to handle large repositories efficiently.
+ * Reads `git log --all --numstat` output line-by-line with a readline
+ * interface.  Commits are delimited by DELIMITER_LINE (printed twice in the
+ * pretty=format), which lands on its own line before each commit block.
+ * Each time the parser encounters the delimiter it flushes the previously
+ * accumulated lines as a parsed commit object.
+ *
+ * An AbortController kills the child process when the consumer cancels
+ * iteration early, preventing resource leaks on large repos.
  *
  * @param {string} repoPath - Path to the git repository
- * @returns {Promise<Array>} Array of parsed commit objects
+ * @returns {AsyncGenerator<object>} Parsed commit objects yielded one at a time
  */
-export function getAllCommits(repoPath) {
+export async function* getAllCommits(repoPath) {
   validateRepoPath(repoPath);
 
-  return spawnGit(
-    ['log', '--all', `--pretty=format:${COMMIT_DELIMITER}%n%H|%an|%ae|%ai|%s`, '--numstat'],
-    repoPath,
-  ).then(({ stdout }) => {
-    const commits = [];
-    const parts = stdout.split(COMMIT_DELIMITER);
+  const ac = new AbortController();
+  const child = spawn(
+    'git',
+    ['log', '--all', `--pretty=format:${DELIMITER_LINE}%n%H|%an|%ae|%ai|%s`, '--numstat'],
+    { cwd: repoPath, signal: ac.signal },
+  );
 
-    for (const part of parts) {
-      const trimmed = part.trim();
-      if (!trimmed) continue;
+  const rl = createInterface({ input: child.stdout, crlfDelay: Infinity });
+  let currentLines = [];
+  let stderr = '';
+  let exitCode = null;
+  let processError = null;
 
-      const lines = trimmed.split('\n');
-      const commit = parseCommit(lines);
-      if (commit) commits.push(commit);
+  child.stderr.on('data', (chunk) => {
+    stderr += chunk.toString();
+  });
+  child.on('close', (code) => {
+    exitCode = code;
+  });
+  child.on('error', (err) => {
+    processError = err;
+  });
+
+  try {
+    for await (const line of rl) {
+      if (line === DELIMITER_LINE) {
+        if (currentLines.length > 0) {
+          const commit = parseCommit(currentLines);
+          if (commit) yield commit;
+        }
+        currentLines = [];
+      } else {
+        currentLines.push(line);
+      }
     }
 
-    return commits;
-  });
+    if (currentLines.length > 0) {
+      const commit = parseCommit(currentLines);
+      if (commit) yield commit;
+    }
+
+    // Wait for git process to exit if it hasn't already
+    if (exitCode === null) {
+      exitCode = await new Promise((resolve) => {
+        child.on('close', resolve);
+      });
+    }
+
+    if (exitCode !== 0) {
+      if (processError) throw processError;
+      throw new Error(stderr.trim() || `git command failed with exit code ${exitCode}`);
+    }
+  } finally {
+    rl.close();
+    ac.abort();
+  }
 }
 
 /**

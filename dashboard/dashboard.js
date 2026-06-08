@@ -66,6 +66,18 @@ function escapeHtml(str) {
   return _escapeDiv.innerHTML;
 }
 
+function debounce(fn, ms) {
+  let timer;
+  return function () {
+    const self = this;
+    const args = arguments;
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      fn.apply(self, args);
+    }, ms);
+  };
+}
+
 function getDateRangeLabel(d) {
   let startLabel, endLabel;
   if (state.timeFilter === 'allTime' && d && d.summary) {
@@ -442,33 +454,13 @@ function clearStates(tab) {
 }
 
 function loadData() {
-  const fetches = [
-    fetch('/data/summary.json').then(function (r) {
+  return fetch('/data/all.json')
+    .then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
-    }),
-    fetch('/data/contributions.json').then(function (r) {
-      return r.json();
-    }),
-    fetch('/data/contributors.json').then(function (r) {
-      return r.json();
-    }),
-    fetch('/data/frequency.json').then(function (r) {
-      return r.json();
-    }),
-    fetch('/data/activity.json').then(function (r) {
-      return r.json();
-    }),
-  ];
-
-  return Promise.all(fetches)
-    .then(function (results) {
-      state.data = {
-        summary: results[0],
-        contributions: results[1],
-        contributors: results[2],
-        frequency: results[3],
-        activity: results[4],
-      };
+    })
+    .then(function (data) {
+      state.data = data;
       return state.data;
     })
     .catch(function (err) {
@@ -1048,12 +1040,15 @@ function renderActivity(d) {
 function setupModeSelect(selectId, stateKey, renderFn) {
   const el = document.getElementById(selectId);
   if (el) {
-    el.addEventListener('change', function () {
-      state[stateKey] = el.value;
+    const debouncedRender = debounce(function () {
       if (state.activeTab === 'overview') {
         const d = getFilteredData();
         if (d) renderFn(d);
       }
+    }, 300);
+    el.addEventListener('change', function () {
+      state[stateKey] = el.value;
+      debouncedRender();
     });
   }
 }

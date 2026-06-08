@@ -85,63 +85,85 @@ function initOrUpdateContributor(contributorsMap, commit) {
   return contributor;
 }
 
+/**
+ * Internal helper that processes a single commit and updates all mutable
+ * fields on the shared `state` object (totals, per-day contributions, per-author
+ * stats, frequency, day-of-week / hour counts, and file-change tracking).
+ *
+ * Must only be called from within {@link processCommits} (synchronous) or
+ * {@link processCommitsStream} (asynchronous).  The `state` object must have
+ * been created via {@link createProcessingState}.
+ *
+ * @param {object} commit - A parsed commit object (see git.js output shape).
+ * @param {object} state  - Mutable processing state from createProcessingState().
+ */
+function processSingleCommit(commit, state) {
+  const dateKey = extractDate(commit.date);
+  const jsDate = new Date(commit.date);
+
+  state.commitCount++;
+  state.totalAdditions += commit.stats?.additions ?? 0;
+  state.totalDeletions += commit.stats?.deletions ?? 0;
+
+  if (state.firstCommit === null || commit.date < state.firstCommit)
+    state.firstCommit = commit.date;
+  if (state.lastCommit === null || commit.date > state.lastCommit) state.lastCommit = commit.date;
+
+  const dayEntry = initOrUpdateDayEntry(state.contributionsMap, dateKey, jsDate, commit);
+
+  let freq = state.frequencyMap.get(dateKey);
+  if (!freq) {
+    freq = { additions: 0, deletions: 0 };
+    state.frequencyMap.set(dateKey, freq);
+  }
+  freq.additions += commit.stats?.additions ?? 0;
+  freq.deletions += commit.stats?.deletions ?? 0;
+
+  initOrUpdateContributor(state.contributorsMap, commit);
+
+  state.dayOfWeekCounts[mapDayOfWeek(jsDate.getUTCDay())]++;
+  state.hourCounts[jsDate.getUTCHours()]++;
+
+  for (const file of commit.files ?? []) {
+    state.fileChangesMap.set(file, (state.fileChangesMap.get(file) ?? 0) + 1);
+    dayEntry.files.set(file, (dayEntry.files.get(file) ?? 0) + 1);
+  }
+}
+
+function createProcessingState() {
+  return {
+    totalAdditions: 0,
+    totalDeletions: 0,
+    firstCommit: null,
+    lastCommit: null,
+    commitCount: 0,
+    contributionsMap: new Map(),
+    frequencyMap: new Map(),
+    contributorsMap: new Map(),
+    dayOfWeekCounts: new Array(7).fill(0),
+    hourCounts: new Array(24).fill(0),
+    fileChangesMap: new Map(),
+  };
+}
+
 function processCommits(commits) {
-  let totalAdditions = 0;
-  let totalDeletions = 0;
-  let firstCommit = commits[0].date;
-  let lastCommit = commits[0].date;
-
-  const contributionsMap = new Map();
-  const frequencyMap = new Map();
-  const contributorsMap = new Map();
-
-  const dayOfWeekCounts = new Array(7).fill(0);
-  const hourCounts = new Array(24).fill(0);
-
-  const fileChangesMap = new Map();
+  const state = createProcessingState();
 
   for (const commit of commits) {
-    const dateKey = extractDate(commit.date);
-    const jsDate = new Date(commit.date);
-
-    totalAdditions += commit.stats?.additions ?? 0;
-    totalDeletions += commit.stats?.deletions ?? 0;
-    if (commit.date < firstCommit) firstCommit = commit.date;
-    if (commit.date > lastCommit) lastCommit = commit.date;
-
-    const dayEntry = initOrUpdateDayEntry(contributionsMap, dateKey, jsDate, commit);
-
-    let freq = frequencyMap.get(dateKey);
-    if (!freq) {
-      freq = { additions: 0, deletions: 0 };
-      frequencyMap.set(dateKey, freq);
-    }
-    freq.additions += commit.stats?.additions ?? 0;
-    freq.deletions += commit.stats?.deletions ?? 0;
-
-    initOrUpdateContributor(contributorsMap, commit);
-
-    dayOfWeekCounts[mapDayOfWeek(jsDate.getUTCDay())]++;
-    hourCounts[jsDate.getUTCHours()]++;
-
-    for (const file of commit.files ?? []) {
-      fileChangesMap.set(file, (fileChangesMap.get(file) ?? 0) + 1);
-      dayEntry.files.set(file, (dayEntry.files.get(file) ?? 0) + 1);
-    }
+    processSingleCommit(commit, state);
   }
 
-  return {
-    contributionsMap,
-    frequencyMap,
-    contributorsMap,
-    dayOfWeekCounts,
-    hourCounts,
-    fileChangesMap,
-    totalAdditions,
-    totalDeletions,
-    firstCommit,
-    lastCommit,
-  };
+  return state;
+}
+
+async function processCommitsStream(commitsStream) {
+  const state = createProcessingState();
+
+  for await (const commit of commitsStream) {
+    processSingleCommit(commit, state);
+  }
+
+  return state;
 }
 
 function findGhNoreplyMerges(contributorsMap, ghUsernameToEmail) {
@@ -334,5 +356,16 @@ export function aggregate(commits, branchCount) {
   if (processed.contributorsMap.size > 0) {
     mergeNoreplyContributors(processed.contributorsMap, processed.contributionsMap);
   }
-  return formatResults(processed, commits.length, branchCount);
+  return formatResults(processed, processed.commitCount, branchCount);
+}
+
+export async function aggregateStream(commitsStream, branchCount) {
+  const [processed, bc] = await Promise.all([processCommitsStream(commitsStream), branchCount]);
+  const commitCount = processed.commitCount;
+
+  if (commitCount === 0) return createEmptyResult(bc);
+  if (processed.contributorsMap.size > 0) {
+    mergeNoreplyContributors(processed.contributorsMap, processed.contributionsMap);
+  }
+  return formatResults(processed, commitCount, bc);
 }

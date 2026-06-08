@@ -168,6 +168,19 @@ describe('serveDashboard', () => {
       });
     });
 
+    it('should serve /data/all.json with all 5 data sets', async () => {
+      const res = await fetch(`http://localhost:${handle.port}/data/all.json`);
+      assert.strictEqual(res.status, 200, 'Expected 200 status');
+      assert.strictEqual(res.headers.get('content-type'), 'application/json');
+      const body = await res.json();
+      assert.ok(body.summary, 'Missing summary');
+      assert.ok(body.contributions, 'Missing contributions');
+      assert.ok(body.contributors, 'Missing contributors');
+      assert.ok(body.frequency, 'Missing frequency');
+      assert.ok(body.activity, 'Missing activity');
+      assert.deepStrictEqual(body.summary, testData.summary);
+    });
+
     it('should serve / (root) with index.html content', async () => {
       await assertFetch('/', { status: 200, type: 'text/html', bodyIncludes: 'Test Dashboard' });
     });

@@ -1,12 +1,6 @@
 import http from 'node:http';
-import {
-  createReadStream,
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { createReadStream, existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { writeFile } from 'node:fs/promises';
 import { extname, join, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import chalk from 'chalk';
@@ -146,11 +140,13 @@ function createTempDir() {
 
 const DATA_FILE_KEYS = ['summary', 'contributions', 'contributors', 'frequency', 'activity'];
 
-function writeDataFiles(dataDir, data) {
+async function writeDataFiles(dataDir, data) {
   try {
-    for (const key of DATA_FILE_KEYS) {
-      writeFileSync(join(dataDir, `${key}.json`), JSON.stringify(data[key] ?? {}, null, 2));
-    }
+    const writes = DATA_FILE_KEYS.map((key) =>
+      writeFile(join(dataDir, `${key}.json`), JSON.stringify(data[key] ?? {})),
+    );
+    writes.push(writeFile(join(dataDir, 'all.json'), JSON.stringify(data)));
+    await Promise.all(writes);
   } catch (err) {
     throw new Error(`Failed to write data files: ${err.message}`, { cause: err });
   }
@@ -194,7 +190,7 @@ export async function serveDashboard(data, dashboardDir, port = 0) {
   const { tmpDir, dataDir } = createTempDir();
 
   try {
-    writeDataFiles(dataDir, data);
+    await writeDataFiles(dataDir, data);
   } catch (err) {
     rmSync(tmpDir, { recursive: true, force: true });
     throw err;
@@ -237,8 +233,6 @@ export async function serveDashboard(data, dashboardDir, port = 0) {
       res.end('Bad Request');
     }
   });
-
-  server.timeout = 30000; // 30 seconds
 
   await new Promise((resolve, reject) => {
     const onError = (err) => {
