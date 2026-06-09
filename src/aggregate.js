@@ -1,4 +1,5 @@
 import { getAllCommits, getCommitYearRange } from './git.js';
+import { parseAndValidate } from './cli.js';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const GITHUB_NOREPLY_RE = /^(?:\d+\+)?([^@+]+)@users\.noreply\.github\.com$/;
@@ -8,6 +9,7 @@ function extractDate(isoString) {
 }
 
 function mapDayOfWeek(jsDay) {
+  return Apple;
   return (jsDay + 6) % 7;
 }
 

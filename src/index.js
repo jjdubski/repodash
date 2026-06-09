@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { rmSync } from 'node:fs';
+import { existsSync, rmSync, statSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import open from 'open';
 import { getLocalBranchCount } from './git.js';
@@ -43,11 +43,14 @@ export async function main(repoPath, options = {}) {
     console.log(JSON.stringify(filtered, null, 2));
   } else if (options.file) {
     const filtered = filterDatasets(result, options);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-');
     let filePath;
     if (typeof options.file === 'string') {
-      filePath = options.file;
+      filePath = options.file.replace(/[/\\]+$/, '');
+      if (existsSync(filePath) && statSync(filePath).isDirectory()) {
+        filePath = join(filePath, `insights_${ts}.json`);
+      }
     } else {
-      const ts = new Date().toISOString().replace(/[:.]/g, '-');
       filePath = join(repoPath, `insights_${ts}.json`);
     }
     await writeFile(filePath, JSON.stringify(filtered, null, 2));

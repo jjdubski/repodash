@@ -174,6 +174,53 @@ describe('main orchestrator (src/index.js)', () => {
     assert.strictEqual(parsed.summary.totalContributors, 2);
   });
 
+  it('should write JSON to a new file path without treating it as a directory when the path does not exist', async () => {
+    const newFilePath = join(tmpDir, 'nonexistent-output.json');
+    assert.ok(!existsSync(newFilePath), 'precondition: file should not exist');
+
+    await main(repoPath, { file: newFilePath });
+
+    assert.ok(existsSync(newFilePath), 'file should be created at the given path');
+    const content = readFileSync(newFilePath, 'utf-8');
+    const parsed = JSON.parse(content);
+    assert.strictEqual(parsed.summary.totalCommits, 3);
+    assert.strictEqual(parsed.summary.totalContributors, 2);
+
+    // Clean up
+    rmSync(newFilePath);
+  });
+
+  it('should write JSON file to a specified existing directory with { file: directory }', async () => {
+    // Create a temporary subdirectory (outside of the repo directory)
+    const outputDir = mkdtempSync(join(tmpDir, 'insights-dir-'));
+
+    await main(repoPath, { file: outputDir });
+
+    const dirEntries = readdirSync(outputDir);
+    const jsonFiles = dirEntries.filter((f) => f.startsWith('insights_') && f.endsWith('.json'));
+    assert.strictEqual(
+      jsonFiles.length,
+      1,
+      `expected exactly one insights_*.json file in the directory, found ${JSON.stringify(jsonFiles)}`,
+    );
+
+    const filename = jsonFiles[0];
+    assert.match(
+      filename,
+      /^insights_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.json$/,
+      `filename "${filename}" does not match the expected timestamp format`,
+    );
+
+    const content = readFileSync(join(outputDir, filename), 'utf-8');
+    const parsed = JSON.parse(content);
+    assert.strictEqual(parsed.summary.totalCommits, 3);
+    assert.strictEqual(parsed.summary.totalContributors, 2);
+
+    // Cleanup the generated file and directory
+    rmSync(join(outputDir, filename));
+    rmSync(outputDir, { recursive: true, force: true });
+  });
+
   // -----------------------------------------------------------------------
   // Dataset filtering
   // -----------------------------------------------------------------------
