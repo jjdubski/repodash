@@ -58,7 +58,8 @@ export async function main(repoPath, options = {}) {
     const addr = `http://localhost:${port}`;
     dashboardUrl = addr;
 
-    open(addr).catch((err) => {
+    const openBrowser = options.openBrowser ?? open;
+    openBrowser(addr).catch((err) => {
       console.warn(chalk.yellow(`Could not open browser: ${err.message}`));
       console.warn(chalk.yellow(`Open ${addr} manually.`));
     });

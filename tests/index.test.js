@@ -326,7 +326,7 @@ describe('main orchestrator (src/index.js)', () => {
     };
 
     try {
-      await main(repoPath);
+      await main(repoPath, { openBrowser: () => Promise.resolve() });
 
       const hasDashboardUrl = logs.some(
         (l) => l.includes('localhost:') || l.includes('insights dashboard'),
@@ -368,7 +368,7 @@ describe('main orchestrator (src/index.js)', () => {
 
     try {
       await assert.doesNotReject(
-        () => main(repoPath),
+        () => main(repoPath, { openBrowser: () => Promise.resolve() }),
         'dashboard mode should not throw for a valid repo path',
       );
     } finally {

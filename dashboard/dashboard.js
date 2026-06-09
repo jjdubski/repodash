@@ -281,9 +281,7 @@ export function computeFilteredActivity(contributions) {
 // ═════════════════════════════════════════════════════════════════════
 
 function lineChartOptions(frequency) {
-  const large = frequency && frequency.length > 200;
   return {
-    animation: large ? { duration: 0 } : undefined,
     scales: {
       x: { maxTicksLimit: frequency.length > 90 ? 12 : undefined },
     },
@@ -412,13 +410,6 @@ function createChart(id, type, data, optionsOverride) {
   destroyChart(id);
   const canvas = document.getElementById(id);
   if (!canvas) return null;
-
-  // Disable animation for large datasets (prevents multi-second freezes)
-  if (data && data.labels && data.labels.length > 200) {
-    optionsOverride = Object.assign({}, optionsOverride, {
-      animation: { duration: 0 },
-    });
-  }
 
   const ctx = canvas.getContext('2d');
   state.charts[id] = new window.Chart(ctx, {
