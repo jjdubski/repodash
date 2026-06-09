@@ -23,7 +23,7 @@ are specified, all datasets are included.
 `);
 }
 
-export function parseAndValidate(argv) {
+function parseFileFlag(argv) {
   let fileValue;
   let fileIsBool = false;
   const filteredArgs = [];
@@ -46,6 +46,36 @@ export function parseAndValidate(argv) {
       filteredArgs.push(argv[i]);
     }
   }
+
+  return { fileValue, fileIsBool, filteredArgs };
+}
+
+function determineRepoPath(values, positionals) {
+  let repoPath;
+  if (typeof values.file === 'string' && positionals.length === 0) {
+    if (values.file === '') {
+      console.error(chalk.red('Error: --file value cannot be empty.\n'));
+      printUsage();
+      process.exit(1);
+    }
+    repoPath = values.file;
+    values.file = true;
+  } else if (positionals.length > 1) {
+    console.error(chalk.red('Error: multiple repository paths provided.\n'));
+    printUsage();
+    process.exit(1);
+  } else if (positionals.length > 0) {
+    repoPath = positionals[0];
+  } else {
+    console.error(chalk.red('Error: no repository path provided.\n'));
+    printUsage();
+    process.exit(1);
+  }
+  return repoPath;
+}
+
+export function parseAndValidate(argv) {
+  const { fileValue, fileIsBool, filteredArgs } = parseFileFlag(argv);
 
   const { values, positionals } = parseArgs({
     options: {
@@ -75,27 +105,7 @@ export function parseAndValidate(argv) {
     process.exit(0);
   }
 
-  let repoPath;
-
-  if (typeof values.file === 'string' && positionals.length === 0) {
-    if (values.file === '') {
-      console.error(chalk.red('Error: --file value cannot be empty.\n'));
-      printUsage();
-      process.exit(1);
-    }
-    repoPath = values.file;
-    values.file = true;
-  } else if (positionals.length > 1) {
-    console.error(chalk.red('Error: multiple repository paths provided.\n'));
-    printUsage();
-    process.exit(1);
-  } else if (positionals.length > 0) {
-    repoPath = positionals[0];
-  } else {
-    console.error(chalk.red('Error: no repository path provided.\n'));
-    printUsage();
-    process.exit(1);
-  }
+  const repoPath = determineRepoPath(values, positionals);
 
   if (values.json && values.file) {
     console.error(chalk.red('Error: --json and --file are mutually exclusive.\n'));
@@ -103,8 +113,7 @@ export function parseAndValidate(argv) {
     process.exit(1);
   }
 
-  // help is handled above (process.exit), strip it from returned values
-  delete values.help;
+  const { help, ...cleanValues } = values;
 
-  return { repoPath, values };
+  return { repoPath, values: cleanValues };
 }

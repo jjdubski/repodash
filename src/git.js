@@ -55,14 +55,27 @@ function spawnGit(args, cwd) {
   });
 }
 
-/**
- * Parse a commit entry from an array of lines.
- * First line is the pretty=format header (hash|name|email|date|message).
- * Remaining lines are --numstat output (added\tdeleted\tfilepath).
- *
- * @param {string[]} lines - Lines for a single commit (header + numstat rows)
- * @returns {object|null} Parsed commit object, or null if header is invalid
- */
+function spawnGitLog(repoPath, options = {}) {
+  const ac = new AbortController();
+  const noMergesFlag = options.noMerges ? ['--no-merges'] : [];
+  const afterFlag = options.after ? [`--after=${options.after}`] : [];
+  const beforeFlag = options.before ? [`--before=${options.before}`] : [];
+  const child = spawn(
+    'git',
+    [
+      'log',
+      '--all',
+      ...noMergesFlag,
+      ...afterFlag,
+      ...beforeFlag,
+      `--pretty=format:${DELIMITER_LINE}%n%H|%an|%ae|%ai|%s`,
+      '--numstat',
+    ],
+    { cwd: repoPath, signal: ac.signal },
+  );
+  return { child, ac };
+}
+
 function parseCommit(lines) {
   if (!lines || lines.length === 0) return null;
 
@@ -105,47 +118,10 @@ function parseCommit(lines) {
   };
 }
 
-/**
- * Stream-parse commits from a local git repository using an AsyncGenerator.
- *
- * Reads `git log --all --numstat` output line-by-line with a readline
- * interface.  Commits are delimited by DELIMITER_LINE (printed twice in the
- * pretty=format), which lands on its own line before each commit block.
- * Each time the parser encounters the delimiter it flushes the previously
- * accumulated lines as a parsed commit object.
- *
- * An AbortController kills the child process when the consumer cancels
- * iteration early, preventing resource leaks on large repos.
- *
- * @param {string} repoPath - Path to the git repository
- * @param {object} [options]
- * @param {boolean} [options.noMerges=false] - If true, exclude merge commits
- * @param {string} [options.after] - ISO date string, passed as --after= to git log
- * @param {string} [options.before] - ISO date string, passed as --before= to git log
- * @returns {AsyncGenerator<object>} Parsed commit objects yielded one at a time
- */
 export async function* getAllCommits(repoPath, options = {}) {
   validateRepoPath(repoPath);
 
-  const ac = new AbortController();
-  // --no-merges excludes merge commits (which have 0 stats and 0 files).
-  // For large repos like the Linux kernel this cuts processing time in half.
-  const noMergesFlag = options.noMerges ? ['--no-merges'] : [];
-  const afterFlag = options.after ? [`--after=${options.after}`] : [];
-  const beforeFlag = options.before ? [`--before=${options.before}`] : [];
-  const child = spawn(
-    'git',
-    [
-      'log',
-      '--all',
-      ...noMergesFlag,
-      ...afterFlag,
-      ...beforeFlag,
-      `--pretty=format:${DELIMITER_LINE}%n%H|%an|%ae|%ai|%s`,
-      '--numstat',
-    ],
-    { cwd: repoPath, signal: ac.signal },
-  );
+  const { child, ac } = spawnGitLog(repoPath, options);
 
   const rl = createInterface({ input: child.stdout, crlfDelay: Infinity });
   let currentLines = [];
@@ -181,7 +157,6 @@ export async function* getAllCommits(repoPath, options = {}) {
       if (commit) yield commit;
     }
 
-    // Wait for git process to exit if it hasn't already
     if (exitCode === null) {
       exitCode = await new Promise((resolve) => {
         child.on('close', resolve);
@@ -198,12 +173,6 @@ export async function* getAllCommits(repoPath, options = {}) {
   }
 }
 
-/**
- * Count the number of local branches in a git repository.
- *
- * @param {string} repoPath - Path to the git repository
- * @returns {Promise<number>} Number of local branches
- */
 export function getLocalBranchCount(repoPath) {
   validateRepoPath(repoPath);
 
@@ -212,15 +181,6 @@ export function getLocalBranchCount(repoPath) {
   );
 }
 
-/**
- * Detect the year range spanned by all commits in a repository.
- *
- * Uses root commits and the latest commit to determine the range
- * without walking the full DAG.
- *
- * @param {string} repoPath - Path to the git repository
- * @returns {Promise<{firstYear: number|null, lastYear: number|null}>}
- */
 export async function getCommitYearRange(repoPath) {
   validateRepoPath(repoPath);
 
@@ -240,7 +200,8 @@ export async function getCommitYearRange(repoPath) {
     const lastYear = lastLine ? parseInt(lastLine.slice(0, 4), 10) : null;
 
     return { firstYear, lastYear };
-  } catch {
+  } catch (err) {
+    console.warn(`Warning: could not determine commit year range: ${err.message}`);
     return { firstYear: null, lastYear: null };
   }
 }
