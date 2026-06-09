@@ -11,6 +11,37 @@ function mapDayOfWeek(jsDay) {
   return (jsDay + 6) % 7;
 }
 
+function mergeContributorStats(target, source) {
+  target.totalCommits += source.totalCommits;
+  target.additions += source.additions;
+  target.deletions += source.deletions;
+  if (source.firstCommit < target.firstCommit) target.firstCommit = source.firstCommit;
+  if (source.lastCommit > target.lastCommit) target.lastCommit = source.lastCommit;
+  for (const [name, count] of source.names) {
+    target.names.set(name, (target.names.get(name) ?? 0) + count);
+  }
+}
+
+function makeContributorEntry(c) {
+  return {
+    name: c.name,
+    email: c.email,
+    totalCommits: c.totalCommits,
+    additions: c.additions,
+    deletions: c.deletions,
+    firstCommit: c.firstCommit,
+    lastCommit: c.lastCommit,
+    names: new Map(c.names),
+  };
+}
+
+function recordTiming(label, t, timings, onTiming) {
+  if (!timings) return;
+  const elapsed = (performance.now() - t) / 1000;
+  timings.push({ label, elapsed });
+  if (onTiming) onTiming(label, elapsed);
+}
+
 function createEmptyResult(branchCount) {
   return {
     summary: {
@@ -205,14 +236,7 @@ function applyGhNoreplyMerges(contributorsMap, contributionsMap, merges) {
     const source = contributorsMap.get(sourceEmail);
     if (!target || !source) continue;
 
-    target.totalCommits += source.totalCommits;
-    target.additions += source.additions;
-    target.deletions += source.deletions;
-    if (source.firstCommit < target.firstCommit) target.firstCommit = source.firstCommit;
-    if (source.lastCommit > target.lastCommit) target.lastCommit = source.lastCommit;
-    for (const [name, count] of source.names) {
-      target.names.set(name, (target.names.get(name) ?? 0) + count);
-    }
+    mergeContributorStats(target, source);
     contributorsMap.delete(sourceEmail);
   }
 
@@ -416,39 +440,14 @@ function mergeProcessingState(a, b) {
 
   const contributorsMap = new Map();
   for (const [email, c] of a.contributorsMap) {
-    contributorsMap.set(email, {
-      name: c.name,
-      email: c.email,
-      totalCommits: c.totalCommits,
-      additions: c.additions,
-      deletions: c.deletions,
-      firstCommit: c.firstCommit,
-      lastCommit: c.lastCommit,
-      names: new Map(c.names),
-    });
+    contributorsMap.set(email, makeContributorEntry(c));
   }
   for (const [email, bC] of b.contributorsMap) {
     const aC = contributorsMap.get(email);
     if (aC) {
-      aC.totalCommits += bC.totalCommits;
-      aC.additions += bC.additions;
-      aC.deletions += bC.deletions;
-      if (bC.firstCommit < aC.firstCommit) aC.firstCommit = bC.firstCommit;
-      if (bC.lastCommit > aC.lastCommit) aC.lastCommit = bC.lastCommit;
-      for (const [name, count] of bC.names) {
-        aC.names.set(name, (aC.names.get(name) ?? 0) + count);
-      }
+      mergeContributorStats(aC, bC);
     } else {
-      contributorsMap.set(email, {
-        name: bC.name,
-        email: bC.email,
-        totalCommits: bC.totalCommits,
-        additions: bC.additions,
-        deletions: bC.deletions,
-        firstCommit: bC.firstCommit,
-        lastCommit: bC.lastCommit,
-        names: new Map(bC.names),
-      });
+      contributorsMap.set(email, makeContributorEntry(bC));
     }
   }
 
@@ -527,11 +526,7 @@ export function aggregate(commits, branchCount) {
 export async function aggregateStream(commitsStream, branchCount, timings, onTiming) {
   let t = performance.now();
   const [processed, bc] = await Promise.all([processCommitsStream(commitsStream), branchCount]);
-  if (timings) {
-    const elapsed = (performance.now() - t) / 1000;
-    timings.push({ label: 'Parse commits', elapsed });
-    if (onTiming) onTiming('Parse commits', elapsed);
-  }
+  recordTiming('Parse commits', t, timings, onTiming);
 
   const commitCount = processed.commitCount;
 
@@ -539,19 +534,11 @@ export async function aggregateStream(commitsStream, branchCount, timings, onTim
   if (processed.contributorsMap.size > 0) {
     t = performance.now();
     mergeNoreplyContributors(processed.contributorsMap, processed.contributionsMap);
-    if (timings) {
-      const elapsed = (performance.now() - t) / 1000;
-      timings.push({ label: 'Merge contributors', elapsed });
-      if (onTiming) onTiming('Merge contributors', elapsed);
-    }
+    recordTiming('Merge contributors', t, timings, onTiming);
   }
   t = performance.now();
   const result = formatResults(processed, commitCount, bc);
-  if (timings) {
-    const elapsed = (performance.now() - t) / 1000;
-    timings.push({ label: 'Format results', elapsed });
-    if (onTiming) onTiming('Format results', elapsed);
-  }
+  recordTiming('Format results', t, timings, onTiming);
   return result;
 }
 
@@ -624,11 +611,7 @@ export async function aggregateStreamParallel(
 
   let t = performance.now();
   const processed = mergeAllStates(states);
-  if (timings) {
-    const elapsed = (performance.now() - t) / 1000;
-    timings.push({ label: 'Merge results', elapsed });
-    if (onTiming) onTiming('Merge results', elapsed);
-  }
+  recordTiming('Merge results', t, timings, onTiming);
 
   const commitCount = processed.commitCount;
   const bc = await branchCount;
@@ -638,19 +621,11 @@ export async function aggregateStreamParallel(
   if (processed.contributorsMap.size > 0) {
     t = performance.now();
     mergeNoreplyContributors(processed.contributorsMap, processed.contributionsMap);
-    if (timings) {
-      const elapsed = (performance.now() - t) / 1000;
-      timings.push({ label: 'Merge contributors', elapsed });
-      if (onTiming) onTiming('Merge contributors', elapsed);
-    }
+    recordTiming('Merge contributors', t, timings, onTiming);
   }
 
   t = performance.now();
   const result = formatResults(processed, commitCount, bc);
-  if (timings) {
-    const elapsed = (performance.now() - t) / 1000;
-    timings.push({ label: 'Format results', elapsed });
-    if (onTiming) onTiming('Format results', elapsed);
-  }
+  recordTiming('Format results', t, timings, onTiming);
   return result;
 }
