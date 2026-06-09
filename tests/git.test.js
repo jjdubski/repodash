@@ -15,6 +15,8 @@ let emptyRepoPath;
 /** @type {string} */
 let singleRepoPath;
 /** @type {string} */
+let multiYearRepoPath;
+/** @type {string} */
 let nonGitDir;
 /** @type {string} */
 let tmpDir;
@@ -26,11 +28,14 @@ let tmpDir;
 let getAllCommits;
 /** @type {import('../src/git.js').getLocalBranchCount} */
 let getLocalBranchCount;
+/** @type {import('../src/git.js').getCommitYearRange} */
+let getCommitYearRange;
 
 before(async () => {
   const mod = await import('../src/git.js');
   getAllCommits = mod.getAllCommits;
   getLocalBranchCount = mod.getLocalBranchCount;
+  getCommitYearRange = mod.getCommitYearRange;
 });
 
 before(() => {
@@ -104,6 +109,36 @@ before(() => {
     cwd: singleRepoPath,
     stdio: 'pipe',
   });
+
+  // ── Multi-year repo: commits spanning 3 different years ──────────────
+  multiYearRepoPath = join(tmpDir, 'multi-year-repo');
+  execSync(`git init "${multiYearRepoPath}"`, { stdio: 'pipe' });
+  execSync('git config user.name "Test"', { cwd: multiYearRepoPath, stdio: 'pipe' });
+  execSync('git config user.email "test@test.com"', {
+    cwd: multiYearRepoPath,
+    stdio: 'pipe',
+  });
+
+  // Commit in 2022
+  writeFileSync(join(multiYearRepoPath, 'file.txt'), 'year 2022\n');
+  execSync(
+    'git add file.txt && GIT_AUTHOR_DATE="2022-03-15T12:00:00" GIT_COMMITTER_DATE="2022-03-15T12:00:00" git commit -m "Commit in 2022"',
+    { cwd: multiYearRepoPath, stdio: 'pipe' },
+  );
+
+  // Commit in 2023
+  appendFileSync(join(multiYearRepoPath, 'file.txt'), 'year 2023\n');
+  execSync(
+    'git add file.txt && GIT_AUTHOR_DATE="2023-07-20T12:00:00" GIT_COMMITTER_DATE="2023-07-20T12:00:00" git commit -m "Commit in 2023"',
+    { cwd: multiYearRepoPath, stdio: 'pipe' },
+  );
+
+  // Commit in 2024
+  appendFileSync(join(multiYearRepoPath, 'file.txt'), 'year 2024\n');
+  execSync(
+    'git add file.txt && GIT_AUTHOR_DATE="2024-11-05T12:00:00" GIT_COMMITTER_DATE="2024-11-05T12:00:00" git commit -m "Commit in 2024"',
+    { cwd: multiYearRepoPath, stdio: 'pipe' },
+  );
 
   // ── Regular directory (no .git) — for non-git directory error testing
   nonGitDir = join(tmpDir, 'not-a-repo');
@@ -256,6 +291,113 @@ describe('getAllCommits()', () => {
       if (count === 2) break;
     }
     assert.strictEqual(count, 2);
+  });
+
+  // ── after / before date filtering ────────────────────────────────────
+
+  it('should return all commits without after/before options (regression)', async () => {
+    const commits = [];
+    for await (const commit of getAllCommits(multiYearRepoPath)) {
+      commits.push(commit);
+    }
+
+    assert.strictEqual(commits.length, 3);
+  });
+
+  it('should return only commits after a given date', async () => {
+    const commits = [];
+    for await (const commit of getAllCommits(multiYearRepoPath, { after: '2023-01-01' })) {
+      commits.push(commit);
+    }
+
+    // After 2023-01-01: the 2023 and 2024 commits (2022 is excluded)
+    assert.strictEqual(commits.length, 2);
+    for (const c of commits) {
+      const year = c.date.slice(0, 4);
+      assert.ok(year >= '2023', `expected date >= 2023, got ${c.date}`);
+    }
+  });
+
+  it('should return only commits before a given date', async () => {
+    const commits = [];
+    for await (const commit of getAllCommits(multiYearRepoPath, { before: '2024-01-01' })) {
+      commits.push(commit);
+    }
+
+    // Before 2024-01-01: the 2022 and 2023 commits (2024 is excluded)
+    assert.strictEqual(commits.length, 2);
+    for (const c of commits) {
+      const year = c.date.slice(0, 4);
+      assert.ok(year <= '2023', `expected date <= 2023, got ${c.date}`);
+    }
+  });
+
+  it('should return only commits within a date range (after + before)', async () => {
+    const commits = [];
+    for await (const commit of getAllCommits(multiYearRepoPath, {
+      after: '2023-01-01',
+      before: '2024-01-01',
+    })) {
+      commits.push(commit);
+    }
+
+    // Only the 2023 commit falls in this range
+    assert.strictEqual(commits.length, 1);
+    assert.ok(commits[0].date.startsWith('2023'));
+  });
+
+  it('should return no commits when the range excludes all', async () => {
+    const commits = [];
+    for await (const commit of getAllCommits(multiYearRepoPath, {
+      after: '2025-01-01',
+    })) {
+      commits.push(commit);
+    }
+
+    assert.strictEqual(commits.length, 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for getCommitYearRange()
+// ---------------------------------------------------------------------------
+describe('getCommitYearRange()', () => {
+  it('should return firstYear and lastYear for a repo with commits', async () => {
+    const range = await getCommitYearRange(multiYearRepoPath);
+
+    assert.ok(Object.hasOwn(range, 'firstYear'));
+    assert.ok(Object.hasOwn(range, 'lastYear'));
+    assert.strictEqual(range.firstYear, 2022);
+    assert.strictEqual(range.lastYear, 2024);
+  });
+
+  it('should return firstYear and lastYear for the main repo', async () => {
+    const range = await getCommitYearRange(mainRepoPath);
+
+    assert.strictEqual(typeof range.firstYear, 'number');
+    assert.strictEqual(typeof range.lastYear, 'number');
+    assert.ok(range.firstYear <= range.lastYear);
+  });
+
+  it('should return { firstYear: null, lastYear: null } for an empty repo', async () => {
+    const range = await getCommitYearRange(emptyRepoPath);
+
+    assert.deepStrictEqual(range, { firstYear: null, lastYear: null });
+  });
+
+  it('should reject for a non-existent path', async () => {
+    await assert.rejects(
+      () => getCommitYearRange('/nonexistent/path/for/testing'),
+      { name: 'Error' },
+      'should reject for invalid paths',
+    );
+  });
+
+  it('should return nulls for a non-git directory (caught internally)', async () => {
+    // getCommitYearRange catches git errors internally and returns nulls
+    const range = await getCommitYearRange(nonGitDir);
+
+    assert.deepStrictEqual(range, { firstYear: null, lastYear: null });
   });
 });
 

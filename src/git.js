@@ -120,6 +120,8 @@ function parseCommit(lines) {
  * @param {string} repoPath - Path to the git repository
  * @param {object} [options]
  * @param {boolean} [options.noMerges=false] - If true, exclude merge commits
+ * @param {string} [options.after] - ISO date string, passed as --after= to git log
+ * @param {string} [options.before] - ISO date string, passed as --before= to git log
  * @returns {AsyncGenerator<object>} Parsed commit objects yielded one at a time
  */
 export async function* getAllCommits(repoPath, options = {}) {
@@ -129,12 +131,16 @@ export async function* getAllCommits(repoPath, options = {}) {
   // --no-merges excludes merge commits (which have 0 stats and 0 files).
   // For large repos like the Linux kernel this cuts processing time in half.
   const noMergesFlag = options.noMerges ? ['--no-merges'] : [];
+  const afterFlag = options.after ? [`--after=${options.after}`] : [];
+  const beforeFlag = options.before ? [`--before=${options.before}`] : [];
   const child = spawn(
     'git',
     [
       'log',
       '--all',
       ...noMergesFlag,
+      ...afterFlag,
+      ...beforeFlag,
       `--pretty=format:${DELIMITER_LINE}%n%H|%an|%ae|%ai|%s`,
       '--numstat',
     ],
@@ -204,4 +210,37 @@ export function getLocalBranchCount(repoPath) {
   return spawnGit(['branch', '--list'], repoPath).then(
     ({ stdout }) => stdout.trim().split('\n').filter(Boolean).length,
   );
+}
+
+/**
+ * Detect the year range spanned by all commits in a repository.
+ *
+ * Uses root commits and the latest commit to determine the range
+ * without walking the full DAG.
+ *
+ * @param {string} repoPath - Path to the git repository
+ * @returns {Promise<{firstYear: number|null, lastYear: number|null}>}
+ */
+export async function getCommitYearRange(repoPath) {
+  validateRepoPath(repoPath);
+
+  try {
+    const first = await spawnGit(
+      ['log', '--all', '--format=%aI', '--reverse', '--max-parents=0', 'HEAD'],
+      repoPath,
+    );
+    const last = await spawnGit(['log', '--all', '--format=%aI', '-1'], repoPath);
+
+    const firstLine = first.stdout.trim().split('\n')[0];
+    const lastLine = last.stdout.trim().split('\n')[0];
+
+    if (!firstLine && !lastLine) return { firstYear: null, lastYear: null };
+
+    const firstYear = firstLine ? parseInt(firstLine.slice(0, 4), 10) : null;
+    const lastYear = lastLine ? parseInt(lastLine.slice(0, 4), 10) : null;
+
+    return { firstYear, lastYear };
+  } catch {
+    return { firstYear: null, lastYear: null };
+  }
 }

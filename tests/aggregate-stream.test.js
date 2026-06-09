@@ -1,6 +1,11 @@
-import { describe, it } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert';
-import { aggregate, aggregateStream } from '../src/aggregate.js';
+import { execSync } from 'node:child_process';
+import { mkdtempSync, writeFileSync, appendFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { aggregate, aggregateStream, aggregateStreamParallel } from '../src/aggregate.js';
+import { getAllCommits, getLocalBranchCount } from '../src/git.js';
 
 // ---------------------------------------------------------------------------
 // Fixture helpers — mirror aggregate.test.js
@@ -647,5 +652,202 @@ describe('aggregateStream (async stream function)', () => {
       ]);
       assert.deepStrictEqual(async_, sync);
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for aggregateStreamParallel — real git repos
+// ---------------------------------------------------------------------------
+
+describe('aggregateStreamParallel (parallel repo processing)', () => {
+  /** @type {string} */
+  let multiYearRepoPath;
+  /** @type {string} */
+  let emptyRepoPath;
+  /** @type {string} */
+  let singleYearRepoPath;
+  /** @type {string} */
+  let singleCommitRepoPath;
+  /** @type {string} */
+  let tmpDir;
+
+  before(() => {
+    tmpDir = mkdtempSync(join(tmpdir(), 'insights-test-parallel-'));
+
+    // ── Empty repo ──────────────────────────────────────────────────────
+    emptyRepoPath = join(tmpDir, 'empty-repo');
+    execSync(`git init "${emptyRepoPath}"`, { stdio: 'pipe' });
+
+    // ── Multi-year repo: commits spanning 2024, 2025, 2026 ──────────────
+    multiYearRepoPath = join(tmpDir, 'multi-year-repo');
+    execSync(`git init "${multiYearRepoPath}"`, { stdio: 'pipe' });
+    execSync('git config user.name "Test User"', { cwd: multiYearRepoPath, stdio: 'pipe' });
+    execSync('git config user.email "test@test.com"', { cwd: multiYearRepoPath, stdio: 'pipe' });
+
+    // 2024 — Test User
+    writeFileSync(join(multiYearRepoPath, 'file.txt'), '2024\n');
+    execSync(
+      'git add file.txt && GIT_AUTHOR_DATE="2024-06-15T10:00:00" GIT_COMMITTER_DATE="2024-06-15T10:00:00" git commit -m "Commit in 2024"',
+      { cwd: multiYearRepoPath, stdio: 'pipe' },
+    );
+
+    // 2025 — Alice (different author)
+    writeFileSync(join(multiYearRepoPath, 'alice.txt'), 'alice\n');
+    execSync(
+      'git add alice.txt file.txt && GIT_AUTHOR_DATE="2025-02-20T14:30:00" GIT_COMMITTER_DATE="2025-02-20T14:30:00" git commit -m "Alice in 2025" --author="Alice <alice@test.com>"',
+      { cwd: multiYearRepoPath, stdio: 'pipe' },
+    );
+
+    // Another 2025 — Test User
+    appendFileSync(join(multiYearRepoPath, 'file.txt'), '2025\n');
+    execSync(
+      'git add file.txt && GIT_AUTHOR_DATE="2025-08-10T09:15:00" GIT_COMMITTER_DATE="2025-08-10T09:15:00" git commit -m "Second commit in 2025"',
+      { cwd: multiYearRepoPath, stdio: 'pipe' },
+    );
+
+    // 2026 — Alice
+    appendFileSync(join(multiYearRepoPath, 'file.txt'), '2026\n');
+    execSync(
+      'git add file.txt && GIT_AUTHOR_DATE="2026-01-05T16:00:00" GIT_COMMITTER_DATE="2026-01-05T16:00:00" git commit -m "Alice in 2026" --author="Alice <alice@test.com>"',
+      { cwd: multiYearRepoPath, stdio: 'pipe' },
+    );
+
+    // ── Single-year repo: all commits in 2025 ────────────────────────────
+    singleYearRepoPath = join(tmpDir, 'single-year-repo');
+    execSync(`git init "${singleYearRepoPath}"`, { stdio: 'pipe' });
+    execSync('git config user.name "Test User"', { cwd: singleYearRepoPath, stdio: 'pipe' });
+    execSync('git config user.email "test@test.com"', { cwd: singleYearRepoPath, stdio: 'pipe' });
+
+    writeFileSync(join(singleYearRepoPath, 'a.txt'), 'a\n');
+    execSync(
+      'git add a.txt && GIT_AUTHOR_DATE="2025-03-01T12:00:00" GIT_COMMITTER_DATE="2025-03-01T12:00:00" git commit -m "First 2025"',
+      { cwd: singleYearRepoPath, stdio: 'pipe' },
+    );
+    writeFileSync(join(singleYearRepoPath, 'b.txt'), 'b\n');
+    execSync(
+      'git add b.txt && GIT_AUTHOR_DATE="2025-07-15T08:00:00" GIT_COMMITTER_DATE="2025-07-15T08:00:00" git commit -m "Second 2025"',
+      { cwd: singleYearRepoPath, stdio: 'pipe' },
+    );
+
+    // ── Single-commit repo ───────────────────────────────────────────────
+    singleCommitRepoPath = join(tmpDir, 'single-commit-repo');
+    execSync(`git init "${singleCommitRepoPath}"`, { stdio: 'pipe' });
+    execSync('git config user.name "Test User"', { cwd: singleCommitRepoPath, stdio: 'pipe' });
+    execSync('git config user.email "test@test.com"', { cwd: singleCommitRepoPath, stdio: 'pipe' });
+
+    writeFileSync(join(singleCommitRepoPath, 'readme.md'), '# Single\n');
+    execSync(
+      'git add readme.md && GIT_AUTHOR_DATE="2025-04-10T10:00:00" GIT_COMMITTER_DATE="2025-04-10T10:00:00" git commit -m "Only commit"',
+      { cwd: singleCommitRepoPath, stdio: 'pipe' },
+    );
+  });
+
+  after(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  // ----- a. Equivalence: multi-year repo -----------------------------------
+
+  it('should produce identical results to aggregateStream for a multi-year repo', async () => {
+    const bc = await getLocalBranchCount(multiYearRepoPath);
+
+    const [seq, par] = await Promise.all([
+      aggregateStream(getAllCommits(multiYearRepoPath), bc),
+      aggregateStreamParallel(multiYearRepoPath, bc),
+    ]);
+
+    assert.deepStrictEqual(par, seq);
+  });
+
+  // ----- b. Empty repo ----------------------------------------------------
+
+  it('should return empty result for an empty repo', async () => {
+    const bc = await getLocalBranchCount(emptyRepoPath);
+    const result = await aggregateStreamParallel(emptyRepoPath, bc);
+
+    assert.strictEqual(result.summary.totalCommits, 0);
+    assert.strictEqual(result.summary.totalContributors, 0);
+    assert.strictEqual(result.summary.totalAdditions, 0);
+    assert.strictEqual(result.summary.totalDeletions, 0);
+    assert.strictEqual(result.summary.firstCommit, null);
+    assert.strictEqual(result.summary.lastCommit, null);
+    assert.strictEqual(result.summary.activeBranches, bc);
+    assert.deepStrictEqual(result.contributions, []);
+    assert.deepStrictEqual(result.contributors, []);
+    assert.deepStrictEqual(result.frequency, []);
+  });
+
+  // ----- c. Single-year repo ----------------------------------------------
+
+  it('should produce identical results to aggregateStream for a single-year repo', async () => {
+    const bc = await getLocalBranchCount(singleYearRepoPath);
+
+    const [seq, par] = await Promise.all([
+      aggregateStream(getAllCommits(singleYearRepoPath), bc),
+      aggregateStreamParallel(singleYearRepoPath, bc),
+    ]);
+
+    assert.deepStrictEqual(par, seq);
+  });
+
+  // ----- d. Timing array --------------------------------------------------
+
+  it('should populate timings array with per-slice and merge entries', async () => {
+    // Multi-year repo produces quarterly slices, testing the full timing structure
+    const bc = await getLocalBranchCount(multiYearRepoPath);
+    const timings = [];
+
+    await aggregateStreamParallel(multiYearRepoPath, bc, {}, timings);
+
+    // Should have: per-year entries + 'Merge results' + 'Merge contributors' + 'Format results'
+    assert.ok(timings.length >= 5, `expected at least 5 timing entries, got ${timings.length}`);
+
+    const labels = timings.map((t) => t.label);
+
+    // Per-year entries should include each year in order
+    const perYearLabels = labels.filter((l) => /^Parse commits \(\d{4}\)$/.test(l));
+    assert.ok(
+      perYearLabels.some((l) => l === 'Parse commits (2024)'),
+      'missing 2024 label',
+    );
+    assert.ok(
+      perYearLabels.some((l) => l === 'Parse commits (2025)'),
+      'missing 2025 label',
+    );
+    assert.ok(
+      perYearLabels.some((l) => l === 'Parse commits (2026)'),
+      'missing 2026 label',
+    );
+    // Should be in ascending year order
+    const yearNums = perYearLabels.map((l) => parseInt(l.match(/\d{4}/)[0], 10));
+    assert.deepStrictEqual(
+      yearNums,
+      [...yearNums].sort((a, b) => a - b),
+      'years should be in ascending order',
+    );
+
+    // Overall entries should be present
+    assert.ok(labels.includes('Merge results'), 'missing Merge results');
+    assert.ok(labels.includes('Merge contributors'), 'missing Merge contributors');
+    assert.ok(labels.includes('Format results'), 'missing Format results');
+
+    // All entries should have valid elapsed
+    for (const entry of timings) {
+      assert.ok(typeof entry.elapsed === 'number', `elapsed should be a number for ${entry.label}`);
+      assert.ok(entry.elapsed >= 0, `elapsed should be >= 0 for ${entry.label}`);
+    }
+  });
+
+  // ----- e. Single commit -------------------------------------------------
+
+  it('should produce identical results to aggregateStream for a single-commit repo', async () => {
+    const bc = await getLocalBranchCount(singleCommitRepoPath);
+
+    const [seq, par] = await Promise.all([
+      aggregateStream(getAllCommits(singleCommitRepoPath), bc),
+      aggregateStreamParallel(singleCommitRepoPath, bc),
+    ]);
+
+    assert.deepStrictEqual(par, seq);
   });
 });

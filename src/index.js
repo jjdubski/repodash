@@ -4,8 +4,8 @@ import { fileURLToPath } from 'node:url';
 import { rmSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import open from 'open';
-import { getAllCommits, getLocalBranchCount } from './git.js';
-import { aggregateStream } from './aggregate.js';
+import { getLocalBranchCount } from './git.js';
+import { aggregateStreamParallel } from './aggregate.js';
 import { serveDashboard } from './server.js';
 
 export async function main(repoPath, options = {}) {
@@ -17,9 +17,10 @@ export async function main(repoPath, options = {}) {
   if (options.timing) console.error();
 
   const timings = [];
-  const result = await aggregateStream(
-    getAllCommits(repoPath, { noMerges: options['no-merges'] }),
+  const result = await aggregateStreamParallel(
+    repoPath,
     getLocalBranchCount(repoPath),
+    { noMerges: options['no-merges'] },
     timings,
     options.timing
       ? (label, elapsed) => console.error(`  ${label.padEnd(20)} ${elapsed.toFixed(2)}s`)
@@ -94,7 +95,9 @@ export async function main(repoPath, options = {}) {
   }
 
   if (options.timing) {
-    console.error(`  Generate output     ${((performance.now() - genStart) / 1000).toFixed(2)}s`);
+    console.error(
+      `  ${'Generate output'.padEnd(20)} ${((performance.now() - genStart) / 1000).toFixed(2)}s`,
+    );
     console.error(`  ───────────────────────────`);
     console.error(`  Total               ${((performance.now() - totalStart) / 1000).toFixed(2)}s`);
   }
