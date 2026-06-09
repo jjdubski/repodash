@@ -73,17 +73,32 @@ jobs:
           echo "sha=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER --jq '.base.sha')" >> "$GITHUB_OUTPUT"
       - uses: fallow-rs/fallow@v2
         with:
-          command: ${{ github.event_name == 'push' && '' || 'audit' }}
+          command: ${{ github.event_name != 'push' && 'audit' || '' }}
           format: sarif
           fail-on-issues: false
           changed-since: ${{ steps.base-sha.outputs.sha }}
-          comment: true
+          comment: ${{ github.event_name != 'push' }}
           review-comments: false
-          annotations: false
+          annotations: ${{ github.event_name == 'push' }}
           dupes-mode: semantic
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          threshold: 10
+      - name: Fail on errors / high CRAP
+        if: always()
+        shell: bash
+        run: |
+          sarif_file="${FALLOW_SARIF_FILE:-fallow-results.sarif}"
+          if [ ! -f "$sarif_file" ]; then
+            echo "::warning::SARIF file not found, skipping error check"
+            exit 0
+          fi
+          errors=$(jq '[.runs[0].results[] | select(.level == "error")] | length' "$sarif_file" 2>/dev/null || echo "0")
+          if [ "$errors" -gt 0 ] 2>/dev/null; then
+            echo "::error::Fallow found $errors error(s) (high CRAP / errors)"
+            exit 1
+          fi
       - name: Post fallow summary as PR comment
-        if: github.event_name == 'workflow_dispatch' && steps.base-sha.outputs.sha != ''
+        if: steps.base-sha.outputs.sha != ''
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

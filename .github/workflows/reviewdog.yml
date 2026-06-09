@@ -82,7 +82,6 @@ jobs:
           fail_level: warning
           filter_mode: added
           eslint_flags: 'src/ bin/ dashboard/ tests/'
-          reviewdog_flags: '-pr=${{ steps.pr-number.outputs.number }}'
         env:
           GITHUB_REF: refs/pull/${{ steps.pr-number.outputs.number }}/merge
       - name: Complete check run
@@ -165,7 +164,6 @@ jobs:
           level: warning
           fail_level: warning
           filter_mode: added
-          reviewdog_flags: '-pr=${{ steps.pr-number.outputs.number }}'
         env:
           GITHUB_REF: refs/pull/${{ steps.pr-number.outputs.number }}/merge
       - name: Complete check run
@@ -248,8 +246,7 @@ jobs:
           level: warning
           fail_level: warning
           filter_mode: added
-          markdownlint_flags: '--ignore node_modules docs .husky .'
-          reviewdog_flags: '-pr=${{ steps.pr-number.outputs.number }}'
+          markdownlint_flags: '--ignore node_modules .husky .'
         env:
           GITHUB_REF: refs/pull/${{ steps.pr-number.outputs.number }}/merge
       - name: Complete check run
@@ -336,7 +333,6 @@ jobs:
             */.git/*
             ./.husky/_/husky.sh
             **/node_modules/**
-          reviewdog_flags: '-pr=${{ steps.pr-number.outputs.number }}'
         env:
           GITHUB_REF: refs/pull/${{ steps.pr-number.outputs.number }}/merge
       - name: Complete check run
@@ -479,7 +475,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-check
-          tool_name: reviewdog-eslint
+          tool_name: eslint
           level: warning
           fail_level: error
           filter_mode: nofilter
@@ -490,7 +486,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           reporter: github-check
-          tool_name: reviewdog-actionlint
+          tool_name: actionlint
           level: warning
           fail_level: error
           filter_mode: nofilter
@@ -504,7 +500,6 @@ jobs:
           fail_level: none
           filter_mode: nofilter
           markdownlint_flags: '--ignore node_modules docs .husky .'
-          reviewdog_flags: '-name reviewdog-markdownlint'
       - uses: reviewdog/action-shellcheck@v1
         id: shellcheck
         continue-on-error: true
@@ -518,7 +513,6 @@ jobs:
             */.git/*
             ./.husky/_/husky.sh
             **/node_modules/**
-          reviewdog_flags: '-name reviewdog-shellcheck'
       - uses: reviewdog/action-stylelint@v1
         id: stylelint
         continue-on-error: true
@@ -528,7 +522,7 @@ jobs:
           level: warning
           fail_level: error
           filter_mode: nofilter
-          name: reviewdog-stylelint
+          name: stylelint
           stylelint_input: '**/*.css'
       - name: Check results
         if: always()

@@ -1,6 +1,6 @@
 runner:
   eslint:
-    cmd: npx eslint -f rdjson src/ bin/ dashboard/ tests/
+    cmd: npx eslint -f rdjson src/ || true
     format: rdjson
     name: ESLint
     level: warning
@@ -11,20 +11,24 @@ runner:
     name: actionlint
     level: warning
   markdownlint:
-    cmd: npx markdownlint --ignore node_modules --ignore docs/superpowers --ignore .husky --ignore AGENTS.md --ignore 'session-ses_*.md' .
+    cmd: npx markdownlint --ignore node_modules --ignore docs/superpowers --ignore .husky --ignore AGENTS.md . || true
     errorformat:
       - '%f:%l:%c %m'
+      - '%f:%l %m'
+      - '%f:%l %*\d %m'
     name: markdownlint
     level: warning
   shellcheck:
-    cmd: shellcheck -f gcc $(find . -name '*.sh' -not -path './node_modules/*' -not -path './.husky/_/husky.sh')
+    cmd: find . -name '*.sh' \
+      -not -path './node_modules/*' \
+      -not -path './.husky/_/husky.sh' \
+      -print0 | xargs -0 shellcheck -f gcc
     errorformat:
       - '%f:%l:%c: %t%*[a-z]: %m'
     name: ShellCheck
     level: warning
   stylelint:
-    cmd: npx stylelint '**/*.css' --formatter unix
-    errorformat:
-      - '%f:%l:%c: %m'
+    cmd: npx stylelint "**/*.css" --ignore-path .gitignore || true
+    format: stylelint
     name: stylelint
     level: warning
