@@ -1,6 +1,6 @@
 {
   "name": "insights",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Generate an interactive GitHub-style insights dashboard for any local git repository",
   "type": "module",
   "license": "GPL-3.0",

@@ -351,7 +351,7 @@ function formatResults(processed, commitCount, branchCount) {
   const topFiles = Array.from(fileChangesMap.entries())
     .map(([path, changes]) => ({ path, changes }))
     .sort((a, b) => b.changes - a.changes || a.path.localeCompare(b.path))
-    .slice(0, 20);
+    .slice(0, 30);
 
   return {
     summary: {

@@ -461,7 +461,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      checks: write
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -474,7 +473,7 @@ jobs:
         continue-on-error: true
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-check
+          reporter: github-pr-check
           tool_name: eslint
           level: warning
           fail_level: error
@@ -485,7 +484,7 @@ jobs:
         continue-on-error: true
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-check
+          reporter: github-pr-check
           tool_name: actionlint
           level: warning
           fail_level: error
@@ -495,7 +494,7 @@ jobs:
         continue-on-error: true
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-check
+          reporter: github-pr-check
           level: warning
           fail_level: none
           filter_mode: nofilter
@@ -505,7 +504,7 @@ jobs:
         continue-on-error: true
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-check
+          reporter: github-pr-check
           level: warning
           fail_level: error
           filter_mode: nofilter
@@ -518,7 +517,7 @@ jobs:
         continue-on-error: true
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-check
+          reporter: github-pr-check
           level: warning
           fail_level: error
           filter_mode: nofilter

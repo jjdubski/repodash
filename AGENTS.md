@@ -103,3 +103,7 @@ Contributors are keyed by **email** in `src/aggregate.js`'s `contributorsMap`. A
 - If either matches, the non-noreply contributor's stats are **merged into** the noreply entry — totals are summed, earliest/latest dates kept. Per-day `contributionsMap` author entries are also rewritten so the source's days are folded into the target's author name.
 
 Per-day contributions (`contributionsMap`) track authors by **email**, not by display name. This means two contributors with the same display name but different emails (e.g. `user@work.com` and `user@personal.com`, both named "User") remain separate entries with their own per-day stats. The `authorDetails` array in each day's contribution includes an `email` field, which the frontend uses to match each contributor to their correct stats.
+
+## Timezone note
+
+The "commit by hour of day" chart uses **UTC** (`jsDate.getUTCHours()` in `src/aggregate.js:170`). No conversion to the viewer's local timezone is performed.

@@ -32,15 +32,13 @@ export function formatNumber(n) {
 
 export function formatDate(iso) {
   if (!iso) return '\u2014';
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return iso.slice(0, 10);
-  }
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso.slice(0, 10);
+  return d.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
 }
 
 export function clampDate(dateStr, minStr, maxStr) {
@@ -78,7 +76,7 @@ function getDateRangeLabel(d) {
   let startLabel, endLabel;
   if (state.timeFilter === 'allTime' && d?.summary) {
     startLabel = formatDate(d.summary.firstCommit);
-    endLabel = formatDate(d.summary.lastCommit);
+    endLabel = formatDate(getTodayLocal());
   } else {
     const bounds = getCutoffDate(state.timeFilter);
     if (bounds) {
@@ -167,13 +165,22 @@ function computeFilteredSummary(contributions, frequency) {
   });
   const totalContributors = Object.keys(authorSet).length;
 
+  let firstDate = null;
+  let lastDate = null;
+  for (const c of contributions) {
+    if (c.date) {
+      if (!firstDate || c.date < firstDate) firstDate = c.date;
+      if (!lastDate || c.date > lastDate) lastDate = c.date;
+    }
+  }
+
   return {
     totalCommits: totalCommits,
     totalContributors: totalContributors,
     totalAdditions: totalAdditions,
     totalDeletions: totalDeletions,
-    firstCommit: state.data.summary.firstCommit,
-    lastCommit: state.data.summary.lastCommit,
+    firstCommit: firstDate || state.data.summary.firstCommit,
+    lastCommit: lastDate || state.data.summary.lastCommit,
     activeBranches: state.data.summary.activeBranches,
   };
 }
@@ -260,7 +267,7 @@ export function computeFilteredActivity(contributions) {
     .sort(function (a, b) {
       return b.changes - a.changes || a.path.localeCompare(b.path);
     })
-    .slice(0, 20);
+    .slice(0, 30);
 
   return {
     byDayOfWeek: byDayOfWeek,
@@ -400,7 +407,7 @@ function createChart(id, type, data, optionsOverride) {
   const canvas = document.getElementById(id);
   if (!canvas) return null;
 
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
   state.charts[id] = new globalThis.window.Chart(ctx, {
     type: type,
     data: data,
@@ -864,7 +871,7 @@ function renderTopContributorsChart(contributors, mode = 'commits') {
         x: { beginAtZero: true },
         y: { grid: { display: false } },
       },
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: false }, tooltip: { mode: 'y', intersect: false } },
     },
   );
 }
@@ -954,7 +961,7 @@ function renderContributorBarChart(contributors) {
         },
         x: { beginAtZero: true },
       },
-      plugins: { legend: { display: false } },
+      plugins: { legend: { display: false }, tooltip: { mode: 'y', intersect: false } },
     },
   );
 }
@@ -1143,9 +1150,14 @@ function setupTabListeners() {
 function setupExportPdf() {
   const exportBtn = document.getElementById('export-pdf');
   if (!exportBtn) return;
-  exportBtn.addEventListener('click', function () {
+  exportBtn.addEventListener('click', async function () {
     const filtered = getFilteredData();
     if (!filtered?.contributions?.length) return;
+
+    const btnText = exportBtn.querySelector('span');
+    const originalBtnText = btnText ? btnText.textContent : 'Export PDF';
+    exportBtn.disabled = true;
+    if (btnText) btnText.textContent = 'Generating\u2026';
 
     const titleEl = document.querySelector('.header-title');
     const originalTitle = titleEl ? titleEl.textContent : 'Insights';
@@ -1157,36 +1169,211 @@ function setupExportPdf() {
     const originalDocTitle = document.title;
     document.title = printTitle;
 
-    document.documentElement.style.setProperty('--text', '#000000');
-
     document.body.classList.add('printing');
     (() => document.body.offsetHeight)();
 
-    renderOverview(filtered);
-    renderContributors(filtered);
-    renderActivity(filtered);
+    try {
+      renderOverview(filtered);
+      renderContributors(filtered);
+      renderActivity(filtered);
 
-    Object.keys(state.charts).forEach(function (id) {
-      try {
-        state.charts[id].resize();
-      } catch {
-        /* ignore individual chart resize failures */
+      Object.keys(state.charts).forEach(function (id) {
+        try {
+          state.charts[id].resize(null, { duration: 0 });
+        } catch {
+          /* ignore individual chart resize failures */
+        }
+      });
+
+      await new Promise(function (r) {
+        setTimeout(r, 600);
+      });
+
+      const { jsPDF } = globalThis.window.jspdf;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      const usableWidth = pageWidth - margin * 2;
+
+      async function captureElement(el) {
+        const origGetContext = HTMLCanvasElement.prototype.getContext;
+        HTMLCanvasElement.prototype.getContext = function (type, attrs) {
+          if (type === '2d') {
+            return origGetContext.call(this, type, { ...attrs, willReadFrequently: true });
+          }
+          return origGetContext.call(this, type, attrs);
+        };
+        try {
+          const canvas = await globalThis.window.html2canvas(el, {
+            backgroundColor: '#ffffff',
+            scale: 2,
+            useCORS: true,
+            logging: false,
+          });
+          return canvas;
+        } finally {
+          HTMLCanvasElement.prototype.getContext = origGetContext;
+        }
       }
-    });
 
-    const cleanup = function () {
-      globalThis.window.removeEventListener('afterprint', cleanup);
-      document.body.classList.remove('printing');
-      document.documentElement.style.removeProperty('--text');
+      let y = margin;
+
+      pdf.setFontSize(16);
+      pdf.text(printTitle, margin, y);
+      y += 10;
+
+      const metricEl = document.querySelector('.metric-grid');
+      if (metricEl) {
+        const metricCanvas = await captureElement(metricEl);
+        const metricImgH = (usableWidth * metricCanvas.height) / metricCanvas.width;
+        if (y + metricImgH > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.addImage(
+          metricCanvas.toDataURL('image/png'),
+          'PNG',
+          margin,
+          y,
+          usableWidth,
+          metricImgH,
+        );
+        y += metricImgH + 6;
+      }
+
+      const overviewCharts = document.querySelectorAll('#tab-overview .chart-card');
+      for (let i = 0; i < overviewCharts.length; i++) {
+        const canvas = await captureElement(overviewCharts[i]);
+        const imgH = (usableWidth * canvas.height) / canvas.width;
+        if (y + imgH > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, y, usableWidth, imgH);
+        y += imgH + 6;
+      }
+
+      const contributors = filtered.contributors;
+      if (contributors?.length) {
+        pdf.autoTable({
+          head: [['Name', 'Commits', 'Additions', 'Deletions', 'First Commit', 'Last Commit']],
+          body: contributors.map(function (c) {
+            return [
+              c.name || c.email,
+              formatNumber(c.totalCommits),
+              formatNumber(c.additions),
+              formatNumber(c.deletions),
+              formatDate(c.firstCommit),
+              formatDate(c.lastCommit),
+            ];
+          }),
+          startY: y,
+          styles: { fontSize: 7, cellPadding: 2 },
+          headStyles: { fillColor: [88, 166, 255], fontSize: 8 },
+          alternateRowStyles: { fillColor: [245, 247, 250] },
+          columnStyles: {
+            1: { halign: 'center' },
+            2: { halign: 'center' },
+            3: { halign: 'center' },
+          },
+          didParseCell: function (data) {
+            if (
+              data.section === 'head' &&
+              (data.column.index === 1 || data.column.index === 2 || data.column.index === 3)
+            ) {
+              data.cell.styles.halign = 'center';
+            }
+          },
+          margin: { top: margin, bottom: margin },
+          tableWidth: 'auto',
+          showHead: 'everyPage',
+          didDrawPage: function () {
+            pdf.setFontSize(8);
+            pdf.text(
+              'Page ' + pdf.internal.getNumberOfPages(),
+              pageWidth - margin,
+              pageHeight - 5,
+              { align: 'right' },
+            );
+          },
+        });
+        y = pdf.lastAutoTable.finalY + 10;
+      }
+
+      const otherCharts = Array.from(
+        document.querySelectorAll('#tab-contributors .chart-card, #tab-activity .chart-card'),
+      ).filter(function (el) {
+        return !el.querySelector('#topfiles-table');
+      });
+      for (let i = 0; i < otherCharts.length; i++) {
+        const canvas = await captureElement(otherCharts[i]);
+        const imgH = (usableWidth * canvas.height) / canvas.width;
+        if (y + imgH > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, y, usableWidth, imgH);
+        y += imgH + 6;
+      }
+
+      const topFiles = filtered.activity?.topFiles;
+      if (topFiles?.length) {
+        pdf.addPage();
+        y = margin;
+        pdf.setFontSize(12);
+        pdf.text('Top Changed Files', margin, y);
+        y += 6;
+        pdf.autoTable({
+          head: [['File', 'Changes']],
+          body: topFiles.map(function (f) {
+            return [f.path, formatNumber(f.changes)];
+          }),
+          startY: y,
+          styles: { fontSize: 7, cellPadding: 2 },
+          headStyles: { fillColor: [88, 166, 255], fontSize: 8 },
+          alternateRowStyles: { fillColor: [245, 247, 250] },
+          columnStyles: { 1: { halign: 'center' } },
+          didParseCell: function (data) {
+            if (data.section === 'head' && data.column.index === 1) {
+              data.cell.styles.halign = 'center';
+            }
+          },
+          margin: { top: margin, bottom: margin },
+          tableWidth: 'auto',
+          showHead: 'everyPage',
+          didDrawPage: function () {
+            pdf.setFontSize(8);
+            pdf.text(
+              'Page ' + pdf.internal.getNumberOfPages(),
+              pageWidth - margin,
+              pageHeight - 5,
+              { align: 'right' },
+            );
+          },
+        });
+        y = pdf.lastAutoTable.finalY + 10;
+      }
+
+      const fileSafeName = dateLabel
+        .replace(/[^a-zA-Z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+      pdf.save((repoName || 'insights') + '-' + fileSafeName + '.pdf');
+    } catch (err) {
+      console.error('PDF generation failed:', err);
+      exportBtn.classList.add('export-error');
+      setTimeout(function () {
+        exportBtn.classList.remove('export-error');
+      }, 3000);
+    } finally {
       if (titleEl) titleEl.textContent = originalTitle;
       document.title = originalDocTitle;
+      document.body.classList.remove('printing');
+      exportBtn.disabled = false;
+      if (btnText) btnText.textContent = originalBtnText;
       renderCurrentTab();
-    };
-    globalThis.window.addEventListener('afterprint', cleanup);
-
-    setTimeout(function () {
-      globalThis.window.print();
-    }, 100);
+    }
   });
 }
 

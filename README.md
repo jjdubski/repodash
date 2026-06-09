@@ -100,6 +100,7 @@ repo path ──→ git log --all --numstat ──→ aggregate() ──→ 5 JS
 - **Aggregate** is a pure function with no I/O — takes raw commits in, returns structured datasets out. Trivially testable.
 - **Server** writes JSON data files to `/tmp/insights-XXXXX/data/`, serves them alongside the static `dashboard/` files, and opens the browser.
 - **Dashboard** is vanilla HTML/CSS/JS with Chart.js 4 loaded from CDN. No framework, no build step.
+- **Timezones** — all time-based aggregation (hour of day, day of week) uses **UTC** via `jsDate.getUTCHours()` / `jsDate.getUTCDay()` in `src/aggregate.js`.
 
 ---
 
