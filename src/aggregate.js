@@ -42,6 +42,18 @@ function recordTiming(label, t, timings, onTiming) {
   if (onTiming) onTiming(label, elapsed);
 }
 
+function pickBestName(contributor) {
+  let bestName = contributor.name;
+  let bestCount = 0;
+  for (const [n, count] of contributor.names) {
+    if (count > bestCount || (count === bestCount && n < bestName)) {
+      bestName = n;
+      bestCount = count;
+    }
+  }
+  return bestName;
+}
+
 function createEmptyResult(branchCount) {
   return {
     summary: {
@@ -256,16 +268,8 @@ function applyGhNoreplyMerges(contributorsMap, contributionsMap, merges) {
         existing.additions += sourceData.additions;
         existing.deletions += sourceData.deletions;
       } else {
-        let bestName = targetContributor.name;
-        let bestCount = 0;
-        for (const [n, count] of targetContributor.names) {
-          if (count > bestCount || (count === bestCount && n < bestName)) {
-            bestName = n;
-            bestCount = count;
-          }
-        }
         dayEntry.authors.set(targetEmail, {
-          name: bestName,
+          name: pickBestName(targetContributor),
           count: sourceData.count,
           additions: sourceData.additions,
           deletions: sourceData.deletions,
@@ -327,14 +331,7 @@ function formatResults(processed, commitCount, branchCount) {
 
   const contributors = Array.from(contributorsMap.values())
     .map((c) => {
-      let bestName = c.name;
-      let bestCount = 0;
-      for (const [n, count] of c.names) {
-        if (count > bestCount || (count === bestCount && n < bestName)) {
-          bestName = n;
-          bestCount = count;
-        }
-      }
+      const bestName = pickBestName(c);
       return {
         name: bestName,
         email: c.email,
@@ -387,9 +384,54 @@ function cloneDayEntry(entry) {
     date: entry.date,
     count: entry.count,
     authors,
-    byHour: entry.byHour,
+    byHour: [...entry.byHour],
     files,
   };
+}
+
+function mergeDayEntries(aEntry, bEntry) {
+  for (const [email, bAuthor] of bEntry.authors) {
+    const existing = aEntry.authors.get(email);
+    if (existing) {
+      existing.count += bAuthor.count;
+      existing.additions += bAuthor.additions;
+      existing.deletions += bAuthor.deletions;
+    } else {
+      aEntry.authors.set(email, { ...bAuthor });
+    }
+  }
+
+  for (const [file, count] of bEntry.files) {
+    aEntry.files.set(file, (aEntry.files.get(file) ?? 0) + count);
+  }
+
+  aEntry.count += bEntry.count;
+  aEntry.byHour = aEntry.byHour.map((v, i) => v + bEntry.byHour[i]);
+}
+
+function mergeFrequencyMaps(aFreqMap, bFreqMap) {
+  const frequencyMap = new Map();
+  for (const [date, freq] of aFreqMap) {
+    frequencyMap.set(date, { ...freq });
+  }
+  for (const [date, bFreq] of bFreqMap) {
+    const aFreq = frequencyMap.get(date);
+    if (aFreq) {
+      aFreq.additions += bFreq.additions;
+      aFreq.deletions += bFreq.deletions;
+    } else {
+      frequencyMap.set(date, { ...bFreq });
+    }
+  }
+  return frequencyMap;
+}
+
+function pickFirstCommit(a, b) {
+  return a === null ? b : b === null ? a : a < b ? a : b;
+}
+
+function pickLastCommit(a, b) {
+  return a === null ? b : b === null ? a : a > b ? a : b;
 }
 
 function mergeProcessingState(a, b) {
@@ -405,38 +447,10 @@ function mergeProcessingState(a, b) {
       continue;
     }
 
-    for (const [email, bAuthor] of bEntry.authors) {
-      const existing = aEntry.authors.get(email);
-      if (existing) {
-        existing.count += bAuthor.count;
-        existing.additions += bAuthor.additions;
-        existing.deletions += bAuthor.deletions;
-      } else {
-        aEntry.authors.set(email, { ...bAuthor });
-      }
-    }
-
-    for (const [file, count] of bEntry.files) {
-      aEntry.files.set(file, (aEntry.files.get(file) ?? 0) + count);
-    }
-
-    aEntry.count += bEntry.count;
-    aEntry.byHour = aEntry.byHour.map((v, i) => v + bEntry.byHour[i]);
+    mergeDayEntries(aEntry, bEntry);
   }
 
-  const frequencyMap = new Map();
-  for (const [date, freq] of a.frequencyMap) {
-    frequencyMap.set(date, { ...freq });
-  }
-  for (const [date, bFreq] of b.frequencyMap) {
-    const aFreq = frequencyMap.get(date);
-    if (aFreq) {
-      aFreq.additions += bFreq.additions;
-      aFreq.deletions += bFreq.deletions;
-    } else {
-      frequencyMap.set(date, { ...bFreq });
-    }
-  }
+  const frequencyMap = mergeFrequencyMaps(a.frequencyMap, b.frequencyMap);
 
   const contributorsMap = new Map();
   for (const [email, c] of a.contributorsMap) {
@@ -451,22 +465,8 @@ function mergeProcessingState(a, b) {
     }
   }
 
-  const firstCommit =
-    a.firstCommit === null
-      ? b.firstCommit
-      : b.firstCommit === null
-        ? a.firstCommit
-        : a.firstCommit < b.firstCommit
-          ? a.firstCommit
-          : b.firstCommit;
-  const lastCommit =
-    a.lastCommit === null
-      ? b.lastCommit
-      : b.lastCommit === null
-        ? a.lastCommit
-        : a.lastCommit > b.lastCommit
-          ? a.lastCommit
-          : b.lastCommit;
+  const firstCommit = pickFirstCommit(a.firstCommit, b.firstCommit);
+  const lastCommit = pickLastCommit(a.lastCommit, b.lastCommit);
 
   const fileChangesMap = new Map();
   for (const [file, count] of a.fileChangesMap) {
@@ -542,21 +542,9 @@ export async function aggregateStream(commitsStream, branchCount, timings, onTim
   return result;
 }
 
-export async function aggregateStreamParallel(
-  repoPath,
-  branchCount,
-  options = {},
-  timings,
-  onTiming,
-) {
-  const { firstYear, lastYear } = await getCommitYearRange(repoPath);
-  if (firstYear === null || lastYear === null) {
-    const bc = await branchCount;
-    return createEmptyResult(bc);
-  }
-
-  const QUARTER_MONTHS = 3;
+function createYearSlices(firstYear, lastYear) {
   const slices = [];
+  const QUARTER_MONTHS = 3;
   for (let year = firstYear; year <= lastYear; year++) {
     for (let quarter = 0; quarter < 12; quarter += QUARTER_MONTHS) {
       const startMonth = quarter;
@@ -571,6 +559,23 @@ export async function aggregateStreamParallel(
       });
     }
   }
+  return slices;
+}
+
+export async function aggregateStreamParallel(
+  repoPath,
+  branchCount,
+  options = {},
+  timings,
+  onTiming,
+) {
+  const { firstYear, lastYear } = await getCommitYearRange(repoPath);
+  if (firstYear === null || lastYear === null) {
+    const bc = await branchCount;
+    return createEmptyResult(bc);
+  }
+
+  const slices = createYearSlices(firstYear, lastYear);
 
   const yearTimings = new Map();
   const yearQuarterCount = new Map();
