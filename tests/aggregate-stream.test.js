@@ -83,6 +83,18 @@ async function* errorStream() {
   throw new Error('stream error!');
 }
 
+function immediateError() {
+  return {
+    [Symbol.asyncIterator]() {
+      return {
+        next() {
+          return Promise.reject(new Error('immediate fail'));
+        },
+      };
+    },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -93,10 +105,8 @@ describe('aggregateStream (async stream function)', () => {
   describe('equivalence with aggregate', () => {
     it('should produce identical result to aggregate for single commit', async () => {
       const commits = [makeCommit({ hash: 'eq1' })];
-      const [sync, async_] = await Promise.all([
-        aggregate(commits, 1),
-        aggregateStream(toStream(commits), 1),
-      ]);
+      const sync = aggregate(commits, 1);
+      const async_ = await aggregateStream(toStream(commits), 1);
       assert.deepStrictEqual(async_, sync);
     });
 
@@ -124,10 +134,8 @@ describe('aggregateStream (async stream function)', () => {
           files: ['c.js', 'd.js'],
         }),
       ];
-      const [sync, async_] = await Promise.all([
-        aggregate(commits, 2),
-        aggregateStream(toStream(commits), 2),
-      ]);
+      const sync = aggregate(commits, 2);
+      const async_ = await aggregateStream(toStream(commits), 2);
       assert.deepStrictEqual(async_, sync);
     });
 
@@ -163,10 +171,8 @@ describe('aggregateStream (async stream function)', () => {
         }),
       ];
       const shuffled = [...commits].reverse();
-      const [sync, async_] = await Promise.all([
-        aggregate(shuffled, 1),
-        aggregateStream(toStream(shuffled), 1),
-      ]);
+      const sync = aggregate(shuffled, 1);
+      const async_ = await aggregateStream(toStream(shuffled), 1);
       assert.deepStrictEqual(async_, sync);
     });
   });
@@ -434,10 +440,8 @@ describe('aggregateStream (async stream function)', () => {
           date: '2025-01-16T12:00:00Z',
         }),
       ];
-      const [sync, async_] = await Promise.all([
-        aggregate(commits, 7),
-        aggregateStream(toStream(commits), Promise.resolve(7)),
-      ]);
+      const sync = aggregate(commits, 7);
+      const async_ = await aggregateStream(toStream(commits), Promise.resolve(7));
       assert.deepStrictEqual(async_, sync);
     });
   });
@@ -450,10 +454,6 @@ describe('aggregateStream (async stream function)', () => {
     });
 
     it('should reject for a stream that throws immediately', async () => {
-      // eslint-disable-next-line require-yield -- intentionally throws before any yield
-      async function* immediateError() {
-        throw new Error('immediate fail');
-      }
       await assert.rejects(() => aggregateStream(immediateError(), 1), /immediate fail/);
     });
 
@@ -578,14 +578,14 @@ describe('aggregateStream (async stream function)', () => {
       const commits = [
         makeCommit({
           hash: 'k1',
-          author: { name: 'Kevin Cordia', email: 'me@kevco.dev' },
+          author: { name: 'GitHub User', email: 'me@githubuser.dev' },
           date: '2025-01-15T10:00:00Z',
         }),
         makeCommit({
           hash: 'k2',
           author: {
-            name: 'Kevin Cordia',
-            email: noreplyEmail('nivekxyz', '31807746'),
+            name: 'GitHub User',
+            email: noreplyEmail('gituser', '31807746'),
           },
           date: '2025-01-16T10:00:00Z',
         }),
@@ -646,10 +646,8 @@ describe('aggregateStream (async stream function)', () => {
           date: '2025-01-17T10:00:00Z',
         }),
       ];
-      const [sync, async_] = await Promise.all([
-        aggregate(commits, 1),
-        aggregateStream(toStream(commits), 1),
-      ]);
+      const sync = aggregate(commits, 1);
+      const async_ = await aggregateStream(toStream(commits), 1);
       assert.deepStrictEqual(async_, sync);
     });
   });
@@ -797,7 +795,7 @@ describe('aggregateStreamParallel (parallel repo processing)', () => {
     const bc = await getLocalBranchCount(multiYearRepoPath);
     const timings = [];
 
-    await aggregateStreamParallel(multiYearRepoPath, bc, {}, timings);
+    await aggregateStreamParallel(multiYearRepoPath, bc, timings, undefined, {});
 
     // Should have: per-year entries + 'Merge results' + 'Merge contributors' + 'Format results'
     assert.ok(timings.length >= 5, `expected at least 5 timing entries, got ${timings.length}`);
@@ -806,20 +804,11 @@ describe('aggregateStreamParallel (parallel repo processing)', () => {
 
     // Per-year entries should include each year in order
     const perYearLabels = labels.filter((l) => /^Parse commits \(\d{4}\)$/.test(l));
-    assert.ok(
-      perYearLabels.some((l) => l === 'Parse commits (2024)'),
-      'missing 2024 label',
-    );
-    assert.ok(
-      perYearLabels.some((l) => l === 'Parse commits (2025)'),
-      'missing 2025 label',
-    );
-    assert.ok(
-      perYearLabels.some((l) => l === 'Parse commits (2026)'),
-      'missing 2026 label',
-    );
+    assert.ok(perYearLabels.includes('Parse commits (2024)'), 'missing 2024 label');
+    assert.ok(perYearLabels.includes('Parse commits (2025)'), 'missing 2025 label');
+    assert.ok(perYearLabels.includes('Parse commits (2026)'), 'missing 2026 label');
     // Should be in ascending year order
-    const yearNums = perYearLabels.map((l) => parseInt(l.match(/\d{4}/)[0], 10));
+    const yearNums = perYearLabels.map((l) => Number.parseInt(l.match(/\d{4}/)[0], 10));
     assert.deepStrictEqual(
       yearNums,
       [...yearNums].sort((a, b) => a - b),

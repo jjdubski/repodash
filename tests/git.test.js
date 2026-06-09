@@ -89,7 +89,7 @@ before(() => {
   execSync('git branch feature-a', { cwd: mainRepoPath, stdio: 'pipe' });
   execSync('git branch feature-b', { cwd: mainRepoPath, stdio: 'pipe' });
 
-  // ── Empty repo: initialised but has zero commits ─────────────────────
+  // ── Empty repo: initialized but has zero commits ─────────────────────
   emptyRepoPath = join(tmpDir, 'empty-repo');
   execSync(`git init "${emptyRepoPath}"`, { stdio: 'pipe' });
 
@@ -418,7 +418,7 @@ describe('edge cases', () => {
   it('empty repo returns zero branches', async () => {
     const count = await getLocalBranchCount(emptyRepoPath);
 
-    // A freshly initialised repo with no commits has no branches yet.
+    // A freshly initialized repo with no commits has no branches yet.
     assert.strictEqual(count, 0);
   });
 

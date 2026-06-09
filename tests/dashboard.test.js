@@ -55,7 +55,7 @@ function exists(file) {
  * @returns {string|null} Function source including the `function` keyword
  */
 function extractFunction(name, src) {
-  const re = new RegExp(`function\\s+${name}\\s*\\([^)]*\\)\\s*\\{`);
+  const re = new RegExp(String.raw`function\s+${name}\s*\([^)]*\)\s*\{`);
   const match = re.exec(src);
   if (!match) return null;
 
@@ -82,6 +82,15 @@ function loadFn(name, sandbox) {
   const fnSrc = extractFunction(name, src);
   if (!fnSrc) throw new Error(`${name} not found in dashboard.js`);
   return vm.runInContext('(' + fnSrc + ')', ctx);
+}
+
+function make24(fills) {
+  const arr = new Array(24);
+  for (let i = 0; i < 24; i++) arr[i] = { hour: i, count: 0 };
+  Object.keys(fills).forEach(function (h) {
+    arr[Number(h)] = { hour: Number(h), count: fills[h] };
+  });
+  return arr;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -528,25 +537,25 @@ describe('Dashboard — chart-config.js', () => {
       assert.strictEqual(typeof c.pink, 'string');
     });
 
-    it('should all be valid 6-digit hex colours', () => {
+    it('should all be valid 6-digit hex colors', () => {
       const hex6 = /^#[0-9a-fA-F]{6}$/;
       for (const [key, val] of Object.entries(sandbox.window.COLORS)) {
-        assert.match(val, hex6, `COLORS.${key} is not a valid hex colour: "${val}"`);
+        assert.match(val, hex6, `COLORS.${key} is not a valid hex color: "${val}"`);
       }
     });
   });
 
   describe('COLOR_LIST', () => {
-    it('should be an array of 8 hex colours', () => {
+    it('should be an array of 8 hex colors', () => {
       const list = sandbox.window.COLOR_LIST;
       assert.ok(Array.isArray(list), 'COLOR_LIST is not an array');
       assert.strictEqual(list.length, 8);
-      for (let i = 0; i < list.length; i++) {
-        assert.match(list[i], /^#[0-9a-fA-F]{6}$/);
+      for (const color of list) {
+        assert.match(color, /^#[0-9a-fA-F]{6}$/);
       }
     });
 
-    it('should have the same colours as COLORS in the same order', () => {
+    it('should have the same colors as COLORS in the same order', () => {
       const c = sandbox.window.COLORS;
       const list = sandbox.window.COLOR_LIST;
       assert.strictEqual(list[0], c.blue);
@@ -679,8 +688,8 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       assert.strictEqual(formatNumber(undefined), '\u2014');
     });
 
-    it('should return em-dash for NaN', () => {
-      assert.strictEqual(formatNumber(NaN), '\u2014');
+    it('should return em-dash for Number.NaN', () => {
+      assert.strictEqual(formatNumber(Number.NaN), '\u2014');
     });
   });
 
@@ -914,7 +923,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
 
       // Two separate entries — email is the key, not author name
       assert.strictEqual(result.length, 2);
-      const emails = result.map((c) => c.email).sort();
+      const emails = result.map((c) => c.email).sort((a, b) => a.localeCompare(b));
       assert.deepStrictEqual(emails, ['email1@test.com', 'email2@test.com']);
     });
   });
@@ -946,15 +955,6 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     });
 
     it('should recompute byHour from per-day contribution data', () => {
-      function make24(fills) {
-        var arr = new Array(24);
-        for (var i = 0; i < 24; i++) arr[i] = { hour: i, count: 0 };
-        Object.keys(fills).forEach(function (h) {
-          arr[h] = { hour: Number(h), count: fills[h] };
-        });
-        return arr;
-      }
-
       const contributions = [
         { date: '2024-01-01', count: 2, byHour: make24({ 0: 1, 9: 1 }) },
         { date: '2024-01-02', count: 3, byHour: make24({ 9: 2, 14: 1 }) },
@@ -1045,15 +1045,6 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     });
 
     it('should handle mixed contributions with and without per-day data', () => {
-      function make24(fills) {
-        var arr = new Array(24);
-        for (var i = 0; i < 24; i++) arr[i] = { hour: i, count: 0 };
-        Object.keys(fills).forEach(function (h) {
-          arr[h] = { hour: Number(h), count: fills[h] };
-        });
-        return arr;
-      }
-
       const contributions = [
         {
           date: '2024-01-01',

@@ -690,7 +690,7 @@ describe('aggregate (pure function)', () => {
         .map(function (c) {
           return c.email;
         })
-        .sort();
+        .sort((a, b) => a.localeCompare(b));
       assert.deepStrictEqual(emails, ['new@test.com', 'old@test.com']);
     });
 
@@ -876,11 +876,11 @@ describe('aggregate (pure function)', () => {
       assert.strictEqual(result.summary.totalContributors, 2);
     });
 
-    it('should merge when email local part matches GH username from noreply (nivekxyz@company.com vs 31807746+nivekxyz@users.noreply.github.com)', () => {
+    it('should merge when email local part matches GH username from noreply (gituser@company.com vs 31807746+gituser@users.noreply.github.com)', () => {
       const commits = [
         makeCommit({
           hash: 'm1',
-          author: { name: 'Nivek Xyz', email: 'nivekxyz@company.com' },
+          author: { name: 'GitHub User', email: 'gituser@company.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
           files: ['a.js'],
@@ -888,8 +888,8 @@ describe('aggregate (pure function)', () => {
         makeCommit({
           hash: 'm2',
           author: {
-            name: 'Nivek Xyz',
-            email: noreplyEmail('nivekxyz', '31807746'),
+            name: 'GitHub User',
+            email: noreplyEmail('gituser', '31807746'),
           },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
@@ -905,11 +905,11 @@ describe('aggregate (pure function)', () => {
       });
     });
 
-    it('should NOT merge when noreply username does not match name or email local part (Kevin Cordia case: me@kevco.dev vs 31807746+nivekxyz@users.noreply.github.com)', () => {
+    it('should NOT merge when noreply username does not match name or email local part (GitHub User case: me@kevco.dev vs 31807746+gituser@users.noreply.github.com)', () => {
       const commits = [
         makeCommit({
           hash: 'k1',
-          author: { name: 'Kevin Cordia', email: 'me@kevco.dev' },
+          author: { name: 'GitHub User', email: 'me@gituser.dev' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
           files: ['a.js'],
@@ -917,8 +917,8 @@ describe('aggregate (pure function)', () => {
         makeCommit({
           hash: 'k2',
           author: {
-            name: 'Kevin Cordia',
-            email: noreplyEmail('nivekxyz', '31807746'),
+            name: 'GitHub User',
+            email: noreplyEmail('gituser', '31807746'),
           },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
@@ -927,8 +927,8 @@ describe('aggregate (pure function)', () => {
       ];
       const result = aggregate(commits, 1);
 
-      // Name "Kevin Cordia" does not match "nivekxyz",
-      // email local part "me" does not match "nivekxyz"
+      // Name "GitHub User" does not match "gituser",
+      // email local part "me" does not match "gituser"
       assert.strictEqual(result.contributors.length, 2);
     });
 
@@ -967,13 +967,10 @@ describe('aggregate (pure function)', () => {
   describe('structural invariants', () => {
     it('should return exactly 5 top-level keys', () => {
       const result = aggregate([makeCommit({ hash: 'inv1' })], 1);
-      assert.deepStrictEqual(Object.keys(result).sort(), [
-        'activity',
-        'contributions',
-        'contributors',
-        'frequency',
-        'summary',
-      ]);
+      assert.deepStrictEqual(
+        Object.keys(result).sort((a, b) => a.localeCompare(b)),
+        ['activity', 'contributions', 'contributors', 'frequency', 'summary'],
+      );
     });
 
     it('should have consistent totals across datasets', () => {
@@ -1161,7 +1158,7 @@ describe('aggregate (pure function)', () => {
       assert.strictEqual(newEntry.deletions, 1);
 
       // Each contributor should have their own stats (not merged)
-      const emails = result.contributors.map((c) => c.email).sort();
+      const emails = result.contributors.map((c) => c.email).sort((a, b) => a.localeCompare(b));
       assert.deepStrictEqual(emails, ['new@test.com', 'old@test.com']);
     });
 

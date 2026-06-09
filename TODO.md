@@ -7,3 +7,6 @@
 5. Issue with the `Commit Distribution` chart, it does not show the tooltip when hovering over the bars (check the logic)
 6. Add playwright testing
 7. Remove lines option from `Contribution Graph` chart
+8. Add a --user flag that will show all commits for that user
+   8.1 We would need to change the dashboard to allow filtering by repository (default show all history across all commits)
+   8.2 This would show all public commits but we should add a --token flag where a user passes in a GitHub token to see all their private repo commits as well

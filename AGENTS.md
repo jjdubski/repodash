@@ -87,6 +87,10 @@ reviewdog -reporter=local -conf=.reviewdog.yml  # all runners
 - ESM throughout (`"type": "module"`)
 - No comments in code
 - Pure functions preferred where possible
+- Prefer using an optional chain expression instead, as it's more concise and easier to read.
+- Prefer globalThis.window instead of window
+- Use `.includes()`, rather than `.indexOf()`, when checking for existence.
+- Prefer let or const, do not use var unless absolutely necessary
 
 ## Contributor deduplication
 

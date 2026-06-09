@@ -193,7 +193,7 @@ describe('main orchestrator (src/index.js)', () => {
       });
 
       const parsed = JSON.parse(logs[0]);
-      const keys = Object.keys(parsed).sort();
+      const keys = Object.keys(parsed).sort((a, b) => a.localeCompare(b));
 
       assert.deepStrictEqual(keys, ['contributions', 'summary']);
       assert.ok(parsed.summary);
@@ -216,13 +216,10 @@ describe('main orchestrator (src/index.js)', () => {
       await main(repoPath, { json: true });
 
       const parsed = JSON.parse(logs[0]);
-      assert.deepStrictEqual(Object.keys(parsed).sort(), [
-        'activity',
-        'contributions',
-        'contributors',
-        'frequency',
-        'summary',
-      ]);
+      assert.deepStrictEqual(
+        Object.keys(parsed).sort((a, b) => a.localeCompare(b)),
+        ['activity', 'contributions', 'contributors', 'frequency', 'summary'],
+      );
     } finally {
       console.log = originalLog;
     }
@@ -240,13 +237,10 @@ describe('main orchestrator (src/index.js)', () => {
       await main(repoPath, { json: true, bogus: true });
 
       const parsed = JSON.parse(logs[0]);
-      assert.deepStrictEqual(Object.keys(parsed).sort(), [
-        'activity',
-        'contributions',
-        'contributors',
-        'frequency',
-        'summary',
-      ]);
+      assert.deepStrictEqual(
+        Object.keys(parsed).sort((a, b) => a.localeCompare(b)),
+        ['activity', 'contributions', 'contributors', 'frequency', 'summary'],
+      );
     } finally {
       console.log = originalLog;
     }

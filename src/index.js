@@ -20,11 +20,11 @@ export async function main(repoPath, options = {}) {
   const result = await aggregateStreamParallel(
     repoPath,
     getLocalBranchCount(repoPath),
-    { noMerges: options['no-merges'] },
     timings,
     options.timing
       ? (label, elapsed) => console.error(`  ${label.padEnd(20)} ${elapsed.toFixed(2)}s`)
       : undefined,
+    { noMerges: options['no-merges'] },
   );
 
   result.summary.repoName = repoPath

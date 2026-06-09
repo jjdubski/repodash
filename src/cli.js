@@ -113,7 +113,7 @@ export function parseAndValidate(argv) {
     process.exit(1);
   }
 
-  const { help, ...cleanValues } = values;
+  delete values.help;
 
-  return { repoPath, values: cleanValues };
+  return { repoPath, values };
 }

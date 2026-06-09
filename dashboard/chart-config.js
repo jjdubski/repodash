@@ -55,7 +55,7 @@
   // -------------------------------------------------------------------
   // Shared option defaults (these go inside `options: { ... }` of a
   // Chart.js config object).  Chart renderers should merge these with
-  // any customisations via Object.assign / manual deep merge.
+  // any customizations via Object.assign / manual deep merge.
   // -------------------------------------------------------------------
   window.CHART_DEFAULTS = {
     responsive: true,
@@ -74,12 +74,12 @@
   // -------------------------------------------------------------------
   // Read theme-aware scale defaults from CSS custom properties.
   // Returns { x: { ticks, grid }, y: { ticks, grid } } with current
-  // theme colours.  Call at chart-creation time so colours are fresh.
+  // theme colors.  Call at chart-creation time so colors are fresh.
   // -------------------------------------------------------------------
   window.getScaleDefaults = function () {
-    var style = getComputedStyle(document.documentElement);
-    var textSecondary = style.getPropertyValue('--text-secondary').trim() || '#656d76';
-    var chartGrid = style.getPropertyValue('--chart-grid').trim() || 'rgba(128,128,128,0.1)';
+    const style = getComputedStyle(document.documentElement);
+    const textSecondary = style.getPropertyValue('--text-secondary').trim() || '#656d76';
+    const chartGrid = style.getPropertyValue('--chart-grid').trim() || 'rgba(128,128,128,0.1)';
     return {
       x: {
         ticks: { color: textSecondary },
@@ -94,7 +94,7 @@
   };
 
   // -------------------------------------------------------------------
-  // Read current theme's text colour (used for legend labels, etc.)
+  // Read current theme's text color (used for legend labels, etc.)
   // -------------------------------------------------------------------
   window.getTextColor = function () {
     return getComputedStyle(document.documentElement).getPropertyValue('--text').trim();

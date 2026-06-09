@@ -22,7 +22,7 @@ const state = {
 // ═════════════════════════════════════════════════════════════════════
 
 export function formatNumber(n) {
-  if (n == null || isNaN(n)) return '\u2014'; // em dash
+  if (n == null || Number.isNaN(n)) return '\u2014'; // em dash
   const abs = Math.abs(n);
   const sign = n < 0 ? '-' : '';
   if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M';
@@ -38,7 +38,7 @@ export function formatDate(iso) {
       month: 'short',
       day: 'numeric',
     });
-  } catch (_) {
+  } catch {
     return iso.slice(0, 10);
   }
 }
@@ -68,29 +68,25 @@ function escapeHtml(str) {
 
 function debounce(fn, ms) {
   let timer;
-  return function () {
-    const self = this;
-    const args = arguments;
+  return function (...args) {
     clearTimeout(timer);
-    timer = setTimeout(function () {
-      fn.apply(self, args);
-    }, ms);
+    timer = setTimeout(() => fn.apply(this, args), ms);
   };
 }
 
 function getDateRangeLabel(d) {
   let startLabel, endLabel;
-  if (state.timeFilter === 'allTime' && d && d.summary) {
+  if (state.timeFilter === 'allTime' && d?.summary) {
     startLabel = formatDate(d.summary.firstCommit);
     endLabel = formatDate(d.summary.lastCommit);
   } else {
     const bounds = getCutoffDate(state.timeFilter);
-    if (!bounds) {
-      startLabel = d && d.summary ? formatDate(d.summary.firstCommit) : 'Beginning';
-      endLabel = d && d.summary ? formatDate(d.summary.lastCommit) : 'Present';
-    } else {
+    if (bounds) {
       startLabel = bounds.start ? formatDate(bounds.start) : 'Beginning';
       endLabel = bounds.end ? formatDate(bounds.end) : formatDate(getTodayLocal());
+    } else {
+      startLabel = d?.summary ? formatDate(d.summary.firstCommit) : 'Beginning';
+      endLabel = d?.summary ? formatDate(d.summary.lastCommit) : 'Present';
     }
   }
   if (startLabel === endLabel) return startLabel;
@@ -143,9 +139,8 @@ export function getCutoffDate(filter) {
   return { start: d.toISOString().slice(0, 10), end: null };
 }
 
-export function filterByDate(arr, bounds, field) {
-  if (!arr || !arr.length || !bounds) return arr;
-  field = field || 'date';
+export function filterByDate(arr, bounds, field = 'date') {
+  if (!arr?.length || !bounds) return arr;
   return arr.filter(function (item) {
     if (bounds.start && item[field] < bounds.start) return false;
     if (bounds.end && item[field] > bounds.end) return false;
@@ -232,8 +227,7 @@ export function computeFilteredActivity(contributions) {
   const hourCounts = new Array(24).fill(0);
   const fileMap = {};
 
-  for (let i = 0; i < contributions.length; i++) {
-    const c = contributions[i];
+  for (const c of contributions) {
     const jsDay = new Date(c.date + 'T00:00:00Z').getUTCDay();
     const idx = (jsDay + 6) % 7;
     dayCounts[idx] += c.count;
@@ -245,8 +239,7 @@ export function computeFilteredActivity(contributions) {
     }
 
     if (c.topFiles) {
-      for (let j = 0; j < c.topFiles.length; j++) {
-        const f = c.topFiles[j];
+      for (const f of c.topFiles) {
         fileMap[f.path] = (fileMap[f.path] || 0) + f.changes;
       }
     }
@@ -301,7 +294,7 @@ function downsampleFrequency(frequency) {
 }
 
 function renderFrequencyLineChart(frequency, chartId, alpha, pointRadius, pointHoverRadius) {
-  if (!frequency || !frequency.length) {
+  if (!frequency?.length) {
     destroyChart(chartId);
     return;
   }
@@ -321,8 +314,8 @@ function renderFrequencyLineChart(frequency, chartId, alpha, pointRadius, pointH
           data: frequency.map(function (x) {
             return x.additions;
           }),
-          borderColor: window.COLORS.green,
-          backgroundColor: window.COLORS.green + alpha,
+          borderColor: globalThis.window.COLORS.green,
+          backgroundColor: globalThis.window.COLORS.green + alpha,
           fill: true,
           tension: 0.3,
           pointRadius: pointRadius,
@@ -334,8 +327,8 @@ function renderFrequencyLineChart(frequency, chartId, alpha, pointRadius, pointH
           data: frequency.map(function (x) {
             return x.deletions;
           }),
-          borderColor: window.COLORS.red,
-          backgroundColor: window.COLORS.red + alpha,
+          borderColor: globalThis.window.COLORS.red,
+          backgroundColor: globalThis.window.COLORS.red + alpha,
           fill: true,
           tension: 0.3,
           pointRadius: pointRadius,
@@ -350,13 +343,13 @@ function renderFrequencyLineChart(frequency, chartId, alpha, pointRadius, pointH
 
 /**
  * Build a complete Chart.js options object by merging CHART_DEFAULTS,
- * theme-aware scale colours, and caller-provided overrides.  Scales
- * are deep-merged so theme ticks/grid colours flow through correctly.
+ * theme-aware scale colors, and caller-provided overrides.  Scales
+ * are deep-merged so theme ticks/grid colors flow through correctly.
  */
 function buildOptions(override) {
-  const D = window.CHART_DEFAULTS;
-  const theme = window.getScaleDefaults();
-  const text = window.getTextColor();
+  const D = globalThis.window.CHART_DEFAULTS;
+  const theme = globalThis.window.getScaleDefaults();
+  const text = globalThis.window.getTextColor();
 
   // Start with a shallow copy of DEFAULTS
   const opts = {};
@@ -373,26 +366,22 @@ function buildOptions(override) {
   }
 
   // Deep-merge scales: DEFAULTS.scales → theme → override.scales
-  const srcScales = (override && override.scales) || {};
+  const srcScales = override?.scales || {};
   opts.scales = opts.scales || {};
-  opts.scales.x = Object.assign({}, D.scales.x, theme.x, srcScales.x || {});
-  opts.scales.y = Object.assign({}, D.scales.y, theme.y, srcScales.y || {});
+  opts.scales.x = { ...D.scales.x, ...theme.x, ...srcScales.x };
+  opts.scales.y = { ...D.scales.y, ...theme.y, ...srcScales.y };
 
   // Merge plugins: override.plugins wins over DEFAULTS.plugins
-  if (override && override.plugins) {
-    opts.plugins = Object.assign({}, D.plugins, override.plugins);
+  if (override?.plugins) {
+    opts.plugins = { ...D.plugins, ...override.plugins };
   } else {
-    opts.plugins = Object.assign({}, D.plugins);
+    opts.plugins = { ...D.plugins };
   }
 
-  // Inject theme text colour into legend labels if not explicitly set
+  // Inject theme text color into legend labels if not explicitly set
   if (opts.plugins.legend && !opts.plugins.legend.labels) {
     opts.plugins.legend.labels = { color: text };
-  } else if (
-    opts.plugins.legend &&
-    opts.plugins.legend.labels &&
-    !opts.plugins.legend.labels.color
-  ) {
+  } else if (opts.plugins.legend?.labels && !opts.plugins.legend.labels.color) {
     opts.plugins.legend.labels.color = text;
   }
 
@@ -412,7 +401,7 @@ function createChart(id, type, data, optionsOverride) {
   if (!canvas) return null;
 
   const ctx = canvas.getContext('2d');
-  state.charts[id] = new window.Chart(ctx, {
+  state.charts[id] = new globalThis.window.Chart(ctx, {
     type: type,
     data: data,
     options: buildOptions(optionsOverride),
@@ -421,11 +410,11 @@ function createChart(id, type, data, optionsOverride) {
 }
 
 function updateAllChartColors() {
-  const theme = window.getScaleDefaults();
-  const text = window.getTextColor();
-  Object.keys(state.charts).forEach(function (id) {
+  const theme = globalThis.window.getScaleDefaults();
+  const text = globalThis.window.getTextColor();
+  for (const id of Object.keys(state.charts)) {
     const chart = state.charts[id];
-    if (!chart) return;
+    if (!chart) continue;
 
     const scales = chart.scales || {};
     if (scales.x) {
@@ -437,12 +426,12 @@ function updateAllChartColors() {
     }
 
     const legend = chart.legend;
-    if (legend && legend.options && legend.options.labels) {
+    if (legend?.options?.labels) {
       legend.options.labels.color = text;
     }
 
     chart.update();
-  });
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -510,11 +499,11 @@ function detectTheme() {
   let saved;
   try {
     saved = localStorage.getItem('insights-theme');
-  } catch (_) {
+  } catch {
     /* localStorage unavailable */
   }
   if (saved === 'dark' || saved === 'light') return saved;
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+  if (globalThis.window.matchMedia?.('(prefers-color-scheme: dark)').matches) {
     return 'dark';
   }
   return 'light';
@@ -522,10 +511,10 @@ function detectTheme() {
 
 function applyTheme(theme) {
   state.theme = theme;
-  document.documentElement.setAttribute('data-theme', theme);
+  document.documentElement.dataset.theme = theme;
   try {
     localStorage.setItem('insights-theme', theme);
-  } catch (_) {
+  } catch {
     /* localStorage unavailable */
   }
 
@@ -549,7 +538,7 @@ function toggleTheme() {
 
 function syncTabUI(tabName) {
   document.querySelectorAll('.tab').forEach(function (btn) {
-    const match = btn.getAttribute('data-tab') === tabName;
+    const match = btn.dataset.tab === tabName;
     btn.classList.toggle('active', match);
     btn.setAttribute('aria-selected', String(match));
   });
@@ -562,7 +551,7 @@ function switchTab(tabName) {
   if (state.activeTab === tabName) return;
   state.activeTab = tabName;
 
-  window.location.hash = tabName;
+  globalThis.window.location.hash = tabName;
 
   syncTabUI(tabName);
 
@@ -574,7 +563,7 @@ function setTimeFilter(filter) {
   state.timeFilter = filter;
 
   try {
-    const url = new URL(window.location.href);
+    const url = new URL(globalThis.window.location.href);
     url.searchParams.set('filter', filter);
     if (filter === 'custom') {
       if (state.customStartDate) url.searchParams.set('start', state.customStartDate);
@@ -582,13 +571,13 @@ function setTimeFilter(filter) {
       if (state.customEndDate) url.searchParams.set('end', state.customEndDate);
       else url.searchParams.delete('end');
     }
-    window.history.replaceState(null, '', url);
-  } catch (_) {
+    globalThis.window.history.replaceState(null, '', url);
+  } catch {
     /* ignore */
   }
 
   document.querySelectorAll('.pill').forEach(function (btn) {
-    btn.classList.toggle('active', btn.getAttribute('data-filter') === filter);
+    btn.classList.toggle('active', btn.dataset.filter === filter);
   });
 
   const customRange = document.getElementById('custom-date-range');
@@ -651,7 +640,7 @@ function renderOverview(d) {
   document.getElementById('metric-additions').textContent = formatNumber(d.summary.totalAdditions);
   document.getElementById('metric-deletions').textContent = formatNumber(d.summary.totalDeletions);
 
-  if (!d.contributions || !d.contributions.length) {
+  if (!d.contributions?.length) {
     destroyChart('chart-contribution');
     destroyChart('chart-top-contributors');
     destroyChart('chart-frequency-overview');
@@ -667,7 +656,7 @@ function renderOverview(d) {
 // -- Contribution chart (multi-mode) -----------------------------------
 
 function renderContributionChart(contributions, frequency, mode, contributors) {
-  if (!contributions || !contributions.length) return;
+  if (!contributions?.length) return;
   mode = mode || 'author';
 
   if (mode === 'commits') {
@@ -742,7 +731,7 @@ function renderContributionAuthor(contributions, contributors) {
       data: contributions.map(function (day) {
         return lookup[day.date] || 0;
       }),
-      backgroundColor: window.COLOR_LIST[i % window.COLOR_LIST.length],
+      backgroundColor: globalThis.window.COLOR_LIST[i % globalThis.window.COLOR_LIST.length],
       borderWidth: 0,
       borderRadius: 2,
     });
@@ -799,7 +788,7 @@ function renderContributionCommits(contributions) {
           data: display.map(function (d) {
             return d.count;
           }),
-          backgroundColor: window.COLORS.blue,
+          backgroundColor: globalThis.window.COLORS.blue,
           borderWidth: 0,
           borderRadius: 2,
         },
@@ -830,9 +819,8 @@ function renderContributionLines(frequency) {
 
 // -- Top contributors horizontal bar -----------------------------------
 
-function renderTopContributorsChart(contributors, mode) {
-  if (!contributors || !contributors.length) return;
-  mode = mode || 'commits';
+function renderTopContributorsChart(contributors, mode = 'commits') {
+  if (!contributors?.length) return;
   const top = contributors.slice(0, 10);
 
   let label, data;
@@ -864,7 +852,7 @@ function renderTopContributorsChart(contributors, mode) {
         {
           label: label,
           data: data,
-          backgroundColor: window.COLORS.blue,
+          backgroundColor: globalThis.window.COLORS.blue,
           borderWidth: 0,
           borderRadius: 2,
         },
@@ -949,7 +937,7 @@ function renderContributorBarChart(contributors) {
             return c.totalCommits;
           }),
           backgroundColor: list.map(function (_, i) {
-            return window.COLOR_LIST[i % window.COLOR_LIST.length];
+            return globalThis.window.COLOR_LIST[i % globalThis.window.COLOR_LIST.length];
           }),
           borderWidth: 0,
           borderRadius: 2,
@@ -973,7 +961,7 @@ function renderContributorBarChart(contributors) {
 
 function renderContributors(d) {
   clearStates('contributors');
-  if (!d.contributors || !d.contributors.length) {
+  if (!d.contributors?.length) {
     destroyChart('chart-contributor-distribution');
     showEmpty('contributors');
     return;
@@ -990,7 +978,7 @@ function renderContributors(d) {
 function renderTopFilesTable(a) {
   const tbody = document.querySelector('#topfiles-table tbody');
   if (tbody) tbody.innerHTML = '';
-  if (a.topFiles && a.topFiles.length) {
+  if (a.topFiles?.length) {
     const fileCount = document.body.classList.contains('printing') ? 20 : 10;
     a.topFiles.slice(0, fileCount).forEach(function (f) {
       const tr = document.createElement('tr');
@@ -1008,7 +996,7 @@ function renderTopFilesTable(a) {
 
 function renderActivityBarChart(chartId, items, color, labelMapper) {
   destroyChart(chartId);
-  if (!items || !items.length) return;
+  if (!items?.length) return;
   createChart(
     chartId,
     'bar',
@@ -1038,17 +1026,13 @@ function renderActivity(d) {
     return;
   }
 
-  const hasWeek =
-    a.byDayOfWeek &&
-    a.byDayOfWeek.some(function (x) {
-      return x.count > 0;
-    });
-  const hasHour =
-    a.byHour &&
-    a.byHour.some(function (x) {
-      return x.count > 0;
-    });
-  const hasFiles = a.topFiles && a.topFiles.length > 0;
+  const hasWeek = a.byDayOfWeek?.some(function (x) {
+    return x.count > 0;
+  });
+  const hasHour = a.byHour?.some(function (x) {
+    return x.count > 0;
+  });
+  const hasFiles = a.topFiles?.length > 0;
 
   if (!hasWeek && !hasHour && !hasFiles) {
     destroyChart('chart-dayofweek');
@@ -1057,10 +1041,15 @@ function renderActivity(d) {
     return;
   }
 
-  renderActivityBarChart('chart-dayofweek', a.byDayOfWeek, window.COLORS.purple, function (x) {
-    return x.day;
-  });
-  renderActivityBarChart('chart-hour', a.byHour, window.COLORS.orange, function (x) {
+  renderActivityBarChart(
+    'chart-dayofweek',
+    a.byDayOfWeek,
+    globalThis.window.COLORS.purple,
+    function (x) {
+      return x.day;
+    },
+  );
+  renderActivityBarChart('chart-hour', a.byHour, globalThis.window.COLORS.orange, function (x) {
     return String(x.hour).padStart(2, '0') + ':00';
   });
 
@@ -1100,7 +1089,7 @@ function setupKeyboardNav() {
         const next =
           e.key === 'ArrowRight' ? (idx + 1) % tabs.length : (idx - 1 + tabs.length) % tabs.length;
         const nextTab = tabs[next];
-        const tabName = nextTab.getAttribute('data-tab');
+        const tabName = nextTab.dataset.tab;
         if (tabName) switchTab(tabName);
         nextTab.focus();
       }
@@ -1114,7 +1103,7 @@ function setupDateRangeListeners() {
   if (dateStart) {
     dateStart.addEventListener('change', function () {
       const today = getTodayLocal();
-      const min = state.data && state.data.summary ? state.data.summary.firstCommit : null;
+      const min = state.data?.summary ? state.data.summary.firstCommit : null;
       const date = clampDate(dateStart.value || null, min, today);
       state.customStartDate = date;
       dateStart.value = date || '';
@@ -1140,13 +1129,13 @@ function setupDateRangeListeners() {
 function setupTabListeners() {
   document.querySelectorAll('.tab').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      switchTab(btn.getAttribute('data-tab'));
+      switchTab(btn.dataset.tab);
     });
   });
 
   document.querySelectorAll('.pill').forEach(function (btn) {
     btn.addEventListener('click', function () {
-      setTimeFilter(btn.getAttribute('data-filter'));
+      setTimeFilter(btn.dataset.filter);
     });
   });
 }
@@ -1156,13 +1145,13 @@ function setupExportPdf() {
   if (!exportBtn) return;
   exportBtn.addEventListener('click', function () {
     const filtered = getFilteredData();
-    if (!filtered || !filtered.contributions || !filtered.contributions.length) return;
+    if (!filtered?.contributions?.length) return;
 
     const titleEl = document.querySelector('.header-title');
     const originalTitle = titleEl ? titleEl.textContent : 'Insights';
 
     const dateLabel = getDateRangeLabel(filtered);
-    const repoName = (state.data.summary && state.data.summary.repoName) || '';
+    const repoName = state.data.summary?.repoName || '';
     const printTitle = repoName ? repoName + ' Insights: ' + dateLabel : 'Insights: ' + dateLabel;
     if (titleEl) titleEl.textContent = printTitle;
     const originalDocTitle = document.title;
@@ -1171,7 +1160,7 @@ function setupExportPdf() {
     document.documentElement.style.setProperty('--text', '#000000');
 
     document.body.classList.add('printing');
-    void document.body.offsetHeight;
+    (() => document.body.offsetHeight)();
 
     renderOverview(filtered);
     renderContributors(filtered);
@@ -1180,23 +1169,23 @@ function setupExportPdf() {
     Object.keys(state.charts).forEach(function (id) {
       try {
         state.charts[id].resize();
-      } catch (_) {
+      } catch {
         /* ignore individual chart resize failures */
       }
     });
 
     const cleanup = function () {
-      window.removeEventListener('afterprint', cleanup);
+      globalThis.window.removeEventListener('afterprint', cleanup);
       document.body.classList.remove('printing');
       document.documentElement.style.removeProperty('--text');
       if (titleEl) titleEl.textContent = originalTitle;
       document.title = originalDocTitle;
       renderCurrentTab();
     };
-    window.addEventListener('afterprint', cleanup);
+    globalThis.window.addEventListener('afterprint', cleanup);
 
     setTimeout(function () {
-      window.print();
+      globalThis.window.print();
     }, 100);
   });
 }
@@ -1206,24 +1195,26 @@ function setupEvents() {
 
   setupExportPdf();
 
-  if (window.matchMedia) {
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
-      let saved;
-      try {
-        saved = localStorage.getItem('insights-theme');
-      } catch (_) {
-        /* localStorage unavailable */
-      }
-      if (!saved) {
-        applyTheme(e.matches ? 'dark' : 'light');
-      }
-    });
+  if (globalThis.window.matchMedia) {
+    globalThis.window
+      .matchMedia('(prefers-color-scheme: dark)')
+      .addEventListener('change', function (e) {
+        let saved;
+        try {
+          saved = localStorage.getItem('insights-theme');
+        } catch {
+          /* localStorage unavailable */
+        }
+        if (!saved) {
+          applyTheme(e.matches ? 'dark' : 'light');
+        }
+      });
   }
 
   // Sync tab from URL hash on browser back/forward
-  window.addEventListener('hashchange', function () {
-    const tab = window.location.hash.replace('#', '');
-    if (tab && TABS.indexOf(tab) !== -1) {
+  globalThis.window.addEventListener('hashchange', function () {
+    const tab = globalThis.window.location.hash.replace('#', '');
+    if (tab && TABS.includes(tab)) {
       switchTab(tab);
     }
   });
@@ -1252,12 +1243,12 @@ function setupEvents() {
 // ═════════════════════════════════════════════════════════════════════
 
 function restoreUrlState() {
-  const hashTab = window.location.hash.replace('#', '');
-  if (hashTab && TABS.indexOf(hashTab) !== -1) {
+  const hashTab = globalThis.window.location.hash.replace('#', '');
+  if (hashTab && TABS.includes(hashTab)) {
     state.activeTab = hashTab;
   }
   try {
-    const params = new URL(window.location.href).searchParams;
+    const params = new URL(globalThis.window.location.href).searchParams;
     const filterParam = params.get('filter');
     if (filterParam && getCutoffDate(filterParam) !== undefined) {
       state.timeFilter = filterParam;
@@ -1266,7 +1257,7 @@ function restoreUrlState() {
     const endParam = params.get('end');
     if (startParam) state.customStartDate = startParam;
     if (endParam) state.customEndDate = endParam;
-  } catch (_) {
+  } catch {
     /* ignore */
   }
 }
@@ -1279,7 +1270,7 @@ function init() {
 
   // Sync active pill state with loaded timeFilter
   document.querySelectorAll('.pill').forEach(function (btn) {
-    btn.classList.toggle('active', btn.getAttribute('data-filter') === state.timeFilter);
+    btn.classList.toggle('active', btn.dataset.filter === state.timeFilter);
   });
 
   const customRange = document.getElementById('custom-date-range');
@@ -1333,12 +1324,10 @@ function init() {
 }
 
 if (typeof document !== 'undefined') {
-  if (typeof window.Chart === 'undefined') {
+  if (globalThis.window.Chart === undefined) {
     document.body.innerHTML =
       '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:var(--red,#f85149);font-family:var(--font-sans,sans-serif);font-size:16px;padding:24px;">Failed to load Chart.js. Check your network connection.</div>';
-  } else if (!window.COLORS || !window.getScaleDefaults) {
-    // config didn't load — module must continue to exist for exports
-  } else {
+  } else if (globalThis.window.COLORS && globalThis.window.getScaleDefaults) {
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', init);
     } else {

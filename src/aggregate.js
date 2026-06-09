@@ -427,11 +427,17 @@ function mergeFrequencyMaps(aFreqMap, bFreqMap) {
 }
 
 function pickFirstCommit(a, b) {
-  return a === null ? b : b === null ? a : a < b ? a : b;
+  if (a === null) return b;
+  if (b === null) return a;
+  if (a < b) return a;
+  return b;
 }
 
 function pickLastCommit(a, b) {
-  return a === null ? b : b === null ? a : a > b ? a : b;
+  if (a === null) return b;
+  if (b === null) return a;
+  if (a > b) return a;
+  return b;
 }
 
 function mergeProcessingState(a, b) {
@@ -525,7 +531,10 @@ export function aggregate(commits, branchCount) {
 
 export async function aggregateStream(commitsStream, branchCount, timings, onTiming) {
   let t = performance.now();
-  const [processed, bc] = await Promise.all([processCommitsStream(commitsStream), branchCount]);
+  const [processed, bc] = await Promise.all([
+    processCommitsStream(commitsStream),
+    Promise.resolve(branchCount),
+  ]);
   recordTiming('Parse commits', t, timings, onTiming);
 
   const commitCount = processed.commitCount;
@@ -562,12 +571,23 @@ export function createYearSlices(firstYear, lastYear) {
   return slices;
 }
 
+/**
+ * Process commits in parallel by slicing the repo's history into quarters
+ * and farming each slice out to a concurrency pool.
+ *
+ * @param {string}      repoPath     - Path to the git repository.
+ * @param {number|Promise<number>} branchCount - Number of local branches (or a promise resolving to one).
+ * @param {Array}       [timings]    - Optional array to receive timing entries.
+ * @param {Function}    [onTiming]   - Optional callback invoked with each timing entry.
+ * @param {object}      [options]    - Options bag (last positional parameter).
+ * @param {boolean}     [options.noMerges] - If true, exclude merge commits.
+ */
 export async function aggregateStreamParallel(
   repoPath,
   branchCount,
-  options = {},
   timings,
   onTiming,
+  options = {},
 ) {
   const { firstYear, lastYear } = await getCommitYearRange(repoPath);
   if (firstYear === null || lastYear === null) {

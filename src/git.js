@@ -100,8 +100,8 @@ function parseCommit(lines) {
 
     // Binary files show '-' instead of numbers — treat as 0.
     // Fallback || 0 guards against NaN from unexpected numstat values.
-    const added = cols[0] === '-' ? 0 : parseInt(cols[0], 10) || 0;
-    const deleted = cols[1] === '-' ? 0 : parseInt(cols[1], 10) || 0;
+    const added = cols[0] === '-' ? 0 : Number.parseInt(cols[0], 10) || 0;
+    const deleted = cols[1] === '-' ? 0 : Number.parseInt(cols[1], 10) || 0;
 
     additions += added;
     deletions += deleted;
@@ -196,8 +196,8 @@ export async function getCommitYearRange(repoPath) {
 
     if (!firstLine && !lastLine) return { firstYear: null, lastYear: null };
 
-    const firstYear = firstLine ? parseInt(firstLine.slice(0, 4), 10) : null;
-    const lastYear = lastLine ? parseInt(lastLine.slice(0, 4), 10) : null;
+    const firstYear = firstLine ? Number.parseInt(firstLine.slice(0, 4), 10) : null;
+    const lastYear = lastLine ? Number.parseInt(lastLine.slice(0, 4), 10) : null;
 
     return { firstYear, lastYear };
   } catch (err) {
