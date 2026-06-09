@@ -597,12 +597,15 @@ export async function aggregateStreamParallel(
 
   const slices = createYearSlices(firstYear, lastYear);
 
-  const yearTimings = new Map();
   const yearQuarterCount = new Map();
+  const yearWallStart = new Map();
   let nextYear = firstYear;
 
   const tasks = slices.map((slice) => async () => {
-    const sliceStart = performance.now();
+    const year = slice.after.slice(0, 4);
+    if (timings && !yearWallStart.has(year)) {
+      yearWallStart.set(year, performance.now());
+    }
     const state = await processCommitsStream(
       getAllCommits(repoPath, {
         after: slice.after,
@@ -611,20 +614,16 @@ export async function aggregateStreamParallel(
       }),
     );
     if (timings) {
-      const elapsed = performance.now() - sliceStart;
-      const year = slice.after.slice(0, 4);
-      const prev = yearTimings.get(year) ?? 0;
-      yearTimings.set(year, prev + elapsed);
-
       const qCount = (yearQuarterCount.get(year) ?? 0) + 1;
       yearQuarterCount.set(year, qCount);
 
       if (qCount === 4) {
         while (nextYear <= lastYear && yearQuarterCount.get(String(nextYear)) === 4) {
-          const ms = yearTimings.get(String(nextYear)) ?? 0;
+          const start = yearWallStart.get(String(nextYear)) ?? performance.now();
           const label = `Parse commits (${nextYear})`;
-          timings.push({ label, elapsed: ms / 1000 });
-          if (onTiming) onTiming(label, ms / 1000);
+          const elapsed = (performance.now() - start) / 1000;
+          timings.push({ label, elapsed });
+          if (onTiming) onTiming(label, elapsed);
           nextYear++;
         }
       }

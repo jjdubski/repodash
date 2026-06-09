@@ -22,7 +22,7 @@ export async function main(repoPath, options = {}) {
     getLocalBranchCount(repoPath),
     timings,
     options.timing
-      ? (label, elapsed) => console.error(`  ${label.padEnd(20)} ${elapsed.toFixed(2)}s`)
+      ? (label, elapsed) => console.error(`  ${label.padEnd(22)} ${elapsed.toFixed(2)}s`)
       : undefined,
     { noMerges: options['no-merges'] },
   );
@@ -95,11 +95,12 @@ export async function main(repoPath, options = {}) {
   }
 
   if (options.timing) {
+    const genElapsed = (performance.now() - genStart) / 1000;
+    console.error(`  ${'Generate output'.padEnd(22)} ${genElapsed.toFixed(2)}s`);
+    console.error(`  ${'─'.repeat(27)}`);
     console.error(
-      `  ${'Generate output'.padEnd(20)} ${((performance.now() - genStart) / 1000).toFixed(2)}s`,
+      `  ${'Total'.padEnd(22)} ${((performance.now() - totalStart) / 1000).toFixed(2)}s`,
     );
-    console.error(`  ───────────────────────────`);
-    console.error(`  Total               ${((performance.now() - totalStart) / 1000).toFixed(2)}s`);
   }
 
   if (dashboardUrl) {
