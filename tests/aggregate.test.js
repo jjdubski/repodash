@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert';
-import { aggregate } from '../src/aggregate.js';
+import { aggregate, createYearSlices, concurrencyPool } from '../src/aggregate.js';
 
 // ---------------------------------------------------------------------------
 // Fixture helpers
@@ -79,6 +79,112 @@ function assertMergedContributor(result, expected) {
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
+
+describe('extracted helpers', () => {
+  describe('createYearSlices', () => {
+    it('should produce 4 quarters for a single year', () => {
+      const slices = createYearSlices(2024, 2024);
+      assert.strictEqual(slices.length, 4);
+      assert.strictEqual(slices[0].after, '2024-01-01');
+      assert.strictEqual(slices[0].before, '2024-04-01');
+      assert.strictEqual(slices[0].quarterNum, 1);
+      assert.strictEqual(slices[1].after, '2024-04-01');
+      assert.strictEqual(slices[1].before, '2024-07-01');
+      assert.strictEqual(slices[1].quarterNum, 2);
+      assert.strictEqual(slices[2].after, '2024-07-01');
+      assert.strictEqual(slices[2].before, '2024-10-01');
+      assert.strictEqual(slices[2].quarterNum, 3);
+      assert.strictEqual(slices[3].after, '2024-10-01');
+      assert.strictEqual(slices[3].before, '2025-01-01');
+      assert.strictEqual(slices[3].quarterNum, 4);
+    });
+
+    it('should produce correct slices for a multi-year range', () => {
+      const slices = createYearSlices(2023, 2025);
+      assert.strictEqual(slices.length, 12);
+      assert.strictEqual(slices[0].after, '2023-01-01');
+      assert.strictEqual(slices[0].before, '2023-04-01');
+      assert.strictEqual(slices[3].after, '2023-10-01');
+      assert.strictEqual(slices[3].before, '2024-01-01');
+      assert.strictEqual(slices[4].after, '2024-01-01');
+      assert.strictEqual(slices[4].before, '2024-04-01');
+      assert.strictEqual(slices[11].after, '2025-10-01');
+      assert.strictEqual(slices[11].before, '2026-01-01');
+      assert.strictEqual(slices[11].quarterNum, 4);
+    });
+
+    it('should wrap Q4 before date to January of the following year', () => {
+      for (let year = 2000; year <= 2030; year++) {
+        const slices = createYearSlices(year, year);
+        const q4 = slices[3];
+        assert.strictEqual(q4.quarterNum, 4);
+        assert.strictEqual(q4.after, `${year}-10-01`);
+        assert.strictEqual(q4.before, `${year + 1}-01-01`);
+      }
+    });
+
+    it('should produce consecutive non-overlapping date ranges', () => {
+      const slices = createYearSlices(2024, 2025);
+      for (let i = 0; i < slices.length - 1; i++) {
+        assert.strictEqual(slices[i].before, slices[i + 1].after);
+      }
+    });
+  });
+
+  describe('concurrencyPool', () => {
+    it('should return an empty array when given no tasks', async () => {
+      const results = await concurrencyPool([], 4);
+      assert.deepStrictEqual(results, []);
+    });
+
+    it('should run all tasks and preserve result order', async () => {
+      const tasks = [0, 1, 2, 3, 4].map((n) => () => Promise.resolve(n * 2));
+      const results = await concurrencyPool(tasks, 2);
+      assert.deepStrictEqual(results, [0, 2, 4, 6, 8]);
+    });
+
+    it('should run tasks with limited concurrency', async () => {
+      const active = [];
+      const maxActive = [];
+      const tasks = [10, 30, 50, 70, 90, 110, 130, 150, 170, 190].map(
+        (ms) => () =>
+          new Promise((resolve) => {
+            active.push(ms);
+            maxActive.push(active.length);
+            setTimeout(() => {
+              const idx = active.indexOf(ms);
+              if (idx !== -1) active.splice(idx, 1);
+              resolve(ms);
+            }, ms);
+          }),
+      );
+      const results = await concurrencyPool(tasks, 3);
+      assert.deepStrictEqual(results, [10, 30, 50, 70, 90, 110, 130, 150, 170, 190]);
+      assert.ok(Math.max(...maxActive) <= 3);
+    });
+
+    it('should handle all tasks completing immediately', async () => {
+      const tasks = [1, 2, 3, 4, 5].map((n) => () => Promise.resolve(n));
+      const results = await concurrencyPool(tasks, 1);
+      assert.deepStrictEqual(results, [1, 2, 3, 4, 5]);
+    });
+
+    it('should propagate errors from failing tasks', async () => {
+      const tasks = [
+        () => Promise.resolve(1),
+        () => Promise.reject(new Error('task failed')),
+        () => Promise.resolve(3),
+      ];
+      await assert.rejects(() => concurrencyPool(tasks, 2), /task failed/);
+    });
+
+    it('should handle limit larger than task count', async () => {
+      const tasks = [1, 2, 3].map((n) => () => Promise.resolve(n));
+      const results = await concurrencyPool(tasks, 100);
+      assert.deepStrictEqual(results, [1, 2, 3]);
+    });
+  });
+});
 
 describe('aggregate (pure function)', () => {
   // ----- 1. Empty commits ------------------------------------------------

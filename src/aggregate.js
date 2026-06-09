@@ -497,7 +497,7 @@ function mergeAllStates(states) {
   return states.reduce(mergeProcessingState);
 }
 
-async function concurrencyPool(tasks, limit) {
+export async function concurrencyPool(tasks, limit) {
   const results = new Array(tasks.length);
   let index = 0;
 
@@ -542,7 +542,7 @@ export async function aggregateStream(commitsStream, branchCount, timings, onTim
   return result;
 }
 
-function createYearSlices(firstYear, lastYear) {
+export function createYearSlices(firstYear, lastYear) {
   const slices = [];
   const QUARTER_MONTHS = 3;
   for (let year = firstYear; year <= lastYear; year++) {
