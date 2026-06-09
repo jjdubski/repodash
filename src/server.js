@@ -18,6 +18,7 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.webp': 'image/webp',
   '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
   '.map': 'application/json',
 };
 

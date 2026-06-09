@@ -27,6 +27,12 @@
   );
 
   // -------------------------------------------------------------------
+  // Global chart font — use system font stack with Unicode/CJK fallback
+  // -------------------------------------------------------------------
+  Chart.defaults.font.family =
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji'";
+
+  // -------------------------------------------------------------------
   // Color palette — matches design spec
   // -------------------------------------------------------------------
   window.COLORS = {

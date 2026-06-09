@@ -499,6 +499,7 @@ describe('Dashboard — chart-config.js', () => {
     // Build a realistic sandbox — Chart.js is loaded, DOM is stubbed
     sandbox = vm.createContext({
       Chart: {
+        defaults: { font: {} },
         register: () => {},
         BarController: {},
         LineController: {},

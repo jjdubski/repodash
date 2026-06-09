@@ -103,6 +103,7 @@ describe('Dashboard — setupExportPdf', () => {
         height: 100,
         toDataURL: () => 'data:image/png;base64,ABCD',
       }),
+      DEJAVU_SANS_BASE64: 'mockBase64String',
       jspdf: {
         jsPDF: function () {
           const pdf = {
@@ -116,10 +117,16 @@ describe('Dashboard — setupExportPdf', () => {
             addPage: () => {},
             save: () => {},
             lastAutoTable: { finalY: 0 },
+            addFileToVFS: () => {},
+            addFont: () => {},
+            setFont: () => {},
           };
           return pdf;
         },
       },
+      fetch: async () => ({
+        ok: false,
+      }),
     };
 
     // Stub for print detection – should never be called

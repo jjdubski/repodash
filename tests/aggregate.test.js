@@ -1110,7 +1110,227 @@ describe('aggregate (pure function)', () => {
     });
   });
 
-  // ----- 9. Per-email tracking in authorDetails ----------------------------
+  // ----- 9. Unicode / CJK / Cyrillic names ---------------------------------
+
+  describe('Unicode / CJK / Cyrillic names', () => {
+    const cyrillicCommits = [
+      makeCommit({
+        hash: 'cyr1',
+        author: { name: 'Алексей Крамаренко', email: 'alexeyk13@yandex.ru' },
+        date: '2025-01-15T10:00:00Z',
+        stats: { additions: 7, deletions: 0, files: 1 },
+        files: ['a.js'],
+      }),
+    ];
+    const koreanCommits = [
+      makeCommit({
+        hash: 'ko1',
+        author: { name: '강신형', email: 's47.kang@samsung.com' },
+        date: '2025-01-15T10:00:00Z',
+        stats: { additions: 6, deletions: 3, files: 1 },
+        files: ['b.js'],
+      }),
+    ];
+    const chineseCommits = [
+      makeCommit({
+        hash: 'zh1',
+        author: { name: '黄乐', email: 'huangle1@jd.com' },
+        date: '2025-01-15T10:00:00Z',
+        stats: { additions: 6, deletions: 2, files: 1 },
+        files: ['c.js'],
+      }),
+    ];
+
+    it('should preserve Cyrillic names in contributors', () => {
+      const result = aggregate(cyrillicCommits, 1);
+      assert.strictEqual(result.contributors.length, 1);
+      assert.strictEqual(result.contributors[0].name, 'Алексей Крамаренко');
+      assert.strictEqual(result.contributors[0].email, 'alexeyk13@yandex.ru');
+      assert.strictEqual(result.contributors[0].totalCommits, 1);
+      assert.strictEqual(result.contributors[0].additions, 7);
+      assert.strictEqual(result.contributors[0].deletions, 0);
+    });
+
+    it('should preserve Cyrillic names in authorDetails', () => {
+      const result = aggregate(cyrillicCommits, 1);
+      const details = result.contributions[0].authorDetails;
+      assert.strictEqual(details.length, 1);
+      assert.strictEqual(details[0].author, 'Алексей Крамаренко');
+      assert.strictEqual(details[0].email, 'alexeyk13@yandex.ru');
+      assert.strictEqual(details[0].count, 1);
+    });
+
+    it('should preserve Korean names in contributors', () => {
+      const result = aggregate(koreanCommits, 1);
+      assert.strictEqual(result.contributors.length, 1);
+      assert.strictEqual(result.contributors[0].name, '강신형');
+      assert.strictEqual(result.contributors[0].email, 's47.kang@samsung.com');
+    });
+
+    it('should preserve Chinese names in contributors', () => {
+      const result = aggregate(chineseCommits, 1);
+      assert.strictEqual(result.contributors.length, 1);
+      assert.strictEqual(result.contributors[0].name, '黄乐');
+      assert.strictEqual(result.contributors[0].email, 'huangle1@jd.com');
+    });
+
+    it('should merge same Unicode name across multiple commits', () => {
+      const commits = [
+        makeCommit({
+          hash: 'uni1',
+          author: { name: '黄乐', email: 'huangle1@jd.com' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'uni2',
+          author: { name: '黄乐', email: 'huangle1@jd.com' },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 3, deletions: 0, files: 1 },
+          files: ['b.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+      assert.strictEqual(result.contributors.length, 1);
+      assert.strictEqual(result.contributors[0].name, '黄乐');
+      assert.strictEqual(result.contributors[0].totalCommits, 2);
+      assert.strictEqual(result.contributors[0].additions, 8);
+      assert.strictEqual(result.contributors[0].deletions, 1);
+    });
+
+    it('should keep different Unicode-name contributors as separate entries', () => {
+      const commits = [
+        makeCommit({
+          hash: 'm1',
+          author: { name: 'Алексей Крамаренко', email: 'alexeyk13@yandex.ru' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 7, deletions: 0, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'm2',
+          author: { name: '강신형', email: 's47.kang@samsung.com' },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 6, deletions: 3, files: 1 },
+          files: ['b.js'],
+        }),
+        makeCommit({
+          hash: 'm3',
+          author: { name: '黄乐', email: 'huangle1@jd.com' },
+          date: '2025-01-17T10:00:00Z',
+          stats: { additions: 6, deletions: 2, files: 1 },
+          files: ['c.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+      assert.strictEqual(result.contributors.length, 3);
+      assert.strictEqual(result.summary.totalContributors, 3);
+
+      const names = result.contributors.map((c) => c.name).sort((a, b) => a.localeCompare(b));
+      assert.deepStrictEqual(names, ['Алексей Крамаренко', '강신형', '黄乐']);
+    });
+
+    it('should produce correct per-day breakdown with mixed Unicode names', () => {
+      const commits = [
+        makeCommit({
+          hash: 'd1',
+          author: { name: 'Алексей Крамаренко', email: 'alexeyk13@yandex.ru' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 10, deletions: 2, files: 1 },
+          files: ['x.js'],
+        }),
+        makeCommit({
+          hash: 'd2',
+          author: { name: '강신형', email: 's47.kang@samsung.com' },
+          date: '2025-01-15T11:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['y.js'],
+        }),
+        makeCommit({
+          hash: 'd3',
+          author: { name: '강신형', email: 's47.kang@samsung.com' },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 3, deletions: 0, files: 1 },
+          files: ['z.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      assert.strictEqual(result.contributions.length, 2);
+
+      // Day 1: 2 commits — Алексей (1) and 강신형 (1)
+      const day1 = result.contributions[0];
+      assert.strictEqual(day1.date, '2025-01-15');
+      assert.strictEqual(day1.count, 2);
+      assert.strictEqual(day1.authorDetails.length, 2);
+      assert.strictEqual(day1.authorDetails[0].author, 'Алексей Крамаренко');
+      assert.strictEqual(day1.authorDetails[0].count, 1);
+      assert.strictEqual(day1.authorDetails[1].author, '강신형');
+      assert.strictEqual(day1.authorDetails[1].count, 1);
+
+      // Day 2: 1 commit — 강신형
+      const day2 = result.contributions[1];
+      assert.strictEqual(day2.date, '2025-01-16');
+      assert.strictEqual(day2.count, 1);
+      assert.strictEqual(day2.authorDetails.length, 1);
+      assert.strictEqual(day2.authorDetails[0].author, '강신형');
+      assert.strictEqual(day2.authorDetails[0].count, 1);
+    });
+
+    it('should sort Unicode-named contributors by commit count descending', () => {
+      const commits = [
+        makeCommit({
+          hash: 's1',
+          author: { name: '강신형', email: 's47.kang@samsung.com' },
+          date: '2025-01-15T10:00:00Z',
+        }),
+        makeCommit({
+          hash: 's2',
+          author: { name: '강신형', email: 's47.kang@samsung.com' },
+          date: '2025-01-16T10:00:00Z',
+        }),
+        makeCommit({
+          hash: 's3',
+          author: { name: '黄乐', email: 'huangle1@jd.com' },
+          date: '2025-01-17T10:00:00Z',
+        }),
+      ];
+      const result = aggregate(commits, 1);
+      assert.strictEqual(result.contributors.length, 2);
+      // 강신형 (2 commits) before 黄乐 (1 commit)
+      assert.strictEqual(result.contributors[0].name, '강신형');
+      assert.strictEqual(result.contributors[1].name, '黄乐');
+    });
+
+    it('should handle noreply merge with Unicode name', () => {
+      const commits = [
+        makeCommit({
+          hash: 'n1',
+          author: { name: '用户名称', email: 'yonghu@gmail.com' },
+          date: '2025-01-15T10:00:00Z',
+          stats: { additions: 5, deletions: 1, files: 1 },
+          files: ['a.js'],
+        }),
+        makeCommit({
+          hash: 'n2',
+          author: { name: '用户名称', email: noreplyEmail('yonghu') },
+          date: '2025-01-16T10:00:00Z',
+          stats: { additions: 3, deletions: 0, files: 1 },
+          files: ['b.js'],
+        }),
+      ];
+      const result = aggregate(commits, 1);
+
+      assert.strictEqual(result.contributors.length, 1);
+      assert.strictEqual(result.contributors[0].name, '用户名称');
+      assert.strictEqual(result.contributors[0].totalCommits, 2);
+      assert.strictEqual(result.contributors[0].additions, 8);
+      assert.strictEqual(result.contributors[0].deletions, 1);
+    });
+  });
+
+  // ----- 10. Per-email tracking in authorDetails ----------------------------
 
   describe('per-email tracking in authorDetails', () => {
     it('should create separate authorDetails entries for same name with different emails on the same day', () => {

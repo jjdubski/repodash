@@ -1196,6 +1196,18 @@ function setupExportPdf() {
       const margin = 15;
       const usableWidth = pageWidth - margin * 2;
 
+      let unicodeFont = 'helvetica';
+      try {
+        if (globalThis.window.DEJAVU_SANS_BASE64) {
+          pdf.addFileToVFS('dejavu-sans.ttf', globalThis.window.DEJAVU_SANS_BASE64);
+          pdf.addFont('dejavu-sans.ttf', 'DejaVuSans', 'normal');
+          unicodeFont = 'DejaVuSans';
+        }
+      } catch {
+        /* font loading failed, fall back to helvetica */
+      }
+      pdf.setFont(unicodeFont, 'normal');
+
       async function captureElement(el) {
         const origGetContext = HTMLCanvasElement.prototype.getContext;
         HTMLCanvasElement.prototype.getContext = function (type, attrs) {
@@ -1269,8 +1281,13 @@ function setupExportPdf() {
             ];
           }),
           startY: y,
-          styles: { fontSize: 7, cellPadding: 2 },
-          headStyles: { fillColor: [88, 166, 255], fontSize: 8 },
+          styles: { fontSize: 7, cellPadding: 2, font: unicodeFont, fontStyle: 'normal' },
+          headStyles: {
+            fillColor: [88, 166, 255],
+            fontSize: 8,
+            font: unicodeFont,
+            fontStyle: 'normal',
+          },
           alternateRowStyles: { fillColor: [245, 247, 250] },
           columnStyles: {
             1: { halign: 'center' },
@@ -1330,8 +1347,8 @@ function setupExportPdf() {
             return [f.path, formatNumber(f.changes)];
           }),
           startY: y,
-          styles: { fontSize: 7, cellPadding: 2 },
-          headStyles: { fillColor: [88, 166, 255], fontSize: 8 },
+          styles: { fontSize: 7, cellPadding: 2, font: unicodeFont },
+          headStyles: { fillColor: [88, 166, 255], fontSize: 8, font: unicodeFont },
           alternateRowStyles: { fillColor: [245, 247, 250] },
           columnStyles: { 1: { halign: 'center' } },
           didParseCell: function (data) {
