@@ -12,7 +12,10 @@
 8. Make sure all the available flags are in the -h output with appropriate descriptions
 9. Add a loading spinner when tabs are loading
    9.1 Also use the loading spinner when generating the PDF and prevent clicking and scrolling on webpage
+   9.2 i suppose we dont to load anything on the page itsef when exporting
 10. I can't actually type in a date in the custom date range, it will reset all fields as soon as I try to input a 3rd field
+11. on export PDF it maintains the dark background for charts, lets make it consistent use the light theme for the exportw
+12. Setting range to Custom then trying to export PDF will break the charts (showing blank charts) but they work fine on the HTML
 
 | Group                   | Items                                                                        | Theme                               |
 | ----------------------- | ---------------------------------------------------------------------------- | ----------------------------------- |

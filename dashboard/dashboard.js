@@ -1249,6 +1249,13 @@ function setupExportPdf() {
         };
       }
 
+      const tableBase = {
+        margin: { top: margin, bottom: margin },
+        tableWidth: 'auto',
+        showHead: 'everyPage',
+        didDrawPage: pageFooter(pdf, pageWidth, margin, pageHeight),
+      };
+
       let y = margin;
 
       pdf.setFontSize(16);
@@ -1301,10 +1308,7 @@ function setupExportPdf() {
               data.cell.styles.halign = 'center';
             }
           },
-          margin: { top: margin, bottom: margin },
-          tableWidth: 'auto',
-          showHead: 'everyPage',
-          didDrawPage: pageFooter(pdf, pageWidth, margin, pageHeight),
+          ...tableBase,
         });
         y = pdf.lastAutoTable.finalY + 10;
       }
@@ -1340,10 +1344,7 @@ function setupExportPdf() {
               data.cell.styles.halign = 'center';
             }
           },
-          margin: { top: margin, bottom: margin },
-          tableWidth: 'auto',
-          showHead: 'everyPage',
-          didDrawPage: pageFooter(pdf, pageWidth, margin, pageHeight),
+          ...tableBase,
         });
         y = pdf.lastAutoTable.finalY + 10;
       }
