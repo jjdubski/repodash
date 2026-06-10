@@ -103,7 +103,7 @@ describe('Dashboard — setupExportPdf', () => {
         height: 100,
         toDataURL: () => 'data:image/png;base64,ABCD',
       }),
-      DEJAVU_SANS_BASE64: 'mockBase64String',
+      NOTO_SANS_MULTILANGUAGE_BASE64: 'mockBase64String',
       jspdf: {
         jsPDF: function () {
           const pdf = {

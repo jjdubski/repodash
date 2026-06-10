@@ -1197,14 +1197,18 @@ function setupExportPdf() {
       const usableWidth = pageWidth - margin * 2;
 
       let unicodeFont = 'helvetica';
+
       try {
-        if (globalThis.window.DEJAVU_SANS_BASE64) {
-          pdf.addFileToVFS('dejavu-sans.ttf', globalThis.window.DEJAVU_SANS_BASE64);
-          pdf.addFont('dejavu-sans.ttf', 'DejaVuSans', 'normal');
-          unicodeFont = 'DejaVuSans';
+        if (globalThis.window.NOTO_SANS_MULTILANGUAGE_BASE64) {
+          pdf.addFileToVFS(
+            'noto-sans-multilanguage.ttf',
+            globalThis.window.NOTO_SANS_MULTILANGUAGE_BASE64,
+          );
+          pdf.addFont('noto-sans-multilanguage.ttf', 'NotoSansMultilanguage', 'normal');
+          unicodeFont = 'NotoSansMultilanguage';
         }
       } catch {
-        /* font loading failed, fall back to helvetica */
+        /* fall back to helvetica */
       }
       pdf.setFont(unicodeFont, 'normal');
 
