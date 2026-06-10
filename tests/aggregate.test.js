@@ -17,13 +17,13 @@ function makeCommit(overrides = {}) {
     date: '2025-01-15T10:30:00+00:00',
     message: 'Test commit',
     stats: { additions: 10, deletions: 5, files: 2 },
-    files: ['src/file1.js', 'src/file2.js'],
+    files: ['src/file1.js', 'src/file2.js']
   };
   return {
     ...defaults,
     ...overrides,
     author: { ...defaults.author, ...overrides.author },
-    stats: { ...defaults.stats, ...overrides.stats },
+    stats: { ...defaults.stats, ...overrides.stats }
   };
 }
 
@@ -156,7 +156,7 @@ describe('extracted helpers', () => {
               if (idx !== -1) active.splice(idx, 1);
               resolve(ms);
             }, ms);
-          }),
+          })
       );
       const results = await concurrencyPool(tasks, 3);
       assert.deepStrictEqual(results, [10, 30, 50, 70, 90, 110, 130, 150, 170, 190]);
@@ -173,7 +173,7 @@ describe('extracted helpers', () => {
       const tasks = [
         () => Promise.resolve(1),
         () => Promise.reject(new Error('task failed')),
-        () => Promise.resolve(3),
+        () => Promise.resolve(3)
       ];
       await assert.rejects(() => concurrencyPool(tasks, 2), /task failed/);
     });
@@ -263,7 +263,7 @@ describe('aggregate (pure function)', () => {
         assert.strictEqual(
           result.activity.byDayOfWeek[i].count,
           expected,
-          `dayOfWeek[${i}] (${result.activity.byDayOfWeek[i].day}) count mismatch`,
+          `dayOfWeek[${i}] (${result.activity.byDayOfWeek[i].day}) count mismatch`
         );
       }
     });
@@ -302,7 +302,7 @@ describe('aggregate (pure function)', () => {
         assert.strictEqual(
           day.byHour[i].count,
           expected,
-          `contributions[0].byHour[${i}] count mismatch`,
+          `contributions[0].byHour[${i}] count mismatch`
         );
       }
     });
@@ -326,29 +326,29 @@ describe('aggregate (pure function)', () => {
         author: { name: 'Alice', email: 'alice@test.com' },
         date: '2025-01-15T10:00:00Z',
         stats: { additions: 10, deletions: 2, files: 1 },
-        files: ['a.js'],
+        files: ['a.js']
       }),
       makeCommit({
         hash: 'c2',
         author: { name: 'Alice', email: 'alice@test.com' },
         date: '2025-01-15T11:00:00Z',
         stats: { additions: 5, deletions: 1, files: 1 },
-        files: ['b.js'],
+        files: ['b.js']
       }),
       makeCommit({
         hash: 'c3',
         author: { name: 'Bob', email: 'bob@test.com' },
         date: '2025-01-15T12:00:00Z',
         stats: { additions: 20, deletions: 3, files: 2 },
-        files: ['c.js', 'd.js'],
+        files: ['c.js', 'd.js']
       }),
       makeCommit({
         hash: 'c4',
         author: { name: 'Alice', email: 'alice@test.com' },
         date: '2025-01-16T10:00:00Z',
         stats: { additions: 3, deletions: 0, files: 1 },
-        files: ['e.js'],
-      }),
+        files: ['e.js']
+      })
     ];
 
     const result = aggregate(commits, 1);
@@ -452,20 +452,20 @@ describe('aggregate (pure function)', () => {
         hash: 'd1',
         date: '2025-01-15T10:00:00Z',
         stats: { additions: 10, deletions: 5, files: 1 },
-        files: ['x.js'],
+        files: ['x.js']
       }),
       makeCommit({
         hash: 'd2',
         date: '2025-01-16T10:00:00Z',
         stats: { additions: 20, deletions: 3, files: 1 },
-        files: ['y.js'],
+        files: ['y.js']
       }),
       makeCommit({
         hash: 'd3',
         date: '2025-01-18T10:00:00Z',
         stats: { additions: 5, deletions: 1, files: 1 },
-        files: ['z.js'],
-      }),
+        files: ['z.js']
+      })
     ];
 
     const result = aggregate(commits, 1);
@@ -506,28 +506,28 @@ describe('aggregate (pure function)', () => {
       makeCommit({
         hash: 'a1',
         date: '2025-01-20T09:00:00Z',
-        files: ['src/file1.js', 'src/file2.js'],
+        files: ['src/file1.js', 'src/file2.js']
       }),
       makeCommit({
         hash: 'a2',
         date: '2025-01-20T10:00:00Z',
-        files: ['src/file1.js'],
+        files: ['src/file1.js']
       }),
       makeCommit({
         hash: 'a3',
         date: '2025-01-21T14:00:00Z',
-        files: ['src/file3.js', 'src/file1.js'],
+        files: ['src/file3.js', 'src/file1.js']
       }),
       makeCommit({
         hash: 'a4',
         date: '2025-01-22T09:00:00Z',
-        files: ['src/file2.js', 'src/file4.js'],
+        files: ['src/file2.js', 'src/file4.js']
       }),
       makeCommit({
         hash: 'a5',
         date: '2025-01-15T15:00:00Z',
-        files: ['src/file1.js', 'src/file5.js', 'src/file3.js'],
-      }),
+        files: ['src/file1.js', 'src/file5.js', 'src/file3.js']
+      })
     ];
 
     const result = aggregate(commits, 1);
@@ -602,8 +602,8 @@ describe('aggregate (pure function)', () => {
         makeCommit({
           hash: `mf${i}`,
           files: [`file${i}.js`],
-          stats: { additions: 1, deletions: 0, files: 1 },
-        }),
+          stats: { additions: 1, deletions: 0, files: 1 }
+        })
       );
       const r = aggregate(manyFiles, 1);
       assert.strictEqual(r.activity.topFiles.length, 30);
@@ -618,7 +618,7 @@ describe('aggregate (pure function)', () => {
         hash: 'merge1',
         stats: { additions: 0, deletions: 0, files: 0 },
         files: [],
-        message: 'Merge branch feature-x',
+        message: 'Merge branch feature-x'
       });
       const result = aggregate([mergeCommit], 1);
 
@@ -635,7 +635,7 @@ describe('aggregate (pure function)', () => {
         hash: 'mergeConflict1',
         stats: { additions: 42, deletions: 17, files: 3 },
         files: ['src/conflict.js', 'src/resolved.js', 'src/merged.js'],
-        message: 'Merge branch feature-y with conflict resolution',
+        message: 'Merge branch feature-y with conflict resolution'
       });
       const result = aggregate([mergeCommit], 1);
 
@@ -658,7 +658,7 @@ describe('aggregate (pure function)', () => {
         'cause/issues/in/some/systems/but/should/be/fine/here/very_long_filename_with_lots_of_characters.js';
       const commit = makeCommit({
         hash: 'long1',
-        files: [longPath],
+        files: [longPath]
       });
       const result = aggregate([commit], 1);
 
@@ -672,13 +672,13 @@ describe('aggregate (pure function)', () => {
         makeCommit({
           hash: 'c1',
           author: { name: 'Test User', email: 'old@test.com' },
-          date: '2025-01-15T10:00:00Z',
+          date: '2025-01-15T10:00:00Z'
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'Test User', email: 'new@test.com' },
-          date: '2025-01-16T10:00:00Z',
-        }),
+          date: '2025-01-16T10:00:00Z'
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -699,18 +699,18 @@ describe('aggregate (pure function)', () => {
         makeCommit({
           hash: 'c1',
           author: { name: 'Bob', email: 'bob@test.com' },
-          date: '2025-01-15T10:00:00Z',
+          date: '2025-01-15T10:00:00Z'
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'Robert', email: 'bob@test.com' },
-          date: '2025-01-16T10:00:00Z',
+          date: '2025-01-16T10:00:00Z'
         }),
         makeCommit({
           hash: 'c3',
           author: { name: 'Bob', email: 'bob@test.com' },
-          date: '2025-01-17T10:00:00Z',
-        }),
+          date: '2025-01-17T10:00:00Z'
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -739,15 +739,15 @@ describe('aggregate (pure function)', () => {
           author: { name: 'johndoe', email: 'johndoe@gmail.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'Full Name', email: noreplyEmail('johndoe') },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -755,7 +755,7 @@ describe('aggregate (pure function)', () => {
         totalCommits: 2,
         additions: 15,
         deletions: 3,
-        email: noreplyEmail('johndoe'),
+        email: noreplyEmail('johndoe')
       });
     });
 
@@ -764,13 +764,13 @@ describe('aggregate (pure function)', () => {
         makeCommit({
           hash: 'c1',
           author: { name: 'Alice', email: 'alice@test.com' },
-          date: '2025-01-15T10:00:00Z',
+          date: '2025-01-15T10:00:00Z'
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'bobsmith', email: noreplyEmail('bobsmith') },
-          date: '2025-01-16T10:00:00Z',
-        }),
+          date: '2025-01-16T10:00:00Z'
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -785,15 +785,15 @@ describe('aggregate (pure function)', () => {
           author: { name: 'Some Person', email: 'ghuser@example.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'Another Name', email: noreplyEmail('ghuser') },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -807,15 +807,15 @@ describe('aggregate (pure function)', () => {
           author: { name: 'johndoe', email: 'johndoe@gmail.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'johndoe', email: noreplyEmail('johndoe') },
           date: '2025-01-15T14:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -836,15 +836,15 @@ describe('aggregate (pure function)', () => {
           author: { name: 'Jake', email: 'Jake@gmail.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'Jake', email: noreplyEmail('jake') },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -856,18 +856,18 @@ describe('aggregate (pure function)', () => {
         makeCommit({
           hash: 'c1',
           author: { name: 'johndoe', email: 'johndoe@gmail.com' },
-          date: '2025-01-15T10:00:00Z',
+          date: '2025-01-15T10:00:00Z'
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'johndoe', email: noreplyEmail('johndoe') },
-          date: '2025-01-16T10:00:00Z',
+          date: '2025-01-16T10:00:00Z'
         }),
         makeCommit({
           hash: 'c3',
           author: { name: 'Alice', email: 'alice@test.com' },
-          date: '2025-01-17T10:00:00Z',
-        }),
+          date: '2025-01-17T10:00:00Z'
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -883,25 +883,25 @@ describe('aggregate (pure function)', () => {
           author: { name: 'GitHub User', email: 'gituser@company.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'm2',
           author: {
             name: 'GitHub User',
-            email: noreplyEmail('gituser', '31807746'),
+            email: noreplyEmail('gituser', '31807746')
           },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = aggregate(commits, 1);
 
       assertMergedContributor(result, {
         totalCommits: 2,
         additions: 15,
-        deletions: 3,
+        deletions: 3
       });
     });
 
@@ -912,18 +912,18 @@ describe('aggregate (pure function)', () => {
           author: { name: 'GitHub User', email: 'me@gituser.dev' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'k2',
           author: {
             name: 'GitHub User',
-            email: noreplyEmail('gituser', '31807746'),
+            email: noreplyEmail('gituser', '31807746')
           },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -939,25 +939,25 @@ describe('aggregate (pure function)', () => {
           author: { name: 'jjdubski', email: 'jjdubski@company.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'j2',
           author: {
             name: 'jjdubski',
-            email: noreplyEmail('jjdubski', '12345'),
+            email: noreplyEmail('jjdubski', '12345')
           },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = aggregate(commits, 1);
 
       assertMergedContributor(result, {
         totalCommits: 2,
         additions: 15,
-        deletions: 3,
+        deletions: 3
       });
     });
   });
@@ -969,7 +969,7 @@ describe('aggregate (pure function)', () => {
       const result = aggregate([makeCommit({ hash: 'inv1' })], 1);
       assert.deepStrictEqual(
         Object.keys(result).sort((a, b) => a.localeCompare(b)),
-        ['activity', 'contributions', 'contributors', 'frequency', 'summary'],
+        ['activity', 'contributions', 'contributors', 'frequency', 'summary']
       );
     });
 
@@ -978,13 +978,13 @@ describe('aggregate (pure function)', () => {
         makeCommit({
           hash: 's1',
           date: '2025-01-15T10:00:00Z',
-          stats: { additions: 10, deletions: 5, files: 2 },
+          stats: { additions: 10, deletions: 5, files: 2 }
         }),
         makeCommit({
           hash: 's2',
           date: '2025-01-16T10:00:00Z',
-          stats: { additions: 20, deletions: 3, files: 1 },
-        }),
+          stats: { additions: 20, deletions: 3, files: 1 }
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -1026,43 +1026,43 @@ describe('aggregate (pure function)', () => {
           author: { name: 'Alice', email: 'alice@test.com' },
           date: '2025-01-10T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'u2',
           author: { name: 'Bob', email: 'bob@test.com' },
           date: '2025-01-12T14:00:00Z',
           stats: { additions: 10, deletions: 3, files: 1 },
-          files: ['b.js'],
+          files: ['b.js']
         }),
         makeCommit({
           hash: 'u3',
           author: { name: 'Bob', email: 'bob@test.com' },
           date: '2025-01-13T09:00:00Z',
           stats: { additions: 2, deletions: 0, files: 1 },
-          files: ['c.js'],
+          files: ['c.js']
         }),
         makeCommit({
           hash: 'u4',
           author: { name: 'Bob', email: 'bob@test.com' },
           date: '2025-01-14T16:00:00Z',
           stats: { additions: 8, deletions: 4, files: 1 },
-          files: ['d.js'],
+          files: ['d.js']
         }),
         makeCommit({
           hash: 'u5',
           author: { name: 'Charlie', email: 'charlie@test.com' },
           date: '2025-01-15T11:00:00Z',
           stats: { additions: 15, deletions: 2, files: 1 },
-          files: ['e.js'],
+          files: ['e.js']
         }),
         makeCommit({
           hash: 'u6',
           author: { name: 'Charlie', email: 'charlie@test.com' },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 3, deletions: 1, files: 1 },
-          files: ['f.js'],
-        }),
+          files: ['f.js']
+        })
       ];
 
       // Sorted by date ascending — the expected invariant result
@@ -1078,7 +1078,7 @@ describe('aggregate (pure function)', () => {
     it('should return the same result when called twice with the same input', () => {
       const commits = [
         makeCommit({ hash: 'det1', date: '2025-01-15T10:00:00Z' }),
-        makeCommit({ hash: 'det2', date: '2025-01-16T10:00:00Z' }),
+        makeCommit({ hash: 'det2', date: '2025-01-16T10:00:00Z' })
       ];
       const a = aggregate(commits, 2);
       const b = aggregate(commits, 2);
@@ -1091,12 +1091,12 @@ describe('aggregate (pure function)', () => {
           hash: `perf${i}`,
           author: {
             name: `User${i % 50}`,
-            email: `user${i % 50}@test.com`,
+            email: `user${i % 50}@test.com`
           },
           date: new Date(Date.UTC(2025, 0, 1) + i * 3600000).toISOString(),
           stats: { additions: i % 20, deletions: i % 10, files: 1 },
-          files: [`src/file${i % 100}.js`],
-        }),
+          files: [`src/file${i % 100}.js`]
+        })
       );
 
       const start = performance.now();
@@ -1119,8 +1119,8 @@ describe('aggregate (pure function)', () => {
         author: { name: 'Алексей Крамаренко', email: 'alexeyk13@yandex.ru' },
         date: '2025-01-15T10:00:00Z',
         stats: { additions: 7, deletions: 0, files: 1 },
-        files: ['a.js'],
-      }),
+        files: ['a.js']
+      })
     ];
     const koreanCommits = [
       makeCommit({
@@ -1128,8 +1128,8 @@ describe('aggregate (pure function)', () => {
         author: { name: '강신형', email: 's47.kang@samsung.com' },
         date: '2025-01-15T10:00:00Z',
         stats: { additions: 6, deletions: 3, files: 1 },
-        files: ['b.js'],
-      }),
+        files: ['b.js']
+      })
     ];
     const chineseCommits = [
       makeCommit({
@@ -1137,8 +1137,8 @@ describe('aggregate (pure function)', () => {
         author: { name: '黄乐', email: 'huangle1@jd.com' },
         date: '2025-01-15T10:00:00Z',
         stats: { additions: 6, deletions: 2, files: 1 },
-        files: ['c.js'],
-      }),
+        files: ['c.js']
+      })
     ];
 
     it('should preserve Cyrillic names in contributors', () => {
@@ -1181,15 +1181,15 @@ describe('aggregate (pure function)', () => {
           author: { name: '黄乐', email: 'huangle1@jd.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'uni2',
           author: { name: '黄乐', email: 'huangle1@jd.com' },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 3, deletions: 0, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = aggregate(commits, 1);
       assert.strictEqual(result.contributors.length, 1);
@@ -1206,22 +1206,22 @@ describe('aggregate (pure function)', () => {
           author: { name: 'Алексей Крамаренко', email: 'alexeyk13@yandex.ru' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 7, deletions: 0, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'm2',
           author: { name: '강신형', email: 's47.kang@samsung.com' },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 6, deletions: 3, files: 1 },
-          files: ['b.js'],
+          files: ['b.js']
         }),
         makeCommit({
           hash: 'm3',
           author: { name: '黄乐', email: 'huangle1@jd.com' },
           date: '2025-01-17T10:00:00Z',
           stats: { additions: 6, deletions: 2, files: 1 },
-          files: ['c.js'],
-        }),
+          files: ['c.js']
+        })
       ];
       const result = aggregate(commits, 1);
       assert.strictEqual(result.contributors.length, 3);
@@ -1238,22 +1238,22 @@ describe('aggregate (pure function)', () => {
           author: { name: 'Алексей Крамаренко', email: 'alexeyk13@yandex.ru' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['x.js'],
+          files: ['x.js']
         }),
         makeCommit({
           hash: 'd2',
           author: { name: '강신형', email: 's47.kang@samsung.com' },
           date: '2025-01-15T11:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['y.js'],
+          files: ['y.js']
         }),
         makeCommit({
           hash: 'd3',
           author: { name: '강신형', email: 's47.kang@samsung.com' },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 3, deletions: 0, files: 1 },
-          files: ['z.js'],
-        }),
+          files: ['z.js']
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -1283,18 +1283,18 @@ describe('aggregate (pure function)', () => {
         makeCommit({
           hash: 's1',
           author: { name: '강신형', email: 's47.kang@samsung.com' },
-          date: '2025-01-15T10:00:00Z',
+          date: '2025-01-15T10:00:00Z'
         }),
         makeCommit({
           hash: 's2',
           author: { name: '강신형', email: 's47.kang@samsung.com' },
-          date: '2025-01-16T10:00:00Z',
+          date: '2025-01-16T10:00:00Z'
         }),
         makeCommit({
           hash: 's3',
           author: { name: '黄乐', email: 'huangle1@jd.com' },
-          date: '2025-01-17T10:00:00Z',
-        }),
+          date: '2025-01-17T10:00:00Z'
+        })
       ];
       const result = aggregate(commits, 1);
       assert.strictEqual(result.contributors.length, 2);
@@ -1310,15 +1310,15 @@ describe('aggregate (pure function)', () => {
           author: { name: '用户名称', email: 'yonghu@gmail.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'n2',
           author: { name: '用户名称', email: noreplyEmail('yonghu') },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 3, deletions: 0, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -1340,15 +1340,15 @@ describe('aggregate (pure function)', () => {
           author: { name: 'Test User', email: 'old@test.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'Test User', email: 'new@test.com' },
           date: '2025-01-15T14:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = aggregate(commits, 1);
 
@@ -1389,15 +1389,15 @@ describe('aggregate (pure function)', () => {
           author: { name: 'jake123', email: 'jake123@aol.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 's2',
           author: { name: 'jake123', email: 'jake123@gmail.com' },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = aggregate(commits, 1);
 

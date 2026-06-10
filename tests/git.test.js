@@ -47,14 +47,14 @@ before(() => {
   execSync('git config user.name "Test"', { cwd: mainRepoPath, stdio: 'pipe' });
   execSync('git config user.email "test@test.com"', {
     cwd: mainRepoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
 
   // Commit 1: single file added
   writeFileSync(join(mainRepoPath, 'file1.txt'), 'hello\n');
   execSync('git add file1.txt && git commit -m "Initial commit"', {
     cwd: mainRepoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
 
   // Commit 2: modify existing + add another file
@@ -62,27 +62,27 @@ before(() => {
   writeFileSync(join(mainRepoPath, 'file2.txt'), 'feature a\n');
   execSync('git add file1.txt file2.txt && git commit -m "Add feature A"', {
     cwd: mainRepoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
 
   // Commit 3: by a different author
   writeFileSync(join(mainRepoPath, 'file3.txt'), 'feature b\n');
   execSync(
     'git add file3.txt && git commit -m "Add feature B" --author="Developer2 <dev2@test.com>"',
-    { cwd: mainRepoPath, stdio: 'pipe' },
+    { cwd: mainRepoPath, stdio: 'pipe' }
   );
 
   // Commit 4: binary file (file with null bytes → detected as binary by git)
   writeFileSync(join(mainRepoPath, 'binary.bin'), Buffer.from([0x00, 0xff, 0x00, 0x01, 0x00]));
   execSync('git add binary.bin && git commit -m "Add binary file"', {
     cwd: mainRepoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
 
   // Commit 5: empty commit (simulates a merge with no file changes)
   execSync('git commit --allow-empty -m "Merge branch (no changes)"', {
     cwd: mainRepoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
 
   // Create extra branches for getLocalBranchCount testing
@@ -98,16 +98,16 @@ before(() => {
   execSync(`git init "${singleRepoPath}"`, { stdio: 'pipe' });
   execSync('git config user.name "Test"', {
     cwd: singleRepoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
   execSync('git config user.email "test@test.com"', {
     cwd: singleRepoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
   writeFileSync(join(singleRepoPath, 'readme.md'), '# Single\n');
   execSync('git add readme.md && git commit -m "Initial commit"', {
     cwd: singleRepoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
 
   // ── Multi-year repo: commits spanning 3 different years ──────────────
@@ -116,28 +116,28 @@ before(() => {
   execSync('git config user.name "Test"', { cwd: multiYearRepoPath, stdio: 'pipe' });
   execSync('git config user.email "test@test.com"', {
     cwd: multiYearRepoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
 
   // Commit in 2022
   writeFileSync(join(multiYearRepoPath, 'file.txt'), 'year 2022\n');
   execSync(
     'git add file.txt && GIT_AUTHOR_DATE="2022-03-15T12:00:00" GIT_COMMITTER_DATE="2022-03-15T12:00:00" git commit -m "Commit in 2022"',
-    { cwd: multiYearRepoPath, stdio: 'pipe' },
+    { cwd: multiYearRepoPath, stdio: 'pipe' }
   );
 
   // Commit in 2023
   appendFileSync(join(multiYearRepoPath, 'file.txt'), 'year 2023\n');
   execSync(
     'git add file.txt && GIT_AUTHOR_DATE="2023-07-20T12:00:00" GIT_COMMITTER_DATE="2023-07-20T12:00:00" git commit -m "Commit in 2023"',
-    { cwd: multiYearRepoPath, stdio: 'pipe' },
+    { cwd: multiYearRepoPath, stdio: 'pipe' }
   );
 
   // Commit in 2024
   appendFileSync(join(multiYearRepoPath, 'file.txt'), 'year 2024\n');
   execSync(
     'git add file.txt && GIT_AUTHOR_DATE="2024-11-05T12:00:00" GIT_COMMITTER_DATE="2024-11-05T12:00:00" git commit -m "Commit in 2024"',
-    { cwd: multiYearRepoPath, stdio: 'pipe' },
+    { cwd: multiYearRepoPath, stdio: 'pipe' }
   );
 
   // ── Regular directory (no .git) — for non-git directory error testing
@@ -191,28 +191,28 @@ describe('getAllCommits()', () => {
       // Identity fields
       assert.ok(
         typeof commit.hash === 'string' && commit.hash.length > 0,
-        `hash should be a non-empty string, got ${typeof commit.hash}`,
+        `hash should be a non-empty string, got ${typeof commit.hash}`
       );
 
       // Author object
       assert.ok(commit.author, 'commit.author should exist');
       assert.ok(
         typeof commit.author.name === 'string',
-        `author.name should be a string, got ${typeof commit.author.name}`,
+        `author.name should be a string, got ${typeof commit.author.name}`
       );
       assert.ok(
         typeof commit.author.email === 'string',
-        `author.email should be a string, got ${typeof commit.author.email}`,
+        `author.email should be a string, got ${typeof commit.author.email}`
       );
 
       // Date & message
       assert.ok(
         typeof commit.date === 'string' && commit.date.length > 0,
-        `date should be a non-empty string, got ${typeof commit.date}`,
+        `date should be a non-empty string, got ${typeof commit.date}`
       );
       assert.ok(
         typeof commit.message === 'string',
-        `message should be a string, got ${typeof commit.message}`,
+        `message should be a string, got ${typeof commit.message}`
       );
 
       // Stats
@@ -221,19 +221,19 @@ describe('getAllCommits()', () => {
         typeof commit.stats.additions === 'number' &&
           Number.isInteger(commit.stats.additions) &&
           commit.stats.additions >= 0,
-        `stats.additions should be a non-negative integer, got ${commit.stats.additions}`,
+        `stats.additions should be a non-negative integer, got ${commit.stats.additions}`
       );
       assert.ok(
         typeof commit.stats.deletions === 'number' &&
           Number.isInteger(commit.stats.deletions) &&
           commit.stats.deletions >= 0,
-        `stats.deletions should be a non-negative integer, got ${commit.stats.deletions}`,
+        `stats.deletions should be a non-negative integer, got ${commit.stats.deletions}`
       );
       assert.ok(
         typeof commit.stats.files === 'number' &&
           Number.isInteger(commit.stats.files) &&
           commit.stats.files >= 0,
-        `stats.files should be a non-negative integer, got ${commit.stats.files}`,
+        `stats.files should be a non-negative integer, got ${commit.stats.files}`
       );
 
       // Files array
@@ -257,7 +257,7 @@ describe('getAllCommits()', () => {
     await assert.rejects(
       () => getAllCommits('/nonexistent/path/for/testing').next(),
       { name: 'Error' },
-      'should reject for invalid paths',
+      'should reject for invalid paths'
     );
   });
 
@@ -336,7 +336,7 @@ describe('getAllCommits()', () => {
     const commits = [];
     for await (const commit of getAllCommits(multiYearRepoPath, {
       after: '2023-01-01',
-      before: '2024-01-01',
+      before: '2024-01-01'
     })) {
       commits.push(commit);
     }
@@ -349,7 +349,7 @@ describe('getAllCommits()', () => {
   it('should return no commits when the range excludes all', async () => {
     const commits = [];
     for await (const commit of getAllCommits(multiYearRepoPath, {
-      after: '2025-01-01',
+      after: '2025-01-01'
     })) {
       commits.push(commit);
     }
@@ -389,7 +389,7 @@ describe('getCommitYearRange()', () => {
     await assert.rejects(
       () => getCommitYearRange('/nonexistent/path/for/testing'),
       { name: 'Error' },
-      'should reject for invalid paths',
+      'should reject for invalid paths'
     );
   });
 
@@ -411,7 +411,7 @@ describe('edge cases', () => {
     assert.throws(
       () => getLocalBranchCount('/nonexistent/path/for/testing'),
       { name: 'Error' },
-      'should throw a descriptive error for invalid paths',
+      'should throw a descriptive error for invalid paths'
     );
   });
 
@@ -447,7 +447,7 @@ describe('edge cases', () => {
     assert.ok(binaryCommit, 'the binary-file commit should be present');
     assert.ok(
       binaryCommit.files.includes('binary.bin'),
-      `expected binary.bin in files, got ${JSON.stringify(binaryCommit.files)}`,
+      `expected binary.bin in files, got ${JSON.stringify(binaryCommit.files)}`
     );
 
     // Binary files produce '-' in --numstat, which gets parsed as 0.
@@ -475,7 +475,7 @@ describe('edge cases', () => {
     await assert.rejects(
       () => getAllCommits(nonGitDir).next(),
       { name: 'Error' },
-      'should reject for a regular directory without .git',
+      'should reject for a regular directory without .git'
     );
   });
 
@@ -483,7 +483,7 @@ describe('edge cases', () => {
     await assert.rejects(
       () => getLocalBranchCount(nonGitDir),
       { name: 'Error' },
-      'should reject for a regular directory without .git',
+      'should reject for a regular directory without .git'
     );
   });
 });

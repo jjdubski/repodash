@@ -54,13 +54,13 @@ describe('Dashboard — setupExportPdf', () => {
       disabled: false,
       classList: {
         add: (c) => btnClassSet.add(c),
-        remove: (c) => btnClassSet.delete(c),
+        remove: (c) => btnClassSet.delete(c)
       },
       querySelector: (sel) => (sel === 'span' ? span : null),
       addEventListener: function (event, handler) {
         // store handler for manual invocation
         this._handler = handler;
-      },
+      }
     };
 
     const headerTitleEl = { textContent: 'Original Header' };
@@ -71,7 +71,7 @@ describe('Dashboard — setupExportPdf', () => {
     const classList = {
       add: (c) => classSet.add(c),
       remove: (c) => classSet.delete(c),
-      contains: (c) => classSet.has(c),
+      contains: (c) => classSet.has(c)
     };
 
     const overlayClassSet = new Set();
@@ -81,8 +81,8 @@ describe('Dashboard — setupExportPdf', () => {
       classList: {
         add: (c) => overlayClassSet.add(c),
         remove: (c) => overlayClassSet.delete(c),
-        contains: (c) => overlayClassSet.has(c),
-      },
+        contains: (c) => overlayClassSet.has(c)
+      }
     };
 
     function chartCardEl() {
@@ -109,7 +109,7 @@ describe('Dashboard — setupExportPdf', () => {
       },
       title: 'Original Document Title',
       body: { classList, style: {} },
-      documentElement: {},
+      documentElement: {}
     };
 
     // Mock window and PDF generation utilities
@@ -117,7 +117,7 @@ describe('Dashboard — setupExportPdf', () => {
       html2canvas: async () => ({
         width: 100,
         height: 100,
-        toDataURL: () => 'data:image/png;base64,ABCD',
+        toDataURL: () => 'data:image/png;base64,ABCD'
       }),
       NOTO_SANS_MULTILANGUAGE_BASE64: 'mockBase64String',
       jspdf: {
@@ -135,14 +135,14 @@ describe('Dashboard — setupExportPdf', () => {
             lastAutoTable: { finalY: 0 },
             addFileToVFS: () => {},
             addFont: () => {},
-            setFont: () => {},
+            setFont: () => {}
           };
           return pdf;
-        },
+        }
       },
       fetch: async () => ({
-        ok: false,
-      }),
+        ok: false
+      })
     };
 
     // Stub for print detection – should never be called
@@ -158,14 +158,14 @@ describe('Dashboard — setupExportPdf', () => {
     const chartResizeLog = [];
     const chartMocks = {
       'chart-contribution': {
-        resize: (_, opts) => chartResizeLog.push({ id: 'chart-contribution', opts }),
+        resize: (_, opts) => chartResizeLog.push({ id: 'chart-contribution', opts })
       },
       'chart-top-contributors': {
-        resize: (_, opts) => chartResizeLog.push({ id: 'chart-top-contributors', opts }),
+        resize: (_, opts) => chartResizeLog.push({ id: 'chart-top-contributors', opts })
       },
       'chart-frequency-overview': {
-        resize: (_, opts) => chartResizeLog.push({ id: 'chart-frequency-overview', opts }),
-      },
+        resize: (_, opts) => chartResizeLog.push({ id: 'chart-frequency-overview', opts })
+      }
     };
 
     const sandbox = {
@@ -173,7 +173,7 @@ describe('Dashboard — setupExportPdf', () => {
       state: {
         charts: { ...chartMocks },
         data: { summary: { repoName: 'test-repo' } },
-        theme: 'light',
+        theme: 'light'
       },
       // Dependencies used by setupExportPdf
       getFilteredData: () => ({
@@ -186,10 +186,10 @@ describe('Dashboard — setupExportPdf', () => {
             additions: 100,
             deletions: 50,
             firstCommit: '2024-01-01',
-            lastCommit: '2024-06-01',
-          },
+            lastCommit: '2024-06-01'
+          }
         ],
-        activity: { topFiles: [{ path: 'src/index.js', changes: 10 }] },
+        activity: { topFiles: [{ path: 'src/index.js', changes: 10 }] }
       }),
       getDateRangeLabel: () => 'Date Range',
       sortContributors: (c) => c,
@@ -215,7 +215,7 @@ describe('Dashboard — setupExportPdf', () => {
           if (name === '--bg') return '#0d1117';
           if (name === '--text') return '#e6edf3';
           return '';
-        },
+        }
       }),
       document,
       window,
@@ -223,7 +223,7 @@ describe('Dashboard — setupExportPdf', () => {
       // Make setTimeout resolve immediately to avoid real delays in tests
       setTimeout: (cb, _ms) => {
         cb();
-      },
+      }
     };
 
     return {
@@ -235,7 +235,7 @@ describe('Dashboard — setupExportPdf', () => {
       classSet,
       renderFlags,
       chartResizeLog,
-      getPrintCalled: () => printCalled,
+      getPrintCalled: () => printCalled
     };
   }
 
@@ -249,7 +249,7 @@ describe('Dashboard — setupExportPdf', () => {
       classSet,
       renderFlags,
       chartResizeLog,
-      getPrintCalled,
+      getPrintCalled
     } = createBaseSandbox();
 
     const fn = loadFn('setupExportPdf', sandbox);
@@ -267,19 +267,19 @@ describe('Dashboard — setupExportPdf', () => {
     assert.strictEqual(
       document.title,
       'Original Document Title',
-      'document.title should be restored',
+      'document.title should be restored'
     );
     assert.strictEqual(
       headerTitleEl.textContent,
       'Original Header',
-      'Header title should be restored',
+      'Header title should be restored'
     );
 
     // Verify printing class was added then removed
     assert.strictEqual(
       classSet.has('printing'),
       false,
-      'printing class should be removed after cleanup',
+      'printing class should be removed after cleanup'
     );
 
     // Verify render callbacks were called
@@ -308,7 +308,7 @@ describe('Dashboard — setupExportPdf', () => {
       document,
       classSet,
       renderFlags,
-      getPrintCalled,
+      getPrintCalled
     } = base;
 
     // Make html2canvas reject to simulate a failure during PDF generation
@@ -327,22 +327,22 @@ describe('Dashboard — setupExportPdf', () => {
     assert.strictEqual(
       span.textContent,
       'Export PDF',
-      'Button text should be restored after error',
+      'Button text should be restored after error'
     );
     assert.strictEqual(
       document.title,
       'Original Document Title',
-      'document.title should be restored after error',
+      'document.title should be restored after error'
     );
     assert.strictEqual(
       headerTitleEl.textContent,
       'Original Header',
-      'Header title should be restored after error',
+      'Header title should be restored after error'
     );
     assert.strictEqual(
       classSet.has('printing'),
       false,
-      'printing class should be removed after error',
+      'printing class should be removed after error'
     );
     assert.ok(renderFlags.overview, 'renderOverview should be called even on error');
     assert.ok(renderFlags.contributors, 'renderContributors should be called even on error');
@@ -361,7 +361,7 @@ describe('Dashboard — setupExportPdf', () => {
       document,
       classSet,
       renderFlags,
-      getPrintCalled,
+      getPrintCalled
     } = base;
 
     // Remove jspdf from the global scope
@@ -377,38 +377,38 @@ describe('Dashboard — setupExportPdf', () => {
     assert.strictEqual(
       exportBtn.disabled,
       false,
-      'Button should be re-enabled when jspdf is missing',
+      'Button should be re-enabled when jspdf is missing'
     );
     assert.strictEqual(
       span.textContent,
       'Export PDF',
-      'Button text should be restored when jspdf is missing',
+      'Button text should be restored when jspdf is missing'
     );
     assert.strictEqual(
       document.title,
       'Original Document Title',
-      'document.title should be restored when jspdf is missing',
+      'document.title should be restored when jspdf is missing'
     );
     assert.strictEqual(
       headerTitleEl.textContent,
       'Original Header',
-      'Header title should be restored when jspdf is missing',
+      'Header title should be restored when jspdf is missing'
     );
     assert.strictEqual(
       classSet.has('printing'),
       false,
-      'printing class should be removed when jspdf is missing',
+      'printing class should be removed when jspdf is missing'
     );
     assert.strictEqual(
       renderFlags.overview,
       true,
-      'renderOverview should be called even when jspdf is missing',
+      'renderOverview should be called even when jspdf is missing'
     );
     assert.ok(renderFlags.current, 'renderCurrentTab should be called when jspdf is missing');
     assert.strictEqual(
       getPrintCalled(),
       false,
-      'window.print should not be called when jspdf is missing',
+      'window.print should not be called when jspdf is missing'
     );
   });
 
@@ -428,7 +428,7 @@ describe('Dashboard — setupExportPdf', () => {
     assert.strictEqual(
       sandbox.state.theme,
       'dark',
-      'Theme should be restored to original dark value after PDF generation',
+      'Theme should be restored to original dark value after PDF generation'
     );
   });
 
@@ -456,7 +456,7 @@ describe('Dashboard — setupExportPdf', () => {
     assert.strictEqual(
       sandbox.state.theme,
       'dark',
-      'Original dark theme should be restored after PDF generation completes',
+      'Original dark theme should be restored after PDF generation completes'
     );
   });
 
@@ -475,7 +475,7 @@ describe('Dashboard — setupExportPdf', () => {
     assert.strictEqual(
       sandbox.state.theme,
       'dark',
-      'Original theme should be restored after successful PDF generation',
+      'Original theme should be restored after successful PDF generation'
     );
   });
 
@@ -499,7 +499,7 @@ describe('Dashboard — setupExportPdf', () => {
     assert.strictEqual(
       sandbox.state.theme,
       'dark',
-      'Theme should be restored to original dark even when html2canvas rejects',
+      'Theme should be restored to original dark even when html2canvas rejects'
     );
   });
 
@@ -521,7 +521,7 @@ describe('Dashboard — setupExportPdf', () => {
     assert.strictEqual(
       sandbox.state.theme,
       'dark',
-      'Theme should be restored to original dark even when jspdf is missing',
+      'Theme should be restored to original dark even when jspdf is missing'
     );
   });
 });

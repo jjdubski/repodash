@@ -24,7 +24,7 @@ export async function main(repoPath, options = {}) {
     options.timing
       ? (label, elapsed) => console.error(`  ${label.padEnd(22)} ${elapsed.toFixed(2)}s`)
       : undefined,
-    { noMerges: options['no-merges'] },
+    { noMerges: options['no-merges'] }
   );
 
   result.summary.repoName = repoPath
@@ -102,7 +102,7 @@ export async function main(repoPath, options = {}) {
     console.error(`  ${'Generate output'.padEnd(22)} ${genElapsed.toFixed(2)}s`);
     console.error(`  ${'─'.repeat(27)}`);
     console.error(
-      `  ${'Total'.padEnd(22)} ${((performance.now() - totalStart) / 1000).toFixed(2)}s`,
+      `  ${'Total'.padEnd(22)} ${((performance.now() - totalStart) / 1000).toFixed(2)}s`
     );
   }
 

@@ -12,6 +12,6 @@ export default {
     'media-feature-range-notation': null,
     'property-no-deprecated': null,
     'comment-empty-line-before': null,
-    'no-duplicate-selectors': null,
-  },
+    'no-duplicate-selectors': null
+  }
 };

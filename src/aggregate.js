@@ -31,7 +31,7 @@ function makeContributorEntry(c) {
     deletions: c.deletions,
     firstCommit: c.firstCommit,
     lastCommit: c.lastCommit,
-    names: new Map(c.names),
+    names: new Map(c.names)
   };
 }
 
@@ -63,7 +63,7 @@ function createEmptyResult(branchCount) {
       totalDeletions: 0,
       firstCommit: null,
       lastCommit: null,
-      activeBranches: branchCount,
+      activeBranches: branchCount
     },
     contributions: [],
     contributors: [],
@@ -71,8 +71,8 @@ function createEmptyResult(branchCount) {
     activity: {
       byDayOfWeek: DAY_NAMES.map((day) => ({ day, count: 0 })),
       byHour: Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0 })),
-      topFiles: [],
-    },
+      topFiles: []
+    }
   };
 }
 
@@ -86,7 +86,7 @@ function initOrUpdateDayEntry(contributionsMap, dateKey, jsDate, commit) {
       count: 0,
       authors: new Map(),
       byHour: new Array(24).fill(0),
-      files: new Map(),
+      files: new Map()
     };
     contributionsMap.set(dateKey, dayEntry);
   }
@@ -97,7 +97,7 @@ function initOrUpdateDayEntry(contributionsMap, dateKey, jsDate, commit) {
     name,
     count: prev.count + 1,
     additions: prev.additions + (commit.stats?.additions ?? 0),
-    deletions: prev.deletions + (commit.stats?.deletions ?? 0),
+    deletions: prev.deletions + (commit.stats?.deletions ?? 0)
   });
 
   return dayEntry;
@@ -116,7 +116,7 @@ function initOrUpdateContributor(contributorsMap, commit) {
       deletions: 0,
       firstCommit: commit.date,
       lastCommit: commit.date,
-      names: new Map(),
+      names: new Map()
     };
     contributorsMap.set(email, contributor);
   }
@@ -187,7 +187,7 @@ function createProcessingState() {
     contributorsMap: new Map(),
     dayOfWeekCounts: new Array(7).fill(0),
     hourCounts: new Array(24).fill(0),
-    fileChangesMap: new Map(),
+    fileChangesMap: new Map()
   };
 }
 
@@ -272,7 +272,7 @@ function applyGhNoreplyMerges(contributorsMap, contributionsMap, merges) {
           name: pickBestName(targetContributor),
           count: sourceData.count,
           additions: sourceData.additions,
-          deletions: sourceData.deletions,
+          deletions: sourceData.deletions
         });
       }
     }
@@ -303,7 +303,7 @@ function formatResults(processed, commitCount, branchCount) {
     totalAdditions,
     totalDeletions,
     firstCommit,
-    lastCommit,
+    lastCommit
   } = processed;
 
   const byDate = (a, b) => a.date.localeCompare(b.date);
@@ -323,9 +323,9 @@ function formatResults(processed, commitCount, branchCount) {
           email,
           count,
           additions,
-          deletions,
+          deletions
         }))
-        .sort((a, b) => b.count - a.count || a.author.localeCompare(b.author)),
+        .sort((a, b) => b.count - a.count || a.author.localeCompare(b.author))
     }))
     .sort(byDate);
 
@@ -339,7 +339,7 @@ function formatResults(processed, commitCount, branchCount) {
         additions: c.additions,
         deletions: c.deletions,
         firstCommit: c.firstCommit,
-        lastCommit: c.lastCommit,
+        lastCommit: c.lastCommit
       };
     })
     .sort((a, b) => b.totalCommits - a.totalCommits || a.name.localeCompare(b.name));
@@ -361,7 +361,7 @@ function formatResults(processed, commitCount, branchCount) {
       totalDeletions,
       firstCommit,
       lastCommit,
-      activeBranches: branchCount,
+      activeBranches: branchCount
     },
     contributions,
     contributors,
@@ -369,8 +369,8 @@ function formatResults(processed, commitCount, branchCount) {
     activity: {
       byDayOfWeek: DAY_NAMES.map((day, i) => ({ day, count: dayOfWeekCounts[i] })),
       byHour: Array.from(hourCounts, (count, hour) => ({ hour, count })),
-      topFiles,
-    },
+      topFiles
+    }
   };
 }
 
@@ -385,7 +385,7 @@ function cloneDayEntry(entry) {
     count: entry.count,
     authors,
     byHour: [...entry.byHour],
-    files,
+    files
   };
 }
 
@@ -459,7 +459,7 @@ function mergeProcessingState(a, b) {
     a.contributionsMap,
     b.contributionsMap,
     cloneDayEntry,
-    mergeDayEntries,
+    mergeDayEntries
   );
 
   const frequencyMap = mergeFrequencyMaps(a.frequencyMap, b.frequencyMap);
@@ -468,7 +468,7 @@ function mergeProcessingState(a, b) {
     a.contributorsMap,
     b.contributorsMap,
     makeContributorEntry,
-    mergeContributorStats,
+    mergeContributorStats
   );
 
   const firstCommit = pickFirstCommit(a.firstCommit, b.firstCommit);
@@ -493,7 +493,7 @@ function mergeProcessingState(a, b) {
     contributorsMap,
     dayOfWeekCounts: a.dayOfWeekCounts.map((v, i) => v + b.dayOfWeekCounts[i]),
     hourCounts: a.hourCounts.map((v, i) => v + b.hourCounts[i]),
-    fileChangesMap,
+    fileChangesMap
   };
 }
 
@@ -548,7 +548,7 @@ export async function aggregateStream(commitsStream, branchCount, timings, onTim
   let t = performance.now();
   const [processed, bc] = await Promise.all([
     processCommitsStream(commitsStream),
-    Promise.resolve(branchCount),
+    Promise.resolve(branchCount)
   ]);
   recordTiming('Parse commits', t, timings, onTiming);
 
@@ -568,7 +568,7 @@ export function createYearSlices(firstYear, lastYear) {
           endMonth === 12
             ? `${year + 1}-01-01`
             : `${year}-${String(endMonth + 1).padStart(2, '0')}-01`,
-        quarterNum: quarter / QUARTER_MONTHS + 1,
+        quarterNum: quarter / QUARTER_MONTHS + 1
       });
     }
   }
@@ -591,7 +591,7 @@ export async function aggregateStreamParallel(
   branchCount,
   timings,
   onTiming,
-  options = {},
+  options = {}
 ) {
   const { firstYear, lastYear } = await getCommitYearRange(repoPath);
   if (firstYear === null || lastYear === null) {
@@ -614,8 +614,8 @@ export async function aggregateStreamParallel(
       getAllCommits(repoPath, {
         after: slice.after,
         before: slice.before,
-        noMerges: options.noMerges,
-      }),
+        noMerges: options.noMerges
+      })
     );
     if (timings) {
       const qCount = (yearQuarterCount.get(year) ?? 0) + 1;

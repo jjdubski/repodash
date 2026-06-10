@@ -11,7 +11,7 @@ const gitignorePath = path.resolve(__dirname, '.gitignore');
 export default defineConfig([
   includeIgnoreFile(gitignorePath),
   {
-    ignores: ['.fallow/', '.superpowers/', 'templates/'],
+    ignores: ['.fallow/', '.superpowers/', 'templates/']
   },
   js.configs.recommended,
   prettier,
@@ -19,33 +19,33 @@ export default defineConfig([
     files: ['src/**/*.js', 'bin/**/*.js'],
     languageOptions: {
       globals: { ...globals.node },
-      sourceType: 'module',
+      sourceType: 'module'
     },
     rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
-    },
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }]
+    }
   },
   {
     files: ['dashboard/**/*.js'],
     languageOptions: {
       globals: {
         ...globals.browser,
-        Chart: 'readonly',
+        Chart: 'readonly'
       },
-      sourceType: 'module',
+      sourceType: 'module'
     },
     rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
-    },
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }]
+    }
   },
   {
     files: ['tests/**/*.js'],
     languageOptions: {
       globals: { ...globals.node },
-      sourceType: 'module',
+      sourceType: 'module'
     },
     rules: {
-      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
-    },
-  },
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }]
+    }
+  }
 ]);

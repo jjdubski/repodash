@@ -87,11 +87,11 @@ export function parseAndValidate(argv) {
       frequency: { type: 'boolean' },
       activity: { type: 'boolean' },
       timing: { type: 'boolean' },
-      'no-merges': { type: 'boolean' },
+      'no-merges': { type: 'boolean' }
     },
     strict: false,
     allowPositionals: true,
-    args: filteredArgs,
+    args: filteredArgs
   });
 
   if (fileValue !== undefined) {

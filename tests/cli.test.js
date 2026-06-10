@@ -42,28 +42,28 @@ describe('parseAndValidate', () => {
   it('should exit with code 0 for --help', () => {
     assert.throws(
       () => parseAndValidate(['--help', '/path/to/repo']),
-      (err) => err instanceof ExitError && err.code === 0,
+      (err) => err instanceof ExitError && err.code === 0
     );
   });
 
   it('should exit with code 0 for -h', () => {
     assert.throws(
       () => parseAndValidate(['-h', '/path/to/repo']),
-      (err) => err instanceof ExitError && err.code === 0,
+      (err) => err instanceof ExitError && err.code === 0
     );
   });
 
   it('should exit with code 1 when no repo path is provided', () => {
     assert.throws(
       () => parseAndValidate(['--json']),
-      (err) => err instanceof ExitError && err.code === 1,
+      (err) => err instanceof ExitError && err.code === 1
     );
   });
 
   it('should exit with code 1 when --json and --file are both set', () => {
     assert.throws(
       () => parseAndValidate(['--json', '--file', '/path/to/repo']),
-      (err) => err instanceof ExitError && err.code === 1,
+      (err) => err instanceof ExitError && err.code === 1
     );
   });
 
@@ -92,7 +92,7 @@ describe('parseAndValidate', () => {
       '--contributors',
       '--frequency',
       '--activity',
-      '/path/to/repo',
+      '/path/to/repo'
     ]);
     assert.strictEqual(result.repoPath, '/path/to/repo');
     assert.strictEqual(result.values.summary, true);
@@ -125,7 +125,7 @@ describe('parseAndValidate', () => {
       '--timing',
       '--summary',
       '--contributions',
-      '/path/to/repo',
+      '/path/to/repo'
     ]);
     assert.strictEqual(result.repoPath, '/path/to/repo');
     assert.strictEqual(result.values.json, true);
@@ -143,35 +143,35 @@ describe('parseAndValidate', () => {
   it('should exit with code 1 when called with empty argv', () => {
     assert.throws(
       () => parseAndValidate([]),
-      (err) => err instanceof ExitError && err.code === 1,
+      (err) => err instanceof ExitError && err.code === 1
     );
   });
 
   it('should exit with code 1 when --file has an empty value and no positional', () => {
     assert.throws(
       () => parseAndValidate(['--file', '']),
-      (err) => err instanceof ExitError && err.code === 1,
+      (err) => err instanceof ExitError && err.code === 1
     );
   });
 
   it('should exit with code 1 when duplicate --file flags are provided', () => {
     assert.throws(
       () => parseAndValidate(['--file', 'path1', '--file', 'path2', '/repo']),
-      (err) => err instanceof ExitError && err.code === 1,
+      (err) => err instanceof ExitError && err.code === 1
     );
   });
 
   it('should exit with code 1 when multiple positionals are provided', () => {
     assert.throws(
       () => parseAndValidate(['/repo1', '/repo2']),
-      (err) => err instanceof ExitError && err.code === 1,
+      (err) => err instanceof ExitError && err.code === 1
     );
   });
 
   it('should exit with code 1 when --file is a boolean and another --file is provided later', () => {
     assert.throws(
       () => parseAndValidate(['--file', '--json', '--file', 'path', '/repo']),
-      (err) => err instanceof ExitError && err.code === 1,
+      (err) => err instanceof ExitError && err.code === 1
     );
   });
 });

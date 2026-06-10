@@ -4,7 +4,9 @@
     <script>
       (function () {
         var t;
-        try { t = localStorage.getItem('insights-theme'); } catch {}
+        try {
+          t = localStorage.getItem('insights-theme');
+        } catch {}
         if (!t) t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         document.documentElement.dataset.theme = t;
         var m = document.querySelector('meta[name="theme-color"]');
@@ -23,9 +25,15 @@
     <!-- Chart configuration: registers components, exports COLORS & CHART_DEFAULTS -->
     <script src="chart-config.js" defer></script>
     <!-- PDF export dependencies: html2canvas + jsPDF + autoTable plugin -->
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"
+      defer
+    ></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script>
-    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js" defer></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js"
+      defer
+    ></script>
     <!-- NotoSansMultilanguage font for universal script support (CJK, Arabic, Devanagari, Thai, Cherokee, etc.) -->
     <script src="fonts/noto-sans-multilanguage.js"></script>
     <!-- Main application logic -->
@@ -166,7 +174,16 @@
         <!-- Loading / error / empty states -->
         <div class="state-message" id="overview-loading" aria-live="polite">
           <svg class="spinner" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-dasharray="31.4 31.4"
+              stroke-linecap="round"
+            />
           </svg>
           <span class="sr-only">Loading…</span>
         </div>
@@ -250,7 +267,16 @@
       >
         <div class="state-message" id="contributors-loading" aria-live="polite">
           <svg class="spinner" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-dasharray="31.4 31.4"
+              stroke-linecap="round"
+            />
           </svg>
           <span class="sr-only">Loading…</span>
         </div>
@@ -266,38 +292,74 @@
               <tr>
                 <th data-sort-by="name" tabindex="0" role="button" class="sortable-th">
                   Name
-                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  <svg
+                    class="sort-indicator"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    aria-hidden="true"
+                  >
+                    <polygon points="5,9 9,2 1,2" fill="currentColor" />
                   </svg>
                 </th>
                 <th class="num-col sortable-th" data-sort-by="commits" tabindex="0" role="button">
                   Commits
-                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  <svg
+                    class="sort-indicator"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    aria-hidden="true"
+                  >
+                    <polygon points="5,9 9,2 1,2" fill="currentColor" />
                   </svg>
                 </th>
                 <th class="num-col sortable-th" data-sort-by="additions" tabindex="0" role="button">
                   Additions
-                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  <svg
+                    class="sort-indicator"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    aria-hidden="true"
+                  >
+                    <polygon points="5,9 9,2 1,2" fill="currentColor" />
                   </svg>
                 </th>
                 <th class="num-col sortable-th" data-sort-by="deletions" tabindex="0" role="button">
                   Deletions
-                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  <svg
+                    class="sort-indicator"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    aria-hidden="true"
+                  >
+                    <polygon points="5,9 9,2 1,2" fill="currentColor" />
                   </svg>
                 </th>
                 <th data-sort-by="firstCommit" tabindex="0" role="button" class="sortable-th">
                   First Commit
-                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  <svg
+                    class="sort-indicator"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    aria-hidden="true"
+                  >
+                    <polygon points="5,9 9,2 1,2" fill="currentColor" />
                   </svg>
                 </th>
                 <th data-sort-by="lastCommit" tabindex="0" role="button" class="sortable-th">
                   Last Commit
-                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  <svg
+                    class="sort-indicator"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 10 10"
+                    aria-hidden="true"
+                  >
+                    <polygon points="5,9 9,2 1,2" fill="currentColor" />
                   </svg>
                 </th>
               </tr>
@@ -324,7 +386,16 @@
       >
         <div class="state-message" id="activity-loading" aria-live="polite">
           <svg class="spinner" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
+            <circle
+              cx="12"
+              cy="12"
+              r="10"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="3"
+              stroke-dasharray="31.4 31.4"
+              stroke-linecap="round"
+            />
           </svg>
           <span class="sr-only">Loading…</span>
         </div>
@@ -373,7 +444,16 @@
     <!-- ── PDF export overlay ── -->
     <div id="export-overlay" class="export-overlay hidden" aria-live="polite">
       <svg class="spinner" viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
-        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="31.4 31.4" stroke-linecap="round"/>
+        <circle
+          cx="12"
+          cy="12"
+          r="10"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="3"
+          stroke-dasharray="31.4 31.4"
+          stroke-linecap="round"
+        />
       </svg>
       <span>Generating PDF…</span>
     </div>

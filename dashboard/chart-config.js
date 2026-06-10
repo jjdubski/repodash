@@ -23,7 +23,7 @@
     Chart.PointElement,
     Chart.CategoryScale,
     Chart.LinearScale,
-    Chart.Filler,
+    Chart.Filler
   );
 
   // -------------------------------------------------------------------
@@ -43,7 +43,7 @@
     purple: '#a371f7',
     orange: '#db6d28',
     cyan: '#39d2c0',
-    pink: '#f778ba',
+    pink: '#f778ba'
   };
 
   // Convenience: ordered array for cycling through dataset colors
@@ -55,7 +55,7 @@
     '#a371f7',
     '#db6d28',
     '#39d2c0',
-    '#f778ba',
+    '#f778ba'
   ];
 
   // -------------------------------------------------------------------
@@ -69,12 +69,12 @@
     animation: { duration: 400 },
     plugins: {
       legend: { display: true, position: 'bottom' },
-      tooltip: { mode: 'index', intersect: false },
+      tooltip: { mode: 'index', intersect: false }
     },
     scales: {
       x: { grid: { display: false } },
-      y: { beginAtZero: true, grid: { color: 'rgba(128,128,128,0.1)' } },
-    },
+      y: { beginAtZero: true, grid: { color: 'rgba(128,128,128,0.1)' } }
+    }
   };
 
   // -------------------------------------------------------------------
@@ -89,13 +89,13 @@
     return {
       x: {
         ticks: { color: textSecondary },
-        grid: { display: false },
+        grid: { display: false }
       },
       y: {
         beginAtZero: true,
         ticks: { color: textSecondary },
-        grid: { color: chartGrid },
-      },
+        grid: { color: chartGrid }
+      }
     };
   };
 

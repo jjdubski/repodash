@@ -29,14 +29,14 @@ before(() => {
       totalDeletions: 500,
       firstCommit: '2024-01-01',
       lastCommit: '2025-01-01',
-      activeBranches: 2,
+      activeBranches: 2
     },
     contributions: [
       {
         date: '2025-01-15',
         count: 5,
-        authorDetails: [{ author: 'test', count: 5 }],
-      },
+        authorDetails: [{ author: 'test', count: 5 }]
+      }
     ],
     contributors: [
       {
@@ -46,15 +46,15 @@ before(() => {
         additions: 1000,
         deletions: 500,
         firstCommit: '2024-01-01',
-        lastCommit: '2025-01-01',
-      },
+        lastCommit: '2025-01-01'
+      }
     ],
     frequency: [{ date: '2025-01-15', additions: 100, deletions: 50 }],
     activity: {
       byDayOfWeek: [{ day: 'Mon', count: 10 }],
       byHour: [{ hour: 9, count: 5 }],
-      topFiles: [{ path: 'src/index.js', changes: 20 }],
-    },
+      topFiles: [{ path: 'src/index.js', changes: 20 }]
+    }
   };
 });
 
@@ -100,7 +100,7 @@ describe('serveDashboard', () => {
       'contributions.json',
       'contributors.json',
       'frequency.json',
-      'activity.json',
+      'activity.json'
     ];
 
     for (const file of expectedFiles) {
@@ -132,7 +132,7 @@ describe('serveDashboard', () => {
       await assertFetch('/index.html', {
         status: 200,
         type: 'text/html',
-        bodyIncludes: 'Test Dashboard',
+        bodyIncludes: 'Test Dashboard'
       });
     });
 
@@ -140,7 +140,7 @@ describe('serveDashboard', () => {
       await assertFetch('/style.css', {
         status: 200,
         type: 'text/css',
-        bodyIncludes: 'color: red',
+        bodyIncludes: 'color: red'
       });
     });
 
@@ -148,7 +148,7 @@ describe('serveDashboard', () => {
       await assertFetch('/dashboard.js', {
         status: 200,
         type: 'application/javascript',
-        bodyIncludes: 'console.log',
+        bodyIncludes: 'console.log'
       });
     });
 
@@ -156,7 +156,7 @@ describe('serveDashboard', () => {
       await assertFetch('/data/summary.json', {
         status: 200,
         type: 'application/json',
-        bodyDeep: testData.summary,
+        bodyDeep: testData.summary
       });
     });
 
@@ -164,7 +164,7 @@ describe('serveDashboard', () => {
       await assertFetch('/data/contributions.json', {
         status: 200,
         type: 'application/json',
-        bodyDeep: testData.contributions,
+        bodyDeep: testData.contributions
       });
     });
 
@@ -189,7 +189,7 @@ describe('serveDashboard', () => {
       await assertFetch('/nonexistent.html', {
         status: 404,
         type: 'text/plain',
-        bodyIncludes: 'Not Found',
+        bodyIncludes: 'Not Found'
       });
     });
   });
@@ -208,7 +208,7 @@ describe('serveDashboard', () => {
       assert.strictEqual(
         h.port,
         requestedPort,
-        `Expected server to bind to ${requestedPort}, got ${h.port}`,
+        `Expected server to bind to ${requestedPort}, got ${h.port}`
       );
 
       // Quick sanity check: the server is actually listening

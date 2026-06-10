@@ -8,7 +8,7 @@ import {
   rmSync,
   readFileSync,
   existsSync,
-  readdirSync,
+  readdirSync
 } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -41,14 +41,14 @@ before(() => {
   execSync('git config user.name "Test"', { cwd: repoPath, stdio: 'pipe' });
   execSync('git config user.email "test@test.com"', {
     cwd: repoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
 
   // Commit 1
   writeFileSync(join(repoPath, 'file1.txt'), 'hello\n');
   execSync('git add file1.txt && git commit -m "Initial commit"', {
     cwd: repoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
 
   // Commit 2: different author
@@ -56,14 +56,14 @@ before(() => {
   writeFileSync(join(repoPath, 'file2.txt'), 'feature a\n');
   execSync('git add file1.txt file2.txt && git commit -m "Add feature A"', {
     cwd: repoPath,
-    stdio: 'pipe',
+    stdio: 'pipe'
   });
 
   // Commit 3: second author
   writeFileSync(join(repoPath, 'file3.txt'), 'feature b\n');
   execSync(
     'git add file3.txt && git commit -m "Add feature B" --author="Developer2 <dev2@test.com>"',
-    { cwd: repoPath, stdio: 'pipe' },
+    { cwd: repoPath, stdio: 'pipe' }
   );
 });
 
@@ -83,7 +83,7 @@ describe('main orchestrator (src/index.js)', () => {
   it('should reject with a descriptive error for a non-existent repo path', async () => {
     await assert.rejects(
       () => main('/tmp/nonexistent-repo-path-for-testing'),
-      /Not a git repository/,
+      /Not a git repository/
     );
   });
 
@@ -149,7 +149,7 @@ describe('main orchestrator (src/index.js)', () => {
     assert.strictEqual(
       jsonFiles.length,
       1,
-      `expected exactly one insights_*.json file, found ${JSON.stringify(jsonFiles)}`,
+      `expected exactly one insights_*.json file, found ${JSON.stringify(jsonFiles)}`
     );
 
     const content = readFileSync(join(repoPath, jsonFiles[0]), 'utf-8');
@@ -201,14 +201,14 @@ describe('main orchestrator (src/index.js)', () => {
     assert.strictEqual(
       jsonFiles.length,
       1,
-      `expected exactly one insights_*.json file in the directory, found ${JSON.stringify(jsonFiles)}`,
+      `expected exactly one insights_*.json file in the directory, found ${JSON.stringify(jsonFiles)}`
     );
 
     const filename = jsonFiles[0];
     assert.match(
       filename,
       /^insights_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.json$/,
-      `filename "${filename}" does not match the expected timestamp format`,
+      `filename "${filename}" does not match the expected timestamp format`
     );
 
     const content = readFileSync(join(outputDir, filename), 'utf-8');
@@ -236,7 +236,7 @@ describe('main orchestrator (src/index.js)', () => {
       await main(repoPath, {
         json: true,
         summary: true,
-        contributions: true,
+        contributions: true
       });
 
       const parsed = JSON.parse(logs[0]);
@@ -265,7 +265,7 @@ describe('main orchestrator (src/index.js)', () => {
       const parsed = JSON.parse(logs[0]);
       assert.deepStrictEqual(
         Object.keys(parsed).sort((a, b) => a.localeCompare(b)),
-        ['activity', 'contributions', 'contributors', 'frequency', 'summary'],
+        ['activity', 'contributions', 'contributors', 'frequency', 'summary']
       );
     } finally {
       console.log = originalLog;
@@ -286,7 +286,7 @@ describe('main orchestrator (src/index.js)', () => {
       const parsed = JSON.parse(logs[0]);
       assert.deepStrictEqual(
         Object.keys(parsed).sort((a, b) => a.localeCompare(b)),
-        ['activity', 'contributions', 'contributors', 'frequency', 'summary'],
+        ['activity', 'contributions', 'contributors', 'frequency', 'summary']
       );
     } finally {
       console.log = originalLog;
@@ -370,11 +370,11 @@ describe('main orchestrator (src/index.js)', () => {
       await main(repoPath, { openBrowser: () => Promise.resolve() });
 
       const hasDashboardUrl = logs.some(
-        (l) => l.includes('localhost:') || l.includes('insights dashboard'),
+        (l) => l.includes('localhost:') || l.includes('insights dashboard')
       );
       assert.ok(
         hasDashboardUrl,
-        `console.log should contain dashboard URL, got: ${JSON.stringify(logs)}`,
+        `console.log should contain dashboard URL, got: ${JSON.stringify(logs)}`
       );
     } finally {
       console.log = originalLog;
@@ -410,7 +410,7 @@ describe('main orchestrator (src/index.js)', () => {
     try {
       await assert.doesNotReject(
         () => main(repoPath, { openBrowser: () => Promise.resolve() }),
-        'dashboard mode should not throw for a valid repo path',
+        'dashboard mode should not throw for a valid repo path'
       );
     } finally {
       console.log = originalLog;

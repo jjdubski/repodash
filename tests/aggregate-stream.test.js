@@ -18,13 +18,13 @@ function makeCommit(overrides = {}) {
     date: '2025-01-15T10:30:00+00:00',
     message: 'Test commit',
     stats: { additions: 10, deletions: 5, files: 2 },
-    files: ['src/file1.js', 'src/file2.js'],
+    files: ['src/file1.js', 'src/file2.js']
   };
   return {
     ...defaults,
     ...overrides,
     author: { ...defaults.author, ...overrides.author },
-    stats: { ...defaults.stats, ...overrides.stats },
+    stats: { ...defaults.stats, ...overrides.stats }
   };
 }
 
@@ -89,9 +89,9 @@ function immediateError() {
       return {
         next() {
           return Promise.reject(new Error('immediate fail'));
-        },
+        }
       };
-    },
+    }
   };
 }
 
@@ -117,22 +117,22 @@ describe('aggregateStream (async stream function)', () => {
           author: { name: 'Alice', email: 'alice@test.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'Alice', email: 'alice@test.com' },
           date: '2025-01-15T11:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
+          files: ['b.js']
         }),
         makeCommit({
           hash: 'c3',
           author: { name: 'Bob', email: 'bob@test.com' },
           date: '2025-01-16T12:00:00Z',
           stats: { additions: 20, deletions: 3, files: 2 },
-          files: ['c.js', 'd.js'],
-        }),
+          files: ['c.js', 'd.js']
+        })
       ];
       const sync = aggregate(commits, 2);
       const async_ = await aggregateStream(toStream(commits), 2);
@@ -146,29 +146,29 @@ describe('aggregateStream (async stream function)', () => {
           author: { name: 'Alice', email: 'alice@test.com' },
           date: '2025-01-10T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'u2',
           author: { name: 'Bob', email: 'bob@test.com' },
           date: '2025-01-12T14:00:00Z',
           stats: { additions: 10, deletions: 3, files: 1 },
-          files: ['b.js'],
+          files: ['b.js']
         }),
         makeCommit({
           hash: 'u3',
           author: { name: 'Bob', email: 'bob@test.com' },
           date: '2025-01-13T09:00:00Z',
           stats: { additions: 2, deletions: 0, files: 1 },
-          files: ['c.js'],
+          files: ['c.js']
         }),
         makeCommit({
           hash: 'u4',
           author: { name: 'Charlie', email: 'charlie@test.com' },
           date: '2025-01-15T11:00:00Z',
           stats: { additions: 15, deletions: 2, files: 1 },
-          files: ['d.js'],
-        }),
+          files: ['d.js']
+        })
       ];
       const shuffled = [...commits].reverse();
       const sync = aggregate(shuffled, 1);
@@ -278,29 +278,29 @@ describe('aggregateStream (async stream function)', () => {
         author: { name: 'Alice', email: 'alice@test.com' },
         date: '2025-01-15T10:00:00Z',
         stats: { additions: 10, deletions: 2, files: 1 },
-        files: ['a.js'],
+        files: ['a.js']
       }),
       makeCommit({
         hash: 'd2',
         author: { name: 'Alice', email: 'alice@test.com' },
         date: '2025-01-15T11:00:00Z',
         stats: { additions: 5, deletions: 1, files: 1 },
-        files: ['b.js'],
+        files: ['b.js']
       }),
       makeCommit({
         hash: 'd3',
         author: { name: 'Bob', email: 'bob@test.com' },
         date: '2025-01-16T12:00:00Z',
         stats: { additions: 20, deletions: 3, files: 2 },
-        files: ['c.js', 'd.js'],
+        files: ['c.js', 'd.js']
       }),
       makeCommit({
         hash: 'd4',
         author: { name: 'Alice', email: 'alice@test.com' },
         date: '2025-01-17T09:00:00Z',
         stats: { additions: 3, deletions: 0, files: 1 },
-        files: ['e.js'],
-      }),
+        files: ['e.js']
+      })
     ];
 
     it('should have correct summary', async () => {
@@ -432,13 +432,13 @@ describe('aggregateStream (async stream function)', () => {
         makeCommit({
           hash: 'p1',
           author: { name: 'Alice', email: 'alice@test.com' },
-          date: '2025-01-15T10:00:00Z',
+          date: '2025-01-15T10:00:00Z'
         }),
         makeCommit({
           hash: 'p2',
           author: { name: 'Bob', email: 'bob@test.com' },
-          date: '2025-01-16T12:00:00Z',
-        }),
+          date: '2025-01-16T12:00:00Z'
+        })
       ];
       const sync = aggregate(commits, 7);
       const async_ = await aggregateStream(toStream(commits), Promise.resolve(7));
@@ -462,7 +462,7 @@ describe('aggregateStream (async stream function)', () => {
       const rejectingPromise = Promise.reject(new Error('branchCount failed'));
       await assert.rejects(
         () => aggregateStream(toStream(commits), rejectingPromise),
-        /branchCount failed/,
+        /branchCount failed/
       );
     });
 
@@ -491,8 +491,8 @@ describe('aggregateStream (async stream function)', () => {
           author: { name: 'Alice', email: 'alice@test.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
-        }),
+          files: ['a.js']
+        })
       ];
       const timings = [];
       await aggregateStream(toStream(commits), 1, timings);
@@ -512,8 +512,8 @@ describe('aggregateStream (async stream function)', () => {
         makeCommit({
           hash: 'tw1',
           author: { name: 'Alice', email: 'alice@test.com' },
-          date: '2025-01-15T10:00:00Z',
-        }),
+          date: '2025-01-15T10:00:00Z'
+        })
       ];
       const resultWithout = await aggregateStream(toStream(commits), 1);
       const resultWith = await aggregateStream(toStream(commits), 1, []);
@@ -532,15 +532,15 @@ describe('aggregateStream (async stream function)', () => {
           author: { name: 'johndoe', email: 'johndoe@gmail.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'Full Name', email: noreplyEmail('johndoe') },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = await aggregateStream(toStream(commits), 1);
 
@@ -548,7 +548,7 @@ describe('aggregateStream (async stream function)', () => {
         totalCommits: 2,
         additions: 15,
         deletions: 3,
-        email: noreplyEmail('johndoe'),
+        email: noreplyEmail('johndoe')
       });
     });
 
@@ -559,15 +559,15 @@ describe('aggregateStream (async stream function)', () => {
           author: { name: 'Some Person', email: 'ghuser@example.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'c2',
           author: { name: 'Another Name', email: noreplyEmail('ghuser') },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = await aggregateStream(toStream(commits), 1);
 
@@ -579,16 +579,16 @@ describe('aggregateStream (async stream function)', () => {
         makeCommit({
           hash: 'k1',
           author: { name: 'GitHub User', email: 'me@githubuser.dev' },
-          date: '2025-01-15T10:00:00Z',
+          date: '2025-01-15T10:00:00Z'
         }),
         makeCommit({
           hash: 'k2',
           author: {
             name: 'GitHub User',
-            email: noreplyEmail('gituser', '31807746'),
+            email: noreplyEmail('gituser', '31807746')
           },
-          date: '2025-01-16T10:00:00Z',
-        }),
+          date: '2025-01-16T10:00:00Z'
+        })
       ];
       const result = await aggregateStream(toStream(commits), 1);
 
@@ -602,25 +602,25 @@ describe('aggregateStream (async stream function)', () => {
           author: { name: 'jjdubski', email: 'jjdubski@company.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'j2',
           author: {
             name: 'jjdubski',
-            email: noreplyEmail('jjdubski', '12345'),
+            email: noreplyEmail('jjdubski', '12345')
           },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
-        }),
+          files: ['b.js']
+        })
       ];
       const result = await aggregateStream(toStream(commits), 1);
 
       assertMergedContributor(result, {
         totalCommits: 2,
         additions: 15,
-        deletions: 3,
+        deletions: 3
       });
     });
 
@@ -631,20 +631,20 @@ describe('aggregateStream (async stream function)', () => {
           author: { name: 'johndoe', email: 'johndoe@gmail.com' },
           date: '2025-01-15T10:00:00Z',
           stats: { additions: 10, deletions: 2, files: 1 },
-          files: ['a.js'],
+          files: ['a.js']
         }),
         makeCommit({
           hash: 'neq2',
           author: { name: 'Full Name', email: noreplyEmail('johndoe') },
           date: '2025-01-16T10:00:00Z',
           stats: { additions: 5, deletions: 1, files: 1 },
-          files: ['b.js'],
+          files: ['b.js']
         }),
         makeCommit({
           hash: 'neq3',
           author: { name: 'Alice', email: 'alice@test.com' },
-          date: '2025-01-17T10:00:00Z',
-        }),
+          date: '2025-01-17T10:00:00Z'
+        })
       ];
       const sync = aggregate(commits, 1);
       const async_ = await aggregateStream(toStream(commits), 1);
@@ -686,28 +686,28 @@ describe('aggregateStreamParallel (parallel repo processing)', () => {
     writeFileSync(join(multiYearRepoPath, 'file.txt'), '2024\n');
     execSync(
       'git add file.txt && GIT_AUTHOR_DATE="2024-06-15T10:00:00" GIT_COMMITTER_DATE="2024-06-15T10:00:00" git commit -m "Commit in 2024"',
-      { cwd: multiYearRepoPath, stdio: 'pipe' },
+      { cwd: multiYearRepoPath, stdio: 'pipe' }
     );
 
     // 2025 — Alice (different author)
     writeFileSync(join(multiYearRepoPath, 'alice.txt'), 'alice\n');
     execSync(
       'git add alice.txt file.txt && GIT_AUTHOR_DATE="2025-02-20T14:30:00" GIT_COMMITTER_DATE="2025-02-20T14:30:00" git commit -m "Alice in 2025" --author="Alice <alice@test.com>"',
-      { cwd: multiYearRepoPath, stdio: 'pipe' },
+      { cwd: multiYearRepoPath, stdio: 'pipe' }
     );
 
     // Another 2025 — Test User
     appendFileSync(join(multiYearRepoPath, 'file.txt'), '2025\n');
     execSync(
       'git add file.txt && GIT_AUTHOR_DATE="2025-08-10T09:15:00" GIT_COMMITTER_DATE="2025-08-10T09:15:00" git commit -m "Second commit in 2025"',
-      { cwd: multiYearRepoPath, stdio: 'pipe' },
+      { cwd: multiYearRepoPath, stdio: 'pipe' }
     );
 
     // 2026 — Alice
     appendFileSync(join(multiYearRepoPath, 'file.txt'), '2026\n');
     execSync(
       'git add file.txt && GIT_AUTHOR_DATE="2026-01-05T16:00:00" GIT_COMMITTER_DATE="2026-01-05T16:00:00" git commit -m "Alice in 2026" --author="Alice <alice@test.com>"',
-      { cwd: multiYearRepoPath, stdio: 'pipe' },
+      { cwd: multiYearRepoPath, stdio: 'pipe' }
     );
 
     // ── Single-year repo: all commits in 2025 ────────────────────────────
@@ -719,12 +719,12 @@ describe('aggregateStreamParallel (parallel repo processing)', () => {
     writeFileSync(join(singleYearRepoPath, 'a.txt'), 'a\n');
     execSync(
       'git add a.txt && GIT_AUTHOR_DATE="2025-03-01T12:00:00" GIT_COMMITTER_DATE="2025-03-01T12:00:00" git commit -m "First 2025"',
-      { cwd: singleYearRepoPath, stdio: 'pipe' },
+      { cwd: singleYearRepoPath, stdio: 'pipe' }
     );
     writeFileSync(join(singleYearRepoPath, 'b.txt'), 'b\n');
     execSync(
       'git add b.txt && GIT_AUTHOR_DATE="2025-07-15T08:00:00" GIT_COMMITTER_DATE="2025-07-15T08:00:00" git commit -m "Second 2025"',
-      { cwd: singleYearRepoPath, stdio: 'pipe' },
+      { cwd: singleYearRepoPath, stdio: 'pipe' }
     );
 
     // ── Single-commit repo ───────────────────────────────────────────────
@@ -736,7 +736,7 @@ describe('aggregateStreamParallel (parallel repo processing)', () => {
     writeFileSync(join(singleCommitRepoPath, 'readme.md'), '# Single\n');
     execSync(
       'git add readme.md && GIT_AUTHOR_DATE="2025-04-10T10:00:00" GIT_COMMITTER_DATE="2025-04-10T10:00:00" git commit -m "Only commit"',
-      { cwd: singleCommitRepoPath, stdio: 'pipe' },
+      { cwd: singleCommitRepoPath, stdio: 'pipe' }
     );
   });
 
@@ -751,7 +751,7 @@ describe('aggregateStreamParallel (parallel repo processing)', () => {
 
     const [seq, par] = await Promise.all([
       aggregateStream(getAllCommits(multiYearRepoPath), bc),
-      aggregateStreamParallel(multiYearRepoPath, bc),
+      aggregateStreamParallel(multiYearRepoPath, bc)
     ]);
 
     assert.deepStrictEqual(par, seq);
@@ -782,7 +782,7 @@ describe('aggregateStreamParallel (parallel repo processing)', () => {
 
     const [seq, par] = await Promise.all([
       aggregateStream(getAllCommits(singleYearRepoPath), bc),
-      aggregateStreamParallel(singleYearRepoPath, bc),
+      aggregateStreamParallel(singleYearRepoPath, bc)
     ]);
 
     assert.deepStrictEqual(par, seq);
@@ -812,7 +812,7 @@ describe('aggregateStreamParallel (parallel repo processing)', () => {
     assert.deepStrictEqual(
       yearNums,
       [...yearNums].sort((a, b) => a - b),
-      'years should be in ascending order',
+      'years should be in ascending order'
     );
 
     // Overall entries should be present
@@ -834,7 +834,7 @@ describe('aggregateStreamParallel (parallel repo processing)', () => {
 
     const [seq, par] = await Promise.all([
       aggregateStream(getAllCommits(singleCommitRepoPath), bc),
-      aggregateStreamParallel(singleCommitRepoPath, bc),
+      aggregateStreamParallel(singleCommitRepoPath, bc)
     ]);
 
     assert.deepStrictEqual(par, seq);

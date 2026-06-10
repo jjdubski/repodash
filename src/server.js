@@ -19,7 +19,7 @@ const MIME_TYPES = {
   '.webp': 'image/webp',
   '.woff2': 'font/woff2',
   '.ttf': 'font/ttf',
-  '.map': 'application/json',
+  '.map': 'application/json'
 };
 
 // ---------------------------------------------------------------------------
@@ -43,7 +43,7 @@ function serveFile(res, filePath) {
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
   res.writeHead(200, {
     'Content-Type': contentType,
-    'Cache-Control': 'no-cache',
+    'Cache-Control': 'no-cache'
   });
   const stream = createReadStream(filePath);
   stream.on('error', () => {
@@ -144,7 +144,7 @@ const DATA_FILE_KEYS = ['summary', 'contributions', 'contributors', 'frequency',
 async function writeDataFiles(dataDir, data) {
   try {
     const writes = DATA_FILE_KEYS.map((key) =>
-      writeFile(join(dataDir, `${key}.json`), JSON.stringify(data[key] ?? {})),
+      writeFile(join(dataDir, `${key}.json`), JSON.stringify(data[key] ?? {}))
     );
     writes.push(writeFile(join(dataDir, 'all.json'), JSON.stringify(data)));
     await Promise.all(writes);

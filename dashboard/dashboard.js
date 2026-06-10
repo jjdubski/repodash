@@ -16,7 +16,7 @@ const state = {
   contributionMode: 'author',
   topContributorsMode: 'commits',
   contributorsSortBy: 'commits',
-  contributorsSortOrder: 'desc',
+  contributorsSortOrder: 'desc'
 };
 
 // ═════════════════════════════════════════════════════════════════════
@@ -35,11 +35,11 @@ export function formatNumber(n) {
 export function formatDate(iso) {
   if (!iso) return '\u2014';
   const d = new Date(iso);
-  if (isNaN(d.getTime())) return iso.slice(0, 10);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
   return d.toLocaleDateString(undefined, {
     year: 'numeric',
     month: 'short',
-    day: 'numeric',
+    day: 'numeric'
   });
 }
 
@@ -119,7 +119,7 @@ export function getCutoffDate(filter) {
   if (filter === 'custom') {
     return {
       start: state.customStartDate || null,
-      end: state.customEndDate || null,
+      end: state.customEndDate || null
     };
   }
   const now = new Date();
@@ -184,7 +184,7 @@ function computeFilteredSummary(contributions, frequency) {
     totalDeletions: totalDeletions,
     firstCommit: firstDate || state.data.summary.firstCommit,
     lastCommit: lastDate || state.data.summary.lastCommit,
-    activeBranches: state.data.summary.activeBranches,
+    activeBranches: state.data.summary.activeBranches
   };
 }
 
@@ -197,7 +197,7 @@ export function computeFilteredContributors(contributions, allContributors) {
         authorStats[key] = {
           totalCommits: 0,
           additions: 0,
-          deletions: 0,
+          deletions: 0
         };
       }
       authorStats[key].totalCommits += a.count;
@@ -214,7 +214,7 @@ export function computeFilteredContributors(contributions, allContributors) {
       const stats = authorStats[c.email] || {
         totalCommits: 0,
         additions: 0,
-        deletions: 0,
+        deletions: 0
       };
       return {
         name: c.name,
@@ -223,7 +223,7 @@ export function computeFilteredContributors(contributions, allContributors) {
         additions: stats.additions,
         deletions: stats.deletions,
         firstCommit: c.firstCommit,
-        lastCommit: c.lastCommit,
+        lastCommit: c.lastCommit
       };
     })
     .sort(function (a, b) {
@@ -275,7 +275,7 @@ export function computeFilteredActivity(contributions) {
   return {
     byDayOfWeek: byDayOfWeek,
     byHour: byHour,
-    topFiles: topFiles,
+    topFiles: topFiles
   };
 }
 
@@ -286,15 +286,15 @@ export function computeFilteredActivity(contributions) {
 function lineChartOptions(frequency) {
   return {
     scales: {
-      x: { maxTicksLimit: frequency.length > 90 ? 12 : undefined },
+      x: { maxTicksLimit: frequency.length > 90 ? 12 : undefined }
     },
     plugins: {
       legend: {
         position: 'bottom',
-        labels: { boxWidth: 12, padding: 12, usePointStyle: true },
-      },
+        labels: { boxWidth: 12, padding: 12, usePointStyle: true }
+      }
     },
-    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+    interaction: { mode: 'nearest', axis: 'x', intersect: false }
   };
 }
 
@@ -330,7 +330,7 @@ function renderFrequencyLineChart(frequency, chartId, alpha, pointRadius, pointH
           tension: 0.3,
           pointRadius: pointRadius,
           pointHoverRadius: pointHoverRadius,
-          borderWidth: 2,
+          borderWidth: 2
         },
         {
           label: 'Deletions',
@@ -343,11 +343,11 @@ function renderFrequencyLineChart(frequency, chartId, alpha, pointRadius, pointH
           tension: 0.3,
           pointRadius: pointRadius,
           pointHoverRadius: pointHoverRadius,
-          borderWidth: 2,
-        },
-      ],
+          borderWidth: 2
+        }
+      ]
     },
-    lineChartOptions(frequency),
+    lineChartOptions(frequency)
   );
 }
 
@@ -414,7 +414,7 @@ function createChart(id, type, data, optionsOverride) {
   state.charts[id] = new globalThis.window.Chart(ctx, {
     type: type,
     data: data,
-    options: buildOptions(optionsOverride),
+    options: buildOptions(optionsOverride)
   });
   return state.charts[id];
 }
@@ -494,7 +494,7 @@ function loadData() {
       TABS.forEach(function (t) {
         showError(
           t,
-          'Failed to load dashboard data. Ensure the server is running and the repository has been analyzed.',
+          'Failed to load dashboard data. Ensure the server is running and the repository has been analyzed.'
         );
       });
       throw err;
@@ -532,7 +532,7 @@ function applyTheme(theme) {
   if (meta) {
     meta.setAttribute(
       'content',
-      getComputedStyle(document.documentElement).getPropertyValue('--bg').trim(),
+      getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()
     );
   }
   updateAllChartColors();
@@ -608,7 +608,7 @@ function getFilteredData() {
   const filteredSummary = computeFilteredSummary(filteredContributions, filteredFrequency);
   const filteredContributors = computeFilteredContributors(
     filteredContributions,
-    state.data.contributors,
+    state.data.contributors
   );
 
   return {
@@ -616,7 +616,7 @@ function getFilteredData() {
     contributions: filteredContributions,
     contributors: filteredContributors,
     frequency: filteredFrequency,
-    activity: computeFilteredActivity(filteredContributions),
+    activity: computeFilteredActivity(filteredContributions)
   };
 }
 
@@ -645,7 +645,7 @@ function renderOverview(d) {
 
   document.getElementById('metric-commits').textContent = formatNumber(d.summary.totalCommits);
   document.getElementById('metric-contributors').textContent = formatNumber(
-    d.summary.totalContributors,
+    d.summary.totalContributors
   );
   document.getElementById('metric-additions').textContent = formatNumber(d.summary.totalAdditions);
   document.getElementById('metric-deletions').textContent = formatNumber(d.summary.totalDeletions);
@@ -698,7 +698,7 @@ function buildOthersDataset(contributions, topAuthors) {
     }),
     backgroundColor: '#8b949e',
     borderWidth: 0,
-    borderRadius: 2,
+    borderRadius: 2
   };
 }
 
@@ -741,7 +741,7 @@ function renderContributionAuthor(contributions, contributors) {
       }),
       backgroundColor: globalThis.window.COLOR_LIST[i % globalThis.window.COLOR_LIST.length],
       borderWidth: 0,
-      borderRadius: 2,
+      borderRadius: 2
     });
   });
 
@@ -757,27 +757,27 @@ function renderContributionAuthor(contributions, contributors) {
       labels: contributions.map(function (d) {
         return d.date;
       }),
-      datasets: datasets,
+      datasets: datasets
     },
     {
       scales: {
         x: {
           stacked: true,
-          maxTicksLimit: contributions.length > 90 ? 12 : undefined,
+          maxTicksLimit: contributions.length > 90 ? 12 : undefined
         },
         y: {
           stacked: true,
-          title: { display: true, text: 'Commits' },
-        },
+          title: { display: true, text: 'Commits' }
+        }
       },
       plugins: {
         legend: {
           display: true,
           position: 'bottom',
-          labels: { boxWidth: 12, padding: 12 },
-        },
-      },
-    },
+          labels: { boxWidth: 12, padding: 12 }
+        }
+      }
+    }
   );
 }
 
@@ -798,26 +798,26 @@ function renderContributionCommits(contributions) {
           }),
           backgroundColor: globalThis.window.COLORS.blue,
           borderWidth: 0,
-          borderRadius: 2,
-        },
-      ],
+          borderRadius: 2
+        }
+      ]
     },
     {
       scales: {
         x: {
           stacked: false,
-          maxTicksLimit: display.length > 90 ? 12 : undefined,
+          maxTicksLimit: display.length > 90 ? 12 : undefined
         },
         y: {
           stacked: false,
           beginAtZero: true,
-          title: { display: true, text: 'Commits' },
-        },
+          title: { display: true, text: 'Commits' }
+        }
       },
       plugins: {
-        legend: { display: false },
-      },
-    },
+        legend: { display: false }
+      }
+    }
   );
 }
 
@@ -858,24 +858,24 @@ function renderTopContributorsChart(contributors, mode = 'commits') {
           data: data,
           backgroundColor: globalThis.window.COLORS.blue,
           borderWidth: 0,
-          borderRadius: 2,
-        },
-      ],
+          borderRadius: 2
+        }
+      ]
     },
     {
       indexAxis: 'y',
       scales: {
         x: { beginAtZero: true },
-        y: { grid: { display: false } },
+        y: { grid: { display: false } }
       },
       plugins: {
         legend: { display: false },
         tooltip: {
           mode: 'y',
-          intersect: false,
-        },
-      },
-    },
+          intersect: false
+        }
+      }
+    }
   );
 }
 
@@ -887,7 +887,7 @@ function renderFrequencyOverviewChart(frequency) {
     'chart-frequency-overview',
     '30',
     frequency.length < 60 ? 2 : 0,
-    4,
+    4
   );
 }
 
@@ -934,7 +934,7 @@ function updateContributorsThead() {
       th.classList.add('active');
       th.setAttribute(
         'aria-sort',
-        state.contributorsSortOrder === 'asc' ? 'ascending' : 'descending',
+        state.contributorsSortOrder === 'asc' ? 'ascending' : 'descending'
       );
       if (svg) {
         svg.classList.toggle('asc', state.contributorsSortOrder === 'asc');
@@ -1009,27 +1009,27 @@ function renderContributorBarChart(contributors) {
           }),
           borderWidth: 0,
           borderRadius: 2,
-          barThickness: 12,
-        },
-      ],
+          barThickness: 12
+        }
+      ]
     },
     {
       indexAxis: 'y',
       scales: {
         y: {
           ticks: { font: { size: 11 }, autoSkip: false },
-          grid: { display: false },
+          grid: { display: false }
         },
-        x: { beginAtZero: true },
+        x: { beginAtZero: true }
       },
       plugins: {
         legend: { display: false },
         tooltip: {
           mode: 'y',
-          intersect: false,
-        },
-      },
-    },
+          intersect: false
+        }
+      }
+    }
   );
 }
 
@@ -1123,11 +1123,11 @@ function renderActivityBarChart(chartId, items, color, labelMapper) {
           }),
           backgroundColor: color,
           borderWidth: 0,
-          borderRadius: 2,
-        },
-      ],
+          borderRadius: 2
+        }
+      ]
     },
-    { plugins: { legend: { display: false } } },
+    { plugins: { legend: { display: false } } }
   );
 }
 
@@ -1160,7 +1160,7 @@ function renderActivity(d) {
     globalThis.window.COLORS.purple,
     function (x) {
       return x.day;
-    },
+    }
   );
   renderActivityBarChart('chart-hour', a.byHour, globalThis.window.COLORS.orange, function (x) {
     return String(x.hour).padStart(2, '0') + ':00';
@@ -1333,7 +1333,7 @@ function setupExportPdf() {
         if (globalThis.window.NOTO_SANS_MULTILANGUAGE_BASE64) {
           pdf.addFileToVFS(
             'noto-sans-multilanguage.ttf',
-            globalThis.window.NOTO_SANS_MULTILANGUAGE_BASE64,
+            globalThis.window.NOTO_SANS_MULTILANGUAGE_BASE64
           );
           pdf.addFont('noto-sans-multilanguage.ttf', 'NotoSansMultilanguage', 'normal');
           unicodeFont = 'NotoSansMultilanguage';
@@ -1356,7 +1356,7 @@ function setupExportPdf() {
             backgroundColor: '#ffffff',
             scale: 2,
             useCORS: true,
-            logging: false,
+            logging: false
           });
           return canvas;
         } finally {
@@ -1379,7 +1379,7 @@ function setupExportPdf() {
         return function () {
           pdf.setFontSize(8);
           pdf.text('Page ' + pdf.internal.getNumberOfPages(), pageWidth - margin, pageHeight - 5, {
-            align: 'right',
+            align: 'right'
           });
         };
       }
@@ -1388,7 +1388,7 @@ function setupExportPdf() {
         margin: { top: margin, bottom: margin },
         tableWidth: 'auto',
         showHead: 'everyPage',
-        didDrawPage: pageFooter(pdf, pageWidth, margin, pageHeight),
+        didDrawPage: pageFooter(pdf, pageWidth, margin, pageHeight)
       };
 
       let y = margin;
@@ -1418,7 +1418,7 @@ function setupExportPdf() {
               formatNumber(c.additions),
               formatNumber(c.deletions),
               formatDate(c.firstCommit),
-              formatDate(c.lastCommit),
+              formatDate(c.lastCommit)
             ];
           }),
           startY: y,
@@ -1427,13 +1427,13 @@ function setupExportPdf() {
             fillColor: [88, 166, 255],
             fontSize: 8,
             font: unicodeFont,
-            fontStyle: 'normal',
+            fontStyle: 'normal'
           },
           alternateRowStyles: { fillColor: [245, 247, 250] },
           columnStyles: {
             1: { halign: 'center' },
             2: { halign: 'center' },
-            3: { halign: 'center' },
+            3: { halign: 'center' }
           },
           didParseCell: function (data) {
             if (
@@ -1443,13 +1443,13 @@ function setupExportPdf() {
               data.cell.styles.halign = 'center';
             }
           },
-          ...tableBase,
+          ...tableBase
         });
         y = pdf.lastAutoTable.finalY + 10;
       }
 
       const otherCharts = Array.from(
-        document.querySelectorAll('#tab-contributors .chart-card, #tab-activity .chart-card'),
+        document.querySelectorAll('#tab-contributors .chart-card, #tab-activity .chart-card')
       ).filter(function (el) {
         return !el.querySelector('#topfiles-table');
       });
@@ -1479,7 +1479,7 @@ function setupExportPdf() {
               data.cell.styles.halign = 'center';
             }
           },
-          ...tableBase,
+          ...tableBase
         });
         y = pdf.lastAutoTable.finalY + 10;
       }
@@ -1626,7 +1626,7 @@ function init() {
         const clampedStart = clampDate(
           state.customStartDate,
           state.data.summary.firstCommit,
-          today,
+          today
         );
         state.customStartDate = clampedStart;
         startEl.value = clampedStart;

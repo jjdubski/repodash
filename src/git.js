@@ -69,9 +69,9 @@ function spawnGitLog(repoPath, options = {}) {
       ...afterFlag,
       ...beforeFlag,
       `--pretty=format:${DELIMITER_LINE}%n%H|%an|%ae|%ai|%s`,
-      '--numstat',
+      '--numstat'
     ],
-    { cwd: repoPath, signal: ac.signal },
+    { cwd: repoPath, signal: ac.signal }
   );
   return { child, ac };
 }
@@ -114,7 +114,7 @@ function parseCommit(lines) {
     date,
     message,
     stats: { additions, deletions, files: files.length },
-    files,
+    files
   };
 }
 
@@ -177,7 +177,7 @@ export function getLocalBranchCount(repoPath) {
   validateRepoPath(repoPath);
 
   return spawnGit(['branch', '--list'], repoPath).then(
-    ({ stdout }) => stdout.trim().split('\n').filter(Boolean).length,
+    ({ stdout }) => stdout.trim().split('\n').filter(Boolean).length
   );
 }
 
@@ -187,7 +187,7 @@ export async function getCommitYearRange(repoPath) {
   try {
     const first = await spawnGit(
       ['log', '--all', '--format=%aI', '--reverse', '--max-parents=0', 'HEAD'],
-      repoPath,
+      repoPath
     );
     const last = await spawnGit(['log', '--all', '--format=%aI', '-1'], repoPath);
 

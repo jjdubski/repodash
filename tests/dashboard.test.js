@@ -26,7 +26,7 @@ import {
   filterByDate,
   computeFilteredContributors,
   computeFilteredActivity,
-  clampDate,
+  clampDate
 } from '../dashboard/dashboard.js';
 
 // ── Paths ──────────────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ describe('Dashboard — file structure', () => {
     it('should respect prefers-reduced-motion', () => {
       assert.ok(
         css.includes('@media (prefers-reduced-motion: reduce)'),
-        'Missing prefers-reduced-motion media query',
+        'Missing prefers-reduced-motion media query'
       );
     });
 
@@ -201,7 +201,7 @@ describe('Dashboard — file structure', () => {
 
     it('should not have option value="lines" in contribution-mode select', () => {
       const selectMatch = html.match(
-        /<select[^>]*id="contribution-mode"[^>]*>([\s\S]*?)<\/select>/,
+        /<select[^>]*id="contribution-mode"[^>]*>([\s\S]*?)<\/select>/
       );
       assert.ok(selectMatch, 'contribution-mode select should exist');
       const inner = selectMatch[1];
@@ -250,19 +250,19 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
         state: {
           timeFilter: 'custom',
           customStartDate: '2024-01-01',
-          customEndDate: '2024-01-31',
+          customEndDate: '2024-01-31'
         },
         window: {
           location: { href: 'http://localhost:3000/' },
-          history: { replaceState: () => {} },
+          history: { replaceState: () => {} }
         },
         document: {
           querySelectorAll: () => [],
-          getElementById: () => null,
+          getElementById: () => null
         },
         renderCurrentTab: () => {
           renderCalled.value = true;
-        },
+        }
       };
       const fn = loadFn('setTimeFilter', sandbox);
 
@@ -278,15 +278,15 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
         state: { timeFilter: 'last3months' },
         window: {
           location: { href: 'http://localhost:3000/' },
-          history: { replaceState: () => {} },
+          history: { replaceState: () => {} }
         },
         document: {
           querySelectorAll: () => [],
-          getElementById: () => null,
+          getElementById: () => null
         },
         renderCurrentTab: () => {
           renderCalled.value = true;
-        },
+        }
       };
       const fn = loadFn('setTimeFilter', sandbox);
 
@@ -302,15 +302,15 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
         state: { timeFilter: 'last3months' },
         window: {
           location: { href: 'http://localhost:3000/' },
-          history: { replaceState: () => {} },
+          history: { replaceState: () => {} }
         },
         document: {
           querySelectorAll: () => [],
-          getElementById: () => null,
+          getElementById: () => null
         },
         renderCurrentTab: () => {
           renderCalled.value = true;
-        },
+        }
       };
       const fn = loadFn('setTimeFilter', sandbox);
 
@@ -326,15 +326,15 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
         state: { timeFilter: 'allTime' },
         window: {
           location: { href: 'http://localhost:3000/' },
-          history: { replaceState: () => {} },
+          history: { replaceState: () => {} }
         },
         document: {
           querySelectorAll: () => [],
-          getElementById: () => null,
+          getElementById: () => null
         },
         renderCurrentTab: () => {
           renderCalled.value = true;
-        },
+        }
       };
       const fn = loadFn('setTimeFilter', sandbox);
 
@@ -354,9 +354,9 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
             contributions: [{ date: '2024-01-01', count: 1, authorDetails: [] }],
             frequency: [{ date: '2024-01-01', additions: 10, deletions: 2 }],
             contributors: [],
-            activity: { byHour: [], topFiles: [] },
+            activity: { byHour: [], topFiles: [] }
           },
-          timeFilter: 'last3months',
+          timeFilter: 'last3months'
         },
         getCutoffDate: () => ({ start: '2024-01-01', end: null }),
         filterByDate: (arr) => arr,
@@ -367,10 +367,10 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           totalDeletions: 2,
           firstCommit: '2024-01-01',
           lastCommit: '2024-01-01',
-          activeBranches: 1,
+          activeBranches: 1
         }),
         computeFilteredContributors: () => [],
-        computeFilteredActivity: () => markerActivity,
+        computeFilteredActivity: () => markerActivity
       };
       const fn = loadFn('getFilteredData', sandbox);
 
@@ -380,7 +380,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
       assert.strictEqual(
         result.activity,
         markerActivity,
-        'activity should be the result of computeFilteredActivity',
+        'activity should be the result of computeFilteredActivity'
       );
     });
 
@@ -392,9 +392,9 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
             contributions: [{ date: '2024-01-01', count: 1, authorDetails: [] }],
             frequency: [],
             contributors: [],
-            activity: { byHour: [{ hour: 0, count: 5 }], topFiles: [] },
+            activity: { byHour: [{ hour: 0, count: 5 }], topFiles: [] }
           },
-          timeFilter: 'custom',
+          timeFilter: 'custom'
         },
         getCutoffDate: () => ({ start: '2024-01-01', end: '2024-01-31' }),
         filterByDate: (arr) => arr,
@@ -403,7 +403,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
         computeFilteredActivity: (c) => {
           callArgs.contributions = c;
           return { byDayOfWeek: [] };
-        },
+        }
       };
       const fn = loadFn('getFilteredData', sandbox);
 
@@ -412,14 +412,14 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
       assert.strictEqual(
         callArgs.contributions,
         sandbox.state.data.contributions,
-        'computeFilteredActivity should receive filtered contributions',
+        'computeFilteredActivity should receive filtered contributions'
       );
     });
 
     it('should return null when state.data is null', () => {
       const sandbox = {
         state: { data: null, timeFilter: 'allTime' },
-        getCutoffDate: () => null,
+        getCutoffDate: () => null
       };
       const fn = loadFn('getFilteredData', sandbox);
 
@@ -438,18 +438,18 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           CHART_DEFAULTS: {
             scales: {
               x: { ticks: { color: '#666' }, grid: { color: '#ddd' } },
-              y: { ticks: { color: '#666' }, grid: { color: '#ddd' } },
+              y: { ticks: { color: '#666' }, grid: { color: '#ddd' } }
             },
             plugins: {
-              legend: { display: true, position: 'bottom' },
-            },
+              legend: { display: true, position: 'bottom' }
+            }
           },
           getScaleDefaults: () => ({
             x: { ticks: { color: '#333' }, grid: { color: '#eee' } },
-            y: { ticks: { color: '#333' }, grid: { color: '#eee' } },
+            y: { ticks: { color: '#333' }, grid: { color: '#eee' } }
           }),
-          getTextColor: () => '#ffffff',
-        },
+          getTextColor: () => '#ffffff'
+        }
       };
       fn = loadFn('buildOptions', sandbox);
     });
@@ -475,7 +475,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
 
     it('should deep-merge override.scales over theme defaults', () => {
       const result = fn({
-        scales: { x: { ticks: { color: '#ff0000' } } },
+        scales: { x: { ticks: { color: '#ff0000' } } }
       });
 
       // override wins for ticks.color
@@ -488,7 +488,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
 
     it('should let override.plugins win over DEFAULTS.plugins', () => {
       const result = fn({
-        plugins: { legend: { display: false } },
+        plugins: { legend: { display: false } }
       });
 
       assert.strictEqual(result.plugins.legend.display, false);
@@ -496,7 +496,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
 
     it('should preserve existing legend.labels.color when override sets it', () => {
       const result = fn({
-        plugins: { legend: { labels: { color: '#123456' } } },
+        plugins: { legend: { labels: { color: '#123456' } } }
       });
 
       // explicit color from override — not overwritten by getTextColor()
@@ -531,7 +531,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
         triggerInput(newValue) {
           this.value = newValue;
           if (handlers.input) handlers.input();
-        },
+        }
       };
     }
 
@@ -545,14 +545,14 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           customStartDate: '2025-06-01',
           customEndDate: '2025-06-30',
           data: { summary: { firstCommit: '2024-01-01' } },
-          timeFilter: 'custom',
+          timeFilter: 'custom'
         },
         document: {
           getElementById(id) {
             if (id === 'date-start') return mockStart;
             if (id === 'date-end') return mockEnd;
             return null;
-          },
+          }
         },
         getTodayLocal: () => '2025-06-15',
         clampDate,
@@ -560,7 +560,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           setTimeFilterCalled.count++;
           sandbox.state.timeFilter = filter;
         },
-        renderCurrentTab: () => {},
+        renderCurrentTab: () => {}
       };
 
       const fn = loadFn('setupDateRangeListeners', sandbox);
@@ -582,14 +582,14 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           customStartDate: null,
           customEndDate: '2025-06-30',
           data: { summary: { firstCommit: '2024-01-01' } },
-          timeFilter: 'custom',
+          timeFilter: 'custom'
         },
         document: {
           getElementById(id) {
             if (id === 'date-start') return mockStart;
             if (id === 'date-end') return mockEnd;
             return null;
-          },
+          }
         },
         getTodayLocal: () => '2025-06-15',
         clampDate,
@@ -597,7 +597,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           setTimeFilterCalled.count++;
           sandbox.state.timeFilter = filter;
         },
-        renderCurrentTab: () => {},
+        renderCurrentTab: () => {}
       };
 
       const fn = loadFn('setupDateRangeListeners', sandbox);
@@ -619,14 +619,14 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           customStartDate: null,
           customEndDate: '2025-06-30',
           data: { summary: { firstCommit: '2024-01-01' } },
-          timeFilter: 'custom',
+          timeFilter: 'custom'
         },
         document: {
           getElementById(id) {
             if (id === 'date-start') return mockStart;
             if (id === 'date-end') return mockEnd;
             return null;
-          },
+          }
         },
         getTodayLocal: () => '2025-06-15',
         clampDate,
@@ -634,7 +634,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           setTimeFilterCalled.count++;
           sandbox.state.timeFilter = filter;
         },
-        renderCurrentTab: () => {},
+        renderCurrentTab: () => {}
       };
 
       const fn = loadFn('setupDateRangeListeners', sandbox);
@@ -656,14 +656,14 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           customStartDate: '2025-06-01',
           customEndDate: '2025-06-30',
           data: { summary: { firstCommit: '2024-01-01' } },
-          timeFilter: 'custom',
+          timeFilter: 'custom'
         },
         document: {
           getElementById(id) {
             if (id === 'date-start') return mockStart;
             if (id === 'date-end') return mockEnd;
             return null;
-          },
+          }
         },
         getTodayLocal: () => '2025-06-15',
         clampDate,
@@ -671,7 +671,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           setTimeFilterCalled.count++;
           sandbox.state.timeFilter = filter;
         },
-        renderCurrentTab: () => {},
+        renderCurrentTab: () => {}
       };
 
       const fn = loadFn('setupDateRangeListeners', sandbox);
@@ -693,14 +693,14 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           customStartDate: '2025-06-01',
           customEndDate: null,
           data: { summary: { firstCommit: '2024-01-01' } },
-          timeFilter: 'custom',
+          timeFilter: 'custom'
         },
         document: {
           getElementById(id) {
             if (id === 'date-start') return mockStart;
             if (id === 'date-end') return mockEnd;
             return null;
-          },
+          }
         },
         getTodayLocal: () => '2025-06-15',
         clampDate,
@@ -708,7 +708,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           setTimeFilterCalled.count++;
           sandbox.state.timeFilter = filter;
         },
-        renderCurrentTab: () => {},
+        renderCurrentTab: () => {}
       };
 
       const fn = loadFn('setupDateRangeListeners', sandbox);
@@ -730,14 +730,14 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           customStartDate: null,
           customEndDate: '2025-06-01',
           data: { summary: { firstCommit: '2024-01-01' } },
-          timeFilter: 'custom',
+          timeFilter: 'custom'
         },
         document: {
           getElementById(id) {
             if (id === 'date-start') return mockStart;
             if (id === 'date-end') return mockEnd;
             return null;
-          },
+          }
         },
         getTodayLocal: () => '2025-06-15',
         clampDate,
@@ -745,7 +745,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           setTimeFilterCalled.count++;
           sandbox.state.timeFilter = filter;
         },
-        renderCurrentTab: () => {},
+        renderCurrentTab: () => {}
       };
 
       const fn = loadFn('setupDateRangeListeners', sandbox);
@@ -769,14 +769,14 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           customStartDate: null,
           customEndDate: '2025-06-30',
           data: { summary: { firstCommit: '2024-01-01' } },
-          timeFilter: 'custom',
+          timeFilter: 'custom'
         },
         document: {
           getElementById(id) {
             if (id === 'date-start') return mockStart;
             if (id === 'date-end') return mockEnd;
             return null;
-          },
+          }
         },
         getTodayLocal: () => '2025-06-15',
         clampDate,
@@ -784,7 +784,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
           setTimeFilterCalled.count++;
           sandbox.state.timeFilter = filter;
         },
-        renderCurrentTab: () => {},
+        renderCurrentTab: () => {}
       };
 
       const fn = loadFn('setupDateRangeListeners', sandbox);
@@ -820,14 +820,14 @@ describe('Dashboard — chart-config.js', () => {
         PointElement: {},
         CategoryScale: {},
         LinearScale: {},
-        Filler: {},
+        Filler: {}
       },
       window: {},
       console: { error: () => {} },
       getComputedStyle: () => ({
-        getPropertyValue: () => '',
+        getPropertyValue: () => ''
       }),
-      document: { documentElement: {} },
+      document: { documentElement: {} }
     });
 
     vm.runInContext(read('chart-config.js'), sandbox);
@@ -931,7 +931,7 @@ describe('Dashboard — chart-config.js', () => {
       const ctx = vm.createContext({
         Chart: undefined,
         window: {},
-        console: { error: () => {} },
+        console: { error: () => {} }
       });
       // Should not throw
       vm.runInContext(read('chart-config.js'), ctx);
@@ -1075,7 +1075,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     const data = [
       { date: '2024-01-01', val: 1 },
       { date: '2024-06-15', val: 2 },
-      { date: '2024-12-31', val: 3 },
+      { date: '2024-12-31', val: 3 }
     ];
 
     it('should return the same array when bounds is null', () => {
@@ -1156,9 +1156,9 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
           count: 3,
           authorDetails: [
             { author: 'Alice', email: 'alice@work.com', count: 2, additions: 20, deletions: 5 },
-            { author: 'Alice', email: 'alice@personal.com', count: 1, additions: 10, deletions: 2 },
-          ],
-        },
+            { author: 'Alice', email: 'alice@personal.com', count: 1, additions: 10, deletions: 2 }
+          ]
+        }
       ];
 
       const allContributors = [
@@ -1169,7 +1169,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
           additions: 20,
           deletions: 5,
           firstCommit: '2025-01-15T10:00:00Z',
-          lastCommit: '2025-01-15T14:00:00Z',
+          lastCommit: '2025-01-15T14:00:00Z'
         },
         {
           name: 'Alice',
@@ -1178,8 +1178,8 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
           additions: 10,
           deletions: 2,
           firstCommit: '2025-01-15T16:00:00Z',
-          lastCommit: '2025-01-15T16:00:00Z',
-        },
+          lastCommit: '2025-01-15T16:00:00Z'
+        }
       ];
 
       const result = computeFilteredContributors(contributions, allContributors);
@@ -1206,9 +1206,9 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
           count: 2,
           authorDetails: [
             { author: 'User', email: 'email1@test.com', count: 1, additions: 5, deletions: 1 },
-            { author: 'User', email: 'email2@test.com', count: 1, additions: 10, deletions: 2 },
-          ],
-        },
+            { author: 'User', email: 'email2@test.com', count: 1, additions: 10, deletions: 2 }
+          ]
+        }
       ];
 
       const allContributors = [
@@ -1219,7 +1219,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
           additions: 5,
           deletions: 1,
           firstCommit: '2025-01-15',
-          lastCommit: '2025-01-15',
+          lastCommit: '2025-01-15'
         },
         {
           name: 'User',
@@ -1228,8 +1228,8 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
           additions: 10,
           deletions: 2,
           firstCommit: '2025-01-15',
-          lastCommit: '2025-01-15',
-        },
+          lastCommit: '2025-01-15'
+        }
       ];
 
       const result = computeFilteredContributors(contributions, allContributors);
@@ -1249,7 +1249,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       const contributions = [
         { date: '2024-01-01', count: 3 },
         { date: '2024-01-02', count: 5 },
-        { date: '2024-01-03', count: 2 },
+        { date: '2024-01-03', count: 2 }
       ];
 
       const result = computeFilteredActivity(contributions);
@@ -1270,7 +1270,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     it('should recompute byHour from per-day contribution data', () => {
       const contributions = [
         { date: '2024-01-01', count: 2, byHour: make24({ 0: 1, 9: 1 }) },
-        { date: '2024-01-02', count: 3, byHour: make24({ 9: 2, 14: 1 }) },
+        { date: '2024-01-02', count: 3, byHour: make24({ 9: 2, 14: 1 }) }
       ];
 
       const result = computeFilteredActivity(contributions);
@@ -1289,17 +1289,17 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
           count: 1,
           topFiles: [
             { path: 'src/a.js', changes: 3 },
-            { path: 'src/b.js', changes: 1 },
-          ],
+            { path: 'src/b.js', changes: 1 }
+          ]
         },
         {
           date: '2024-01-02',
           count: 2,
           topFiles: [
             { path: 'src/a.js', changes: 2 },
-            { path: 'src/c.js', changes: 4 },
-          ],
-        },
+            { path: 'src/c.js', changes: 4 }
+          ]
+        }
       ];
 
       const result = computeFilteredActivity(contributions);
@@ -1346,7 +1346,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       // 2024-01-07 = Sunday   (getUTCDay() = 0 → (0+6)%7 = 6 = "Sun")
       const contributions = [
         { date: '2024-01-06', count: 10 }, // Saturday
-        { date: '2024-01-07', count: 20 }, // Sunday
+        { date: '2024-01-07', count: 20 } // Sunday
       ];
 
       const result = computeFilteredActivity(contributions);
@@ -1363,9 +1363,9 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
           date: '2024-01-01',
           count: 2,
           byHour: make24({ 9: 3 }),
-          topFiles: [{ path: 'src/a.js', changes: 5 }],
+          topFiles: [{ path: 'src/a.js', changes: 5 }]
         },
-        { date: '2024-01-02', count: 1 },
+        { date: '2024-01-02', count: 1 }
       ];
 
       const result = computeFilteredActivity(contributions);
@@ -1433,7 +1433,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     it('should not define renderContributionLines anywhere in the source', () => {
       assert.ok(
         !src.includes('renderContributionLines'),
-        'renderContributionLines should be removed from dashboard.js',
+        'renderContributionLines should be removed from dashboard.js'
       );
     });
 
@@ -1445,16 +1445,16 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     it('should use c.name?.trim() || c.email as display fallback for contributor name', () => {
       assert.ok(
         src.includes('c.name?.trim() || c.email'),
-        'renderContributorsTable should fall back to email when name is missing',
+        'renderContributorsTable should fall back to email when name is missing'
       );
     });
 
     it('should build titleText with "Name <email>" when both exist', () => {
       assert.ok(
         src.includes(
-          `titleText = c.name?.trim() && c.email ? c.name?.trim() + ' <' + c.email + '>' : c.email`,
+          `titleText = c.name?.trim() && c.email ? c.name?.trim() + ' <' + c.email + '>' : c.email`
         ),
-        'titleText should use Name <email> format',
+        'titleText should use Name <email> format'
       );
     });
 
@@ -1465,21 +1465,21 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     it('should call escapeHtml on the display name', () => {
       assert.ok(
         src.includes('escapeHtml(displayName)'),
-        'escapeHtml should be used on displayName',
+        'escapeHtml should be used on displayName'
       );
     });
 
     it('should set document.body.style.overflow to "hidden" during export', () => {
       assert.ok(
         src.includes("document.body.style.overflow = 'hidden'"),
-        'must set body overflow to hidden when starting export',
+        'must set body overflow to hidden when starting export'
       );
     });
 
     it('should reference getElementById with "export-overlay"', () => {
       assert.ok(
         src.includes("getElementById('export-overlay')"),
-        'must call getElementById with export-overlay',
+        'must call getElementById with export-overlay'
       );
     });
 
@@ -1509,7 +1509,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       const afterFinally = fn.slice(lastFinallyIndex);
       assert.ok(
         afterFinally.includes('renderCurrentTab('),
-        'finally block must call renderCurrentTab',
+        'finally block must call renderCurrentTab'
       );
     });
   });
@@ -1524,13 +1524,13 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     it('should not contain option value="lines" anywhere', () => {
       assert.ok(
         !html.includes('value="lines"'),
-        'index.html should not contain <option value="lines">',
+        'index.html should not contain <option value="lines">'
       );
     });
 
     it('should have contribution-mode select with only author and commits options', () => {
       const selectMatch = html.match(
-        /<select[^>]*id="contribution-mode"[^>]*>([\s\S]*?)<\/select>/,
+        /<select[^>]*id="contribution-mode"[^>]*>([\s\S]*?)<\/select>/
       );
       assert.ok(selectMatch, 'contribution-mode select should exist');
       const innerHtml = selectMatch[1];
@@ -1557,7 +1557,7 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       assert.ok(
         overlayMatch[1].includes('Generating PDF\u2026') ||
           overlayMatch[1].includes('Generating PDF…'),
-        'overlay must contain "Generating PDF…" text',
+        'overlay must contain "Generating PDF…" text'
       );
     });
   });
