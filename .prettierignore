@@ -3,3 +3,4 @@ node_modules
 .superpowers/
 templates/
 .husky/_/
+dashboard/fonts/noto-sans-multilanguage.js

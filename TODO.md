@@ -9,6 +9,8 @@
 5. Make sure all the available flags are in the -h output with appropriate descriptions
 6. Find a good npm package name: git-graph, reposcan, repo-scan, repo-vitals, git-vitals
 7. Make `Commit by Day of Week` and `Commit by Hour of Day` share a page in export PDF (stacked vertically preferably)
+8. UI improvement could be allow the user to switch tabs instantly, keep the tab nav and above UI elements viewable at all times but show the spinner while the charts are loading.
+9. Perhaps some system information checking to dynamically adjust concurrent from 8 -> 4
 
 | Group                | Items                                                           | Theme                               |
 | -------------------- | --------------------------------------------------------------- | ----------------------------------- |
