@@ -655,21 +655,19 @@ function renderOverview(d) {
     return;
   }
 
-  renderContributionChart(d.contributions, d.frequency, state.contributionMode, d.contributors);
+  renderContributionChart(d.contributions, state.contributionMode, d.contributors);
   renderTopContributorsChart(d.contributors, state.topContributorsMode);
   renderFrequencyOverviewChart(d.frequency);
 }
 
 // -- Contribution chart (multi-mode) -----------------------------------
 
-function renderContributionChart(contributions, frequency, mode, contributors) {
+function renderContributionChart(contributions, mode, contributors) {
   if (!contributions?.length) return;
   mode = mode || 'author';
 
   if (mode === 'commits') {
     renderContributionCommits(contributions);
-  } else if (mode === 'lines') {
-    renderContributionLines(frequency);
   } else {
     renderContributionAuthor(contributions, contributors);
   }
@@ -818,10 +816,6 @@ function renderContributionCommits(contributions) {
       },
     },
   );
-}
-
-function renderContributionLines(frequency) {
-  renderFrequencyLineChart(frequency, 'chart-contribution', '20', 0, undefined);
 }
 
 // -- Top contributors horizontal bar -----------------------------------
@@ -1425,7 +1419,7 @@ function setupEvents() {
 
   setupModeSelect('contribution-mode', 'contributionMode', function (d) {
     if (d.contributions) {
-      renderContributionChart(d.contributions, d.frequency, state.contributionMode, d.contributors);
+      renderContributionChart(d.contributions, state.contributionMode, d.contributors);
     }
   });
 
