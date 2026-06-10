@@ -1184,7 +1184,9 @@ function setupExportPdf() {
     document.title = printTitle;
 
     document.body.classList.add('printing');
+    const savedTheme = state.theme;
     (() => document.body.offsetHeight)();
+    applyTheme('light');
 
     try {
       renderOverview(filtered);
@@ -1382,6 +1384,7 @@ function setupExportPdf() {
       if (titleEl) titleEl.textContent = originalTitle;
       document.title = originalDocTitle;
       document.body.classList.remove('printing');
+      if (savedTheme) applyTheme(savedTheme);
       exportBtn.disabled = false;
       if (btnText) btnText.textContent = originalBtnText;
       renderCurrentTab();

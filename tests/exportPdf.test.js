@@ -154,7 +154,11 @@ describe('Dashboard — setupExportPdf', () => {
 
     const sandbox = {
       // Global state mimicking the app state
-      state: { charts: { ...chartMocks }, data: { summary: { repoName: 'test-repo' } } },
+      state: {
+        charts: { ...chartMocks },
+        data: { summary: { repoName: 'test-repo' } },
+        theme: 'light',
+      },
       // Dependencies used by setupExportPdf
       getFilteredData: () => ({
         contributions: [{ date: '2024-01-01', count: 1 }],
@@ -172,6 +176,9 @@ describe('Dashboard — setupExportPdf', () => {
       },
       renderCurrentTab: () => {
         renderFlags.current = true;
+      },
+      applyTheme: (theme) => {
+        sandbox.state.theme = theme;
       },
       document,
       window,
@@ -361,6 +368,122 @@ describe('Dashboard — setupExportPdf', () => {
       getPrintCalled(),
       false,
       'window.print should not be called when jspdf is missing',
+    );
+  });
+
+  it('should save the current theme before rendering and restore it after completion (savedTheme)', async () => {
+    const base = createBaseSandbox();
+    const { sandbox, exportBtn } = base;
+
+    // Start with dark theme to verify savedTheme captures the current value
+    sandbox.state.theme = 'dark';
+
+    const fn = loadFn('setupExportPdf', sandbox);
+    fn();
+
+    await exportBtn._handler();
+
+    // Theme should be restored to the original dark value after completion
+    assert.strictEqual(
+      sandbox.state.theme,
+      'dark',
+      'Theme should be restored to original dark value after PDF generation',
+    );
+  });
+
+  it('should apply light theme during chart rendering', async () => {
+    const base = createBaseSandbox();
+    const { sandbox, exportBtn } = base;
+
+    let themeDuringRender = null;
+
+    // Instrument renderOverview to capture the theme at render time
+    sandbox.renderOverview = () => {
+      themeDuringRender = sandbox.state.theme;
+    };
+
+    // Start with dark so we can detect the forced light theme
+    sandbox.state.theme = 'dark';
+
+    const fn = loadFn('setupExportPdf', sandbox);
+    fn();
+
+    await exportBtn._handler();
+
+    assert.strictEqual(
+      themeDuringRender,
+      'light',
+      'Light theme should be forced during chart rendering even when starting from dark',
+    );
+    assert.strictEqual(
+      sandbox.state.theme,
+      'dark',
+      'Original dark theme should be restored after PDF generation completes',
+    );
+  });
+
+  it('should restore original theme after successful PDF generation', async () => {
+    const base = createBaseSandbox();
+    const { sandbox, exportBtn } = base;
+
+    // Start with a non-default theme to make restoration observable
+    sandbox.state.theme = 'dark';
+
+    const fn = loadFn('setupExportPdf', sandbox);
+    fn();
+
+    await exportBtn._handler();
+
+    assert.strictEqual(
+      sandbox.state.theme,
+      'dark',
+      'Original theme should be restored after successful PDF generation',
+    );
+  });
+
+  it('should restore original theme even when html2canvas rejects', async () => {
+    const base = createBaseSandbox();
+    const { sandbox, exportBtn } = base;
+
+    // Start with dark theme
+    sandbox.state.theme = 'dark';
+
+    // Make html2canvas reject to simulate a PDF generation failure
+    sandbox.window.html2canvas = async () => {
+      throw new Error('capture failed');
+    };
+
+    const fn = loadFn('setupExportPdf', sandbox);
+    fn();
+
+    await exportBtn._handler();
+
+    assert.strictEqual(
+      sandbox.state.theme,
+      'dark',
+      'Theme should be restored to original dark even when html2canvas rejects',
+    );
+  });
+
+  it('should restore original theme when jspdf is undefined', async () => {
+    const base = createBaseSandbox();
+    const { sandbox, exportBtn } = base;
+
+    // Start with dark theme
+    sandbox.state.theme = 'dark';
+
+    // Remove jspdf from the global scope to trigger early failure
+    sandbox.window.jspdf = undefined;
+
+    const fn = loadFn('setupExportPdf', sandbox);
+    fn();
+
+    await exportBtn._handler();
+
+    assert.strictEqual(
+      sandbox.state.theme,
+      'dark',
+      'Theme should be restored to original dark even when jspdf is missing',
     );
   });
 });
