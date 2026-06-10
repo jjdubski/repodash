@@ -440,36 +440,36 @@ function pickLastCommit(a, b) {
   return b;
 }
 
-function mergeProcessingState(a, b) {
-  const contributionsMap = new Map();
-
-  for (const [date, entry] of a.contributionsMap) {
-    contributionsMap.set(date, cloneDayEntry(entry));
-  }
-  for (const [date, bEntry] of b.contributionsMap) {
-    const aEntry = contributionsMap.get(date);
-    if (!aEntry) {
-      contributionsMap.set(date, cloneDayEntry(bEntry));
-      continue;
+function mergeMap(sourceA, sourceB, init, merge) {
+  const map = new Map();
+  for (const [key, val] of sourceA) map.set(key, init(val));
+  for (const [key, val] of sourceB) {
+    const existing = map.get(key);
+    if (existing) {
+      merge(existing, val);
+    } else {
+      map.set(key, init(val));
     }
-
-    mergeDayEntries(aEntry, bEntry);
   }
+  return map;
+}
+
+function mergeProcessingState(a, b) {
+  const contributionsMap = mergeMap(
+    a.contributionsMap,
+    b.contributionsMap,
+    cloneDayEntry,
+    mergeDayEntries,
+  );
 
   const frequencyMap = mergeFrequencyMaps(a.frequencyMap, b.frequencyMap);
 
-  const contributorsMap = new Map();
-  for (const [email, c] of a.contributorsMap) {
-    contributorsMap.set(email, makeContributorEntry(c));
-  }
-  for (const [email, bC] of b.contributorsMap) {
-    const aC = contributorsMap.get(email);
-    if (aC) {
-      mergeContributorStats(aC, bC);
-    } else {
-      contributorsMap.set(email, makeContributorEntry(bC));
-    }
-  }
+  const contributorsMap = mergeMap(
+    a.contributorsMap,
+    b.contributorsMap,
+    makeContributorEntry,
+    mergeContributorStats,
+  );
 
   const firstCommit = pickFirstCommit(a.firstCommit, b.firstCommit);
   const lastCommit = pickLastCommit(a.lastCommit, b.lastCommit);
@@ -501,6 +501,21 @@ function mergeAllStates(states) {
   if (states.length === 0) return createProcessingState();
   if (states.length === 1) return states[0];
   return states.reduce(mergeProcessingState);
+}
+
+function finalizeResults(processed, commitCount, bc, timings, onTiming) {
+  if (commitCount === 0) return createEmptyResult(bc);
+
+  if (processed.contributorsMap.size > 0) {
+    const t = performance.now();
+    mergeNoreplyContributors(processed.contributorsMap, processed.contributionsMap);
+    recordTiming('Merge contributors', t, timings, onTiming);
+  }
+
+  const t = performance.now();
+  const result = formatResults(processed, commitCount, bc);
+  recordTiming('Format results', t, timings, onTiming);
+  return result;
 }
 
 export async function concurrencyPool(tasks, limit) {
@@ -537,18 +552,7 @@ export async function aggregateStream(commitsStream, branchCount, timings, onTim
   ]);
   recordTiming('Parse commits', t, timings, onTiming);
 
-  const commitCount = processed.commitCount;
-
-  if (commitCount === 0) return createEmptyResult(bc);
-  if (processed.contributorsMap.size > 0) {
-    t = performance.now();
-    mergeNoreplyContributors(processed.contributorsMap, processed.contributionsMap);
-    recordTiming('Merge contributors', t, timings, onTiming);
-  }
-  t = performance.now();
-  const result = formatResults(processed, commitCount, bc);
-  recordTiming('Format results', t, timings, onTiming);
-  return result;
+  return finalizeResults(processed, processed.commitCount, bc, timings, onTiming);
 }
 
 export function createYearSlices(firstYear, lastYear) {
@@ -637,19 +641,6 @@ export async function aggregateStreamParallel(
   const processed = mergeAllStates(states);
   recordTiming('Merge results', t, timings, onTiming);
 
-  const commitCount = processed.commitCount;
   const bc = await branchCount;
-
-  if (commitCount === 0) return createEmptyResult(bc);
-
-  if (processed.contributorsMap.size > 0) {
-    t = performance.now();
-    mergeNoreplyContributors(processed.contributorsMap, processed.contributionsMap);
-    recordTiming('Merge contributors', t, timings, onTiming);
-  }
-
-  t = performance.now();
-  const result = formatResults(processed, commitCount, bc);
-  recordTiming('Format results', t, timings, onTiming);
-  return result;
+  return finalizeResults(processed, processed.commitCount, bc, timings, onTiming);
 }

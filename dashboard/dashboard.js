@@ -1229,6 +1229,26 @@ function setupExportPdf() {
         }
       }
 
+      async function addChartToPdf(pdf, el, usableWidth, y, margin, pageHeight) {
+        const canvas = await captureElement(el);
+        const imgH = (usableWidth * canvas.height) / canvas.width;
+        if (y + imgH > pageHeight - margin) {
+          pdf.addPage();
+          y = margin;
+        }
+        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, y, usableWidth, imgH);
+        return y + imgH + 6;
+      }
+
+      function pageFooter(pdf, pageWidth, margin, pageHeight) {
+        return function () {
+          pdf.setFontSize(8);
+          pdf.text('Page ' + pdf.internal.getNumberOfPages(), pageWidth - margin, pageHeight - 5, {
+            align: 'right',
+          });
+        };
+      }
+
       let y = margin;
 
       pdf.setFontSize(16);
@@ -1237,33 +1257,12 @@ function setupExportPdf() {
 
       const metricEl = document.querySelector('.metric-grid');
       if (metricEl) {
-        const metricCanvas = await captureElement(metricEl);
-        const metricImgH = (usableWidth * metricCanvas.height) / metricCanvas.width;
-        if (y + metricImgH > pageHeight - margin) {
-          pdf.addPage();
-          y = margin;
-        }
-        pdf.addImage(
-          metricCanvas.toDataURL('image/png'),
-          'PNG',
-          margin,
-          y,
-          usableWidth,
-          metricImgH,
-        );
-        y += metricImgH + 6;
+        y = await addChartToPdf(pdf, metricEl, usableWidth, y, margin, pageHeight);
       }
 
       const overviewCharts = document.querySelectorAll('#tab-overview .chart-card');
       for (let i = 0; i < overviewCharts.length; i++) {
-        const canvas = await captureElement(overviewCharts[i]);
-        const imgH = (usableWidth * canvas.height) / canvas.width;
-        if (y + imgH > pageHeight - margin) {
-          pdf.addPage();
-          y = margin;
-        }
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, y, usableWidth, imgH);
-        y += imgH + 6;
+        y = await addChartToPdf(pdf, overviewCharts[i], usableWidth, y, margin, pageHeight);
       }
 
       const contributors = filtered.contributors;
@@ -1305,15 +1304,7 @@ function setupExportPdf() {
           margin: { top: margin, bottom: margin },
           tableWidth: 'auto',
           showHead: 'everyPage',
-          didDrawPage: function () {
-            pdf.setFontSize(8);
-            pdf.text(
-              'Page ' + pdf.internal.getNumberOfPages(),
-              pageWidth - margin,
-              pageHeight - 5,
-              { align: 'right' },
-            );
-          },
+          didDrawPage: pageFooter(pdf, pageWidth, margin, pageHeight),
         });
         y = pdf.lastAutoTable.finalY + 10;
       }
@@ -1324,14 +1315,7 @@ function setupExportPdf() {
         return !el.querySelector('#topfiles-table');
       });
       for (let i = 0; i < otherCharts.length; i++) {
-        const canvas = await captureElement(otherCharts[i]);
-        const imgH = (usableWidth * canvas.height) / canvas.width;
-        if (y + imgH > pageHeight - margin) {
-          pdf.addPage();
-          y = margin;
-        }
-        pdf.addImage(canvas.toDataURL('image/png'), 'PNG', margin, y, usableWidth, imgH);
-        y += imgH + 6;
+        y = await addChartToPdf(pdf, otherCharts[i], usableWidth, y, margin, pageHeight);
       }
 
       const topFiles = filtered.activity?.topFiles;
@@ -1359,15 +1343,7 @@ function setupExportPdf() {
           margin: { top: margin, bottom: margin },
           tableWidth: 'auto',
           showHead: 'everyPage',
-          didDrawPage: function () {
-            pdf.setFontSize(8);
-            pdf.text(
-              'Page ' + pdf.internal.getNumberOfPages(),
-              pageWidth - margin,
-              pageHeight - 5,
-              { align: 'right' },
-            );
-          },
+          didDrawPage: pageFooter(pdf, pageWidth, margin, pageHeight),
         });
         y = pdf.lastAutoTable.finalY + 10;
       }
