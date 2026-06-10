@@ -1108,10 +1108,17 @@ function setupDateRangeListeners() {
   const dateStart = document.getElementById('date-start');
   const dateEnd = document.getElementById('date-end');
   if (dateStart) {
-    dateStart.addEventListener('change', function () {
+    dateStart.addEventListener('input', function () {
+      const val = dateStart.value;
+      if (val.length !== 10) {
+        if (state.customStartDate !== null) {
+          state.customStartDate = null;
+        }
+        return;
+      }
       const today = getTodayLocal();
       const min = state.data?.summary ? state.data.summary.firstCommit : null;
-      const date = clampDate(dateStart.value || null, min, today);
+      const date = clampDate(val, min, today);
       state.customStartDate = date;
       dateStart.value = date || '';
       if (date && state.customEndDate && state.customEndDate < date) {
@@ -1122,10 +1129,17 @@ function setupDateRangeListeners() {
     });
   }
   if (dateEnd) {
-    dateEnd.addEventListener('change', function () {
+    dateEnd.addEventListener('input', function () {
+      const val = dateEnd.value;
+      if (val.length !== 10) {
+        if (state.customEndDate !== null) {
+          state.customEndDate = null;
+        }
+        return;
+      }
       const today = getTodayLocal();
       const min = state.customStartDate || null;
-      const date = clampDate(dateEnd.value || null, min, today);
+      const date = clampDate(val, min, today);
       state.customEndDate = date;
       dateEnd.value = date || '';
       setTimeFilter('custom');

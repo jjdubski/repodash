@@ -485,6 +485,285 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
       assert.strictEqual(undefinedResult.plugins.legend.labels.color, '#ffffff');
     });
   });
+
+  describe('setupDateRangeListeners', () => {
+    function createMockInput(id, initialValue = '') {
+      const handlers = {};
+      return {
+        id,
+        value: initialValue,
+        addEventListener(type, handler) {
+          handlers[type] = handler;
+        },
+        triggerInput(newValue) {
+          this.value = newValue;
+          if (handlers.input) handlers.input();
+        },
+      };
+    }
+
+    it('should early-return on partial date in start input, setting customStartDate to null', () => {
+      const setTimeFilterCalled = { count: 0 };
+      const mockStart = createMockInput('date-start');
+      const mockEnd = createMockInput('date-end');
+
+      const sandbox = {
+        state: {
+          customStartDate: '2025-06-01',
+          customEndDate: '2025-06-30',
+          data: { summary: { firstCommit: '2024-01-01' } },
+          timeFilter: 'custom',
+        },
+        document: {
+          getElementById(id) {
+            if (id === 'date-start') return mockStart;
+            if (id === 'date-end') return mockEnd;
+            return null;
+          },
+        },
+        getTodayLocal: () => '2025-06-15',
+        clampDate,
+        setTimeFilter(filter) {
+          setTimeFilterCalled.count++;
+          sandbox.state.timeFilter = filter;
+        },
+        renderCurrentTab: () => {},
+      };
+
+      const fn = loadFn('setupDateRangeListeners', sandbox);
+      fn();
+
+      mockStart.triggerInput('202');
+
+      assert.strictEqual(sandbox.state.customStartDate, null);
+      assert.strictEqual(setTimeFilterCalled.count, 0);
+    });
+
+    it('should early-return on partial date in start input when customStartDate is already null', () => {
+      const setTimeFilterCalled = { count: 0 };
+      const mockStart = createMockInput('date-start');
+      const mockEnd = createMockInput('date-end');
+
+      const sandbox = {
+        state: {
+          customStartDate: null,
+          customEndDate: '2025-06-30',
+          data: { summary: { firstCommit: '2024-01-01' } },
+          timeFilter: 'custom',
+        },
+        document: {
+          getElementById(id) {
+            if (id === 'date-start') return mockStart;
+            if (id === 'date-end') return mockEnd;
+            return null;
+          },
+        },
+        getTodayLocal: () => '2025-06-15',
+        clampDate,
+        setTimeFilter(filter) {
+          setTimeFilterCalled.count++;
+          sandbox.state.timeFilter = filter;
+        },
+        renderCurrentTab: () => {},
+      };
+
+      const fn = loadFn('setupDateRangeListeners', sandbox);
+      fn();
+
+      mockStart.triggerInput('2025-');
+
+      assert.strictEqual(sandbox.state.customStartDate, null);
+      assert.strictEqual(setTimeFilterCalled.count, 0);
+    });
+
+    it('should process full date in start input and call setTimeFilter', () => {
+      const setTimeFilterCalled = { count: 0 };
+      const mockStart = createMockInput('date-start');
+      const mockEnd = createMockInput('date-end');
+
+      const sandbox = {
+        state: {
+          customStartDate: null,
+          customEndDate: '2025-06-30',
+          data: { summary: { firstCommit: '2024-01-01' } },
+          timeFilter: 'custom',
+        },
+        document: {
+          getElementById(id) {
+            if (id === 'date-start') return mockStart;
+            if (id === 'date-end') return mockEnd;
+            return null;
+          },
+        },
+        getTodayLocal: () => '2025-06-15',
+        clampDate,
+        setTimeFilter(filter) {
+          setTimeFilterCalled.count++;
+          sandbox.state.timeFilter = filter;
+        },
+        renderCurrentTab: () => {},
+      };
+
+      const fn = loadFn('setupDateRangeListeners', sandbox);
+      fn();
+
+      mockStart.triggerInput('2025-06-01');
+
+      assert.strictEqual(sandbox.state.customStartDate, '2025-06-01');
+      assert.strictEqual(setTimeFilterCalled.count, 1);
+    });
+
+    it('should early-return on partial date in end input', () => {
+      const setTimeFilterCalled = { count: 0 };
+      const mockStart = createMockInput('date-start', '2025-06-01');
+      const mockEnd = createMockInput('date-end');
+
+      const sandbox = {
+        state: {
+          customStartDate: '2025-06-01',
+          customEndDate: '2025-06-30',
+          data: { summary: { firstCommit: '2024-01-01' } },
+          timeFilter: 'custom',
+        },
+        document: {
+          getElementById(id) {
+            if (id === 'date-start') return mockStart;
+            if (id === 'date-end') return mockEnd;
+            return null;
+          },
+        },
+        getTodayLocal: () => '2025-06-15',
+        clampDate,
+        setTimeFilter(filter) {
+          setTimeFilterCalled.count++;
+          sandbox.state.timeFilter = filter;
+        },
+        renderCurrentTab: () => {},
+      };
+
+      const fn = loadFn('setupDateRangeListeners', sandbox);
+      fn();
+
+      mockEnd.triggerInput('2025-');
+
+      assert.strictEqual(sandbox.state.customEndDate, null);
+      assert.strictEqual(setTimeFilterCalled.count, 0);
+    });
+
+    it('should process full date in end input and call setTimeFilter', () => {
+      const setTimeFilterCalled = { count: 0 };
+      const mockStart = createMockInput('date-start', '2025-06-01');
+      const mockEnd = createMockInput('date-end');
+
+      const sandbox = {
+        state: {
+          customStartDate: '2025-06-01',
+          customEndDate: null,
+          data: { summary: { firstCommit: '2024-01-01' } },
+          timeFilter: 'custom',
+        },
+        document: {
+          getElementById(id) {
+            if (id === 'date-start') return mockStart;
+            if (id === 'date-end') return mockEnd;
+            return null;
+          },
+        },
+        getTodayLocal: () => '2025-06-15',
+        clampDate,
+        setTimeFilter(filter) {
+          setTimeFilterCalled.count++;
+          sandbox.state.timeFilter = filter;
+        },
+        renderCurrentTab: () => {},
+      };
+
+      const fn = loadFn('setupDateRangeListeners', sandbox);
+      fn();
+
+      mockEnd.triggerInput('2025-06-15');
+
+      assert.strictEqual(sandbox.state.customEndDate, '2025-06-15');
+      assert.strictEqual(setTimeFilterCalled.count, 1);
+    });
+
+    it('should clamp end date when start date exceeds existing end date', () => {
+      const setTimeFilterCalled = { count: 0 };
+      const mockStart = createMockInput('date-start');
+      const mockEnd = createMockInput('date-end', '2025-06-01');
+
+      const sandbox = {
+        state: {
+          customStartDate: null,
+          customEndDate: '2025-06-01',
+          data: { summary: { firstCommit: '2024-01-01' } },
+          timeFilter: 'custom',
+        },
+        document: {
+          getElementById(id) {
+            if (id === 'date-start') return mockStart;
+            if (id === 'date-end') return mockEnd;
+            return null;
+          },
+        },
+        getTodayLocal: () => '2025-06-15',
+        clampDate,
+        setTimeFilter(filter) {
+          setTimeFilterCalled.count++;
+          sandbox.state.timeFilter = filter;
+        },
+        renderCurrentTab: () => {},
+      };
+
+      const fn = loadFn('setupDateRangeListeners', sandbox);
+      fn();
+
+      mockStart.triggerInput('2025-06-15');
+
+      assert.strictEqual(sandbox.state.customStartDate, '2025-06-15');
+      assert.strictEqual(sandbox.state.customEndDate, '2025-06-15');
+      assert.strictEqual(setTimeFilterCalled.count, 1);
+      assert.strictEqual(mockEnd.value, '2025-06-15');
+    });
+
+    it('should not clamp end date when start date is within valid range', () => {
+      const setTimeFilterCalled = { count: 0 };
+      const mockStart = createMockInput('date-start');
+      const mockEnd = createMockInput('date-end', '2025-06-30');
+
+      const sandbox = {
+        state: {
+          customStartDate: null,
+          customEndDate: '2025-06-30',
+          data: { summary: { firstCommit: '2024-01-01' } },
+          timeFilter: 'custom',
+        },
+        document: {
+          getElementById(id) {
+            if (id === 'date-start') return mockStart;
+            if (id === 'date-end') return mockEnd;
+            return null;
+          },
+        },
+        getTodayLocal: () => '2025-06-15',
+        clampDate,
+        setTimeFilter(filter) {
+          setTimeFilterCalled.count++;
+          sandbox.state.timeFilter = filter;
+        },
+        renderCurrentTab: () => {},
+      };
+
+      const fn = loadFn('setupDateRangeListeners', sandbox);
+      fn();
+
+      mockStart.triggerInput('2025-06-01');
+
+      assert.strictEqual(sandbox.state.customStartDate, '2025-06-01');
+      assert.strictEqual(sandbox.state.customEndDate, '2025-06-30');
+      assert.strictEqual(setTimeFilterCalled.count, 1);
+    });
+  });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
