@@ -244,12 +244,42 @@
           <table class="data-table" id="contributors-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th class="num-col">Commits</th>
-                <th class="num-col">Additions</th>
-                <th class="num-col">Deletions</th>
-                <th>First Commit</th>
-                <th>Last Commit</th>
+                <th data-sort-by="name" tabindex="0" role="button" class="sortable-th">
+                  Name
+                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  </svg>
+                </th>
+                <th class="num-col sortable-th" data-sort-by="commits" tabindex="0" role="button">
+                  Commits
+                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  </svg>
+                </th>
+                <th class="num-col sortable-th" data-sort-by="additions" tabindex="0" role="button">
+                  Additions
+                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  </svg>
+                </th>
+                <th class="num-col sortable-th" data-sort-by="deletions" tabindex="0" role="button">
+                  Deletions
+                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  </svg>
+                </th>
+                <th data-sort-by="firstCommit" tabindex="0" role="button" class="sortable-th">
+                  First Commit
+                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  </svg>
+                </th>
+                <th data-sort-by="lastCommit" tabindex="0" role="button" class="sortable-th">
+                  Last Commit
+                  <svg class="sort-indicator" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                    <polygon points="5,9 9,2 1,2" fill="currentColor"/>
+                  </svg>
+                </th>
               </tr>
             </thead>
             <tbody></tbody>

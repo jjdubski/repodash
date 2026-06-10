@@ -15,6 +15,8 @@ const state = {
   customEndDate: null,
   contributionMode: 'author',
   topContributorsMode: 'commits',
+  contributorsSortBy: 'commits',
+  contributorsSortOrder: 'desc',
 };
 
 // ═════════════════════════════════════════════════════════════════════
@@ -871,15 +873,6 @@ function renderTopContributorsChart(contributors, mode = 'commits') {
         tooltip: {
           mode: 'y',
           intersect: false,
-          callbacks: {
-            afterLabel: function (context) {
-              const contributor = top[context.dataIndex];
-              if (contributor?.name && contributor?.email) {
-                return contributor.email;
-              }
-              return '';
-            },
-          },
         },
       },
     },
@@ -902,7 +895,61 @@ function renderFrequencyOverviewChart(frequency) {
 //  CONTRIBUTORS TAB
 // ═════════════════════════════════════════════════════════════════════
 
+function sortContributors(contributors) {
+  const by = state.contributorsSortBy;
+  const order = state.contributorsSortOrder;
+  const fieldMap = { commits: 'totalCommits' };
+  const field = fieldMap[by] || by;
+
+  return [...contributors].sort(function (a, b) {
+    let cmp;
+
+    if (typeof a[field] === 'string') {
+      const aVal = a[field] || '';
+      const bVal = b[field] || '';
+      cmp = aVal.localeCompare(bVal);
+    } else {
+      const aVal = a[field] || 0;
+      const bVal = b[field] || 0;
+      cmp = aVal - bVal;
+    }
+
+    if (cmp === 0 && by !== 'name') {
+      cmp = (a.name || '').localeCompare(b.name || '');
+    }
+
+    return order === 'asc' ? cmp : -cmp;
+  });
+}
+
+function updateContributorsThead() {
+  const thead = document.querySelector('#contributors-table thead');
+  if (!thead) return;
+  const ths = thead.querySelectorAll('th');
+  ths.forEach(function (th) {
+    const sortBy = th.dataset.sortBy;
+    const svg = th.querySelector('.sort-indicator');
+
+    if (sortBy === state.contributorsSortBy) {
+      th.classList.add('active');
+      th.setAttribute(
+        'aria-sort',
+        state.contributorsSortOrder === 'asc' ? 'ascending' : 'descending',
+      );
+      if (svg) {
+        svg.classList.toggle('asc', state.contributorsSortOrder === 'asc');
+      }
+    } else {
+      th.classList.remove('active');
+      th.removeAttribute('aria-sort');
+      if (svg) svg.classList.remove('asc');
+    }
+  });
+}
+
 function renderContributorsTable(contributors) {
+  updateContributorsThead();
+
   const tbody = document.querySelector('#contributors-table tbody');
   tbody.innerHTML = '';
   contributors.forEach(function (c) {
@@ -980,15 +1027,6 @@ function renderContributorBarChart(contributors) {
         tooltip: {
           mode: 'y',
           intersect: false,
-          callbacks: {
-            afterLabel: function (context) {
-              const contributor = list[context.dataIndex];
-              if (contributor?.name && contributor?.email) {
-                return contributor.email;
-              }
-              return '';
-            },
-          },
         },
       },
     },
@@ -1003,8 +1041,47 @@ function renderContributors(d) {
     return;
   }
 
-  renderContributorsTable(d.contributors);
-  renderContributorBarChart(d.contributors);
+  const sorted = sortContributors(d.contributors);
+  renderContributorsTable(sorted);
+  renderContributorBarChart(sorted);
+}
+
+function setupContributorsSort() {
+  const thead = document.querySelector('#contributors-table thead');
+  if (!thead) return;
+
+  function sortByColumn(th) {
+    const sortBy = th.dataset.sortBy;
+    if (!sortBy) return;
+    if (state.contributorsSortBy === sortBy) {
+      state.contributorsSortOrder = state.contributorsSortOrder === 'asc' ? 'desc' : 'asc';
+    } else {
+      state.contributorsSortBy = sortBy;
+      state.contributorsSortOrder = sortBy === 'name' ? 'asc' : 'desc';
+    }
+
+    const d = getFilteredData();
+    if (d) {
+      const sorted = sortContributors(d.contributors);
+      renderContributorsTable(sorted);
+      renderContributorBarChart(sorted);
+    }
+  }
+
+  thead.addEventListener('click', function (e) {
+    const th = e.target.closest('th[data-sort-by]');
+    if (!th) return;
+    sortByColumn(th);
+  });
+
+  thead.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const th = e.target.closest('th[data-sort-by]');
+      if (!th) return;
+      e.preventDefault();
+      sortByColumn(th);
+    }
+  });
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -1321,7 +1398,7 @@ function setupExportPdf() {
         y = await addChartToPdf(pdf, overviewCharts[i], usableWidth, y, margin, pageHeight);
       }
 
-      const contributors = filtered.contributors;
+      const contributors = sortContributors(filtered.contributors);
       if (contributors?.length) {
         pdf.autoTable({
           head: [['Name', 'Commits', 'Additions', 'Deletions', 'First Commit', 'Last Commit']],
@@ -1467,6 +1544,8 @@ function setupEvents() {
   setupDateRangeListeners();
 
   setupKeyboardNav();
+
+  setupContributorsSort();
 }
 
 // ═════════════════════════════════════════════════════════════════════
