@@ -1292,6 +1292,15 @@ function setupExportPdf() {
     document.body.classList.add('printing');
     const savedTheme = state.theme;
     (() => document.body.offsetHeight)();
+    const overlay = document.getElementById('export-overlay');
+    if (overlay) {
+      const style = getComputedStyle(document.documentElement);
+      overlay.style.background = style.getPropertyValue('--bg').trim() || '#ffffff';
+      overlay.style.color = style.getPropertyValue('--text').trim() || '#000000';
+      overlay.classList.remove('hidden');
+    }
+    document.body.style.overflow = 'hidden';
+
     applyTheme('light');
 
     try {
@@ -1487,6 +1496,12 @@ function setupExportPdf() {
         exportBtn.classList.remove('export-error');
       }, 3000);
     } finally {
+      if (overlay) {
+        overlay.classList.add('hidden');
+        overlay.style.background = '';
+        overlay.style.color = '';
+      }
+      document.body.style.overflow = '';
       if (titleEl) titleEl.textContent = originalTitle;
       document.title = originalDocTitle;
       document.body.classList.remove('printing');

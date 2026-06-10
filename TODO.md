@@ -8,6 +8,7 @@
 4. Add a --pdf flag that will just give the user the all time PDF (using the same --file flag for the path otherwise make the PDF in that repo folder with the same timestamp format)
 5. Make sure all the available flags are in the -h output with appropriate descriptions
 6. Find a good npm package name: git-graph, reposcan, repo-scan, repo-vitals, git-vitals
+7. Make `Commit by Day of Week` and `Commit by Hour of Day` share a page in export PDF (stacked vertically preferably)
 
 | Group                | Items                                                           | Theme                               |
 | -------------------- | --------------------------------------------------------------- | ----------------------------------- |

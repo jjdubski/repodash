@@ -1,5 +1,5 @@
 /* ═════════════════════════════════════════════════════════════════════
-   Insights Dashboard — Tests (Phase 6+)
+   Insights Dashboard — Tests
    ═════════════════════════════════════════════════════════════════════
    Tests cover:
      1. File structure — all 4 dashboard files, CSS custom properties,
@@ -197,6 +197,39 @@ describe('Dashboard — file structure', () => {
       assert.ok(html.includes('Loading'), 'Missing loading state');
       assert.ok(html.includes('-error'), 'Missing error state element');
       assert.ok(html.includes('-empty'), 'Missing empty state element');
+    });
+
+    it('should not have option value="lines" in contribution-mode select', () => {
+      const selectMatch = html.match(
+        /<select[^>]*id="contribution-mode"[^>]*>([\s\S]*?)<\/select>/,
+      );
+      assert.ok(selectMatch, 'contribution-mode select should exist');
+      const inner = selectMatch[1];
+      assert.ok(!inner.includes('lines'), 'should not contain "lines" option');
+      assert.ok(inner.includes('value="author"'), 'should have author option');
+      assert.ok(inner.includes('value="commits"'), 'should have commits option');
+      const opts = inner.match(/<option/g);
+      assert.strictEqual(opts?.length, 2, 'expected exactly 2 options');
+    });
+
+    it('should have loading spinners in all 3 tabs', () => {
+      const loadingEls = html.match(/class="spinner"/g);
+      assert.ok(loadingEls, 'No .spinner elements found');
+      assert.ok(loadingEls.length >= 3, `Expected at least 3 spinners, got ${loadingEls.length}`);
+    });
+
+    it('should have export overlay with spinner and Generating PDF text', () => {
+      const overlayMatch = html.match(/<div[^>]*id="export-overlay"[^>]*>([\s\S]*?)<\/div>/);
+      assert.ok(overlayMatch, 'export-overlay div must exist');
+      const inner = overlayMatch[1];
+      assert.ok(/class="spinner"/.test(inner), 'spinner inside overlay');
+      assert.ok(inner.includes('Generating PDF'), 'Generating PDF text inside overlay');
+    });
+
+    it('should have sortable table headers with sort-indicator SVGs', () => {
+      const ths = html.match(/sortable-th/g);
+      assert.ok(ths, 'No sortable-th elements found');
+      assert.ok(ths.length >= 6, `Expected at least 6 sortable columns, got ${ths.length}`);
     });
   });
 });
@@ -1383,6 +1416,193 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       assert.strictEqual(clampDate('2024-06-15', '2024-06-15', '2024-06-15'), '2024-06-15');
       assert.strictEqual(clampDate('2024-06-14', '2024-06-15', '2024-06-15'), '2024-06-15');
       assert.strictEqual(clampDate('2024-06-16', '2024-06-15', '2024-06-15'), '2024-06-15');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  //  UI INTEGRITY TESTS
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  describe('dashboard.js — UI integrity', () => {
+    let src;
+
+    before(() => {
+      src = read('dashboard.js');
+    });
+
+    it('should not define renderContributionLines anywhere in the source', () => {
+      assert.ok(
+        !src.includes('renderContributionLines'),
+        'renderContributionLines should be removed from dashboard.js',
+      );
+    });
+
+    it('should have no extractable function named renderContributionLines', () => {
+      const fn = extractFunction('renderContributionLines', src);
+      assert.strictEqual(fn, null, 'renderContributionLines function should not be extractable');
+    });
+
+    it('should use c.name?.trim() || c.email as display fallback for contributor name', () => {
+      assert.ok(
+        src.includes('c.name?.trim() || c.email'),
+        'renderContributorsTable should fall back to email when name is missing',
+      );
+    });
+
+    it('should build titleText with "Name <email>" when both exist', () => {
+      assert.ok(
+        src.includes(
+          `titleText = c.name?.trim() && c.email ? c.name?.trim() + ' <' + c.email + '>' : c.email`,
+        ),
+        'titleText should use Name <email> format',
+      );
+    });
+
+    it('should call escapeHtml on the title attribute value', () => {
+      assert.ok(src.includes('escapeHtml(titleText)'), 'escapeHtml must be called on titleText');
+    });
+
+    it('should call escapeHtml on the display name', () => {
+      assert.ok(
+        src.includes('escapeHtml(displayName)'),
+        'escapeHtml should be used on displayName',
+      );
+    });
+
+    it('should set document.body.style.overflow to "hidden" during export', () => {
+      assert.ok(
+        src.includes("document.body.style.overflow = 'hidden'"),
+        'must set body overflow to hidden when starting export',
+      );
+    });
+
+    it('should reference getElementById with "export-overlay"', () => {
+      assert.ok(
+        src.includes("getElementById('export-overlay')"),
+        'must call getElementById with export-overlay',
+      );
+    });
+
+    it('should call renderOverview inside setupExportPdf', () => {
+      const fn = extractFunction('setupExportPdf', src);
+      assert.ok(fn, 'setupExportPdf must be defined');
+      assert.ok(fn.includes('renderOverview('), 'setupExportPdf must call renderOverview');
+    });
+
+    it('should call renderContributors inside setupExportPdf', () => {
+      const fn = extractFunction('setupExportPdf', src);
+      assert.ok(fn, 'setupExportPdf must be defined');
+      assert.ok(fn.includes('renderContributors('), 'setupExportPdf must call renderContributors');
+    });
+
+    it('should call renderActivity inside setupExportPdf', () => {
+      const fn = extractFunction('setupExportPdf', src);
+      assert.ok(fn, 'setupExportPdf must be defined');
+      assert.ok(fn.includes('renderActivity('), 'setupExportPdf must call renderActivity');
+    });
+
+    it('should call renderCurrentTab in the finally block', () => {
+      const fn = extractFunction('setupExportPdf', src);
+      assert.ok(fn, 'setupExportPdf must be defined');
+      const lastFinallyIndex = fn.lastIndexOf('finally');
+      assert.ok(lastFinallyIndex !== -1, 'setupExportPdf must have a finally block');
+      const afterFinally = fn.slice(lastFinallyIndex);
+      assert.ok(
+        afterFinally.includes('renderCurrentTab('),
+        'finally block must call renderCurrentTab',
+      );
+    });
+  });
+
+  describe('HTML (index.html) — UI integrity', () => {
+    let html;
+
+    before(() => {
+      html = read('index.html');
+    });
+
+    it('should not contain option value="lines" anywhere', () => {
+      assert.ok(
+        !html.includes('value="lines"'),
+        'index.html should not contain <option value="lines">',
+      );
+    });
+
+    it('should have contribution-mode select with only author and commits options', () => {
+      const selectMatch = html.match(
+        /<select[^>]*id="contribution-mode"[^>]*>([\s\S]*?)<\/select>/,
+      );
+      assert.ok(selectMatch, 'contribution-mode select should exist');
+      const innerHtml = selectMatch[1];
+      const optionMatches = innerHtml.match(/<option/g);
+      assert.strictEqual(optionMatches?.length, 2, 'Expected exactly 2 option elements');
+      assert.ok(innerHtml.includes('value="author"'), 'Should have author option');
+      assert.ok(innerHtml.includes('value="commits"'), 'Should have commits option');
+      assert.ok(!innerHtml.includes('lines'), 'Should not contain lines option');
+    });
+
+    it('should contain an element with id="export-overlay"', () => {
+      assert.ok(/id="export-overlay"/.test(html), 'must contain id="export-overlay"');
+    });
+
+    it('should contain a .spinner element inside the export overlay', () => {
+      const overlayMatch = html.match(/<div[^>]*id="export-overlay"[^>]*>([\s\S]*?)<\/div>/);
+      assert.ok(overlayMatch, 'export-overlay div must exist');
+      assert.ok(/class="spinner"/.test(overlayMatch[1]), '.spinner must exist inside overlay');
+    });
+
+    it('should contain "Generating PDF…" text inside the export overlay', () => {
+      const overlayMatch = html.match(/<div[^>]*id="export-overlay"[^>]*>([\s\S]*?)<\/div>/);
+      assert.ok(overlayMatch, 'export-overlay div must exist');
+      assert.ok(
+        overlayMatch[1].includes('Generating PDF\u2026') ||
+          overlayMatch[1].includes('Generating PDF…'),
+        'overlay must contain "Generating PDF…" text',
+      );
+    });
+  });
+
+  describe('CSS (style.css) — UI integrity', () => {
+    let css;
+
+    before(() => {
+      css = read('style.css');
+    });
+
+    it('should define text-overflow: ellipsis on .data-table td', () => {
+      const tdMatch = css.match(/\.data-table\s+td\s*\{([^}]*)\}/);
+      assert.ok(tdMatch, '.data-table td selector must exist');
+      assert.ok(tdMatch[1].includes('text-overflow: ellipsis'));
+    });
+
+    it('should define max-width on .data-table td', () => {
+      const tdMatch = css.match(/\.data-table\s+td\s*\{([^}]*)\}/);
+      assert.ok(tdMatch, '.data-table td selector must exist');
+      assert.ok(tdMatch[1].includes('max-width'), 'should have max-width for truncation');
+    });
+
+    it('should define overflow: hidden on .data-table td', () => {
+      const tdMatch = css.match(/\.data-table\s+td\s*\{([^}]*)\}/);
+      assert.ok(tdMatch, '.data-table td selector must exist');
+      assert.ok(tdMatch[1].includes('overflow: hidden'));
+    });
+
+    it('should define .export-overlay with position: fixed', () => {
+      const overlayMatch = css.match(/\.export-overlay\s*\{([^}]*)\}/);
+      assert.ok(overlayMatch, '.export-overlay selector must exist');
+      assert.ok(overlayMatch[1].includes('position: fixed'));
+    });
+
+    it('should define .export-overlay with inset: 0', () => {
+      const overlayMatch = css.match(/\.export-overlay\s*\{([^}]*)\}/);
+      assert.ok(overlayMatch, '.export-overlay selector must exist');
+      assert.ok(overlayMatch[1].includes('inset: 0'));
+    });
+
+    it('should define .export-overlay.hidden with display: none', () => {
+      const hiddenMatch = css.match(/\.export-overlay\.hidden\s*\{([^}]*)\}/);
+      assert.ok(hiddenMatch, '.export-overlay.hidden selector must exist');
+      assert.ok(hiddenMatch[1].includes('display: none'));
     });
   });
 });

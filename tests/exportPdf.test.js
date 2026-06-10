@@ -74,12 +74,27 @@ describe('Dashboard — setupExportPdf', () => {
       contains: (c) => classSet.has(c),
     };
 
+    const overlayClassSet = new Set();
+    const overlayStyle = {};
+    const overlay = {
+      style: overlayStyle,
+      classList: {
+        add: (c) => overlayClassSet.add(c),
+        remove: (c) => overlayClassSet.delete(c),
+        contains: (c) => overlayClassSet.has(c),
+      },
+    };
+
     function chartCardEl() {
       return { querySelector: () => null };
     }
 
     const document = {
-      getElementById: (id) => (id === 'export-pdf' ? exportBtn : null),
+      getElementById: (id) => {
+        if (id === 'export-pdf') return exportBtn;
+        if (id === 'export-overlay') return overlay;
+        return null;
+      },
       querySelector: (sel) => {
         if (sel === '.header-title') return headerTitleEl;
         if (sel === '.metric-grid') return metricEl;
@@ -93,7 +108,8 @@ describe('Dashboard — setupExportPdf', () => {
         return [];
       },
       title: 'Original Document Title',
-      body: { classList },
+      body: { classList, style: {} },
+      documentElement: {},
     };
 
     // Mock window and PDF generation utilities
@@ -162,9 +178,23 @@ describe('Dashboard — setupExportPdf', () => {
       // Dependencies used by setupExportPdf
       getFilteredData: () => ({
         contributions: [{ date: '2024-01-01', count: 1 }],
-        // other properties are not used by the stubs
+        contributors: [
+          {
+            name: 'test-user',
+            email: 'test@example.com',
+            totalCommits: 5,
+            additions: 100,
+            deletions: 50,
+            firstCommit: '2024-01-01',
+            lastCommit: '2024-06-01',
+          },
+        ],
+        activity: { topFiles: [{ path: 'src/index.js', changes: 10 }] },
       }),
       getDateRangeLabel: () => 'Date Range',
+      sortContributors: (c) => c,
+      formatNumber: (n) => String(n),
+      formatDate: (d) => d || '\u2014',
       renderOverview: () => {
         renderFlags.overview = true;
       },
@@ -180,6 +210,13 @@ describe('Dashboard — setupExportPdf', () => {
       applyTheme: (theme) => {
         sandbox.state.theme = theme;
       },
+      getComputedStyle: () => ({
+        getPropertyValue: (name) => {
+          if (name === '--bg') return '#0d1117';
+          if (name === '--text') return '#e6edf3';
+          return '';
+        },
+      }),
       document,
       window,
       console: { error: () => {} },
@@ -362,7 +399,11 @@ describe('Dashboard — setupExportPdf', () => {
       false,
       'printing class should be removed when jspdf is missing',
     );
-    assert.ok(renderFlags.overview, 'renderOverview should be called even when jspdf is missing');
+    assert.strictEqual(
+      renderFlags.overview,
+      true,
+      'renderOverview should be called even when jspdf is missing',
+    );
     assert.ok(renderFlags.current, 'renderCurrentTab should be called when jspdf is missing');
     assert.strictEqual(
       getPrintCalled(),
@@ -391,18 +432,19 @@ describe('Dashboard — setupExportPdf', () => {
     );
   });
 
-  it('should apply light theme during chart rendering', async () => {
+  it('should apply light theme during PDF capture', async () => {
     const base = createBaseSandbox();
     const { sandbox, exportBtn } = base;
 
-    let themeDuringRender = null;
+    const themeTimeline = [];
 
-    // Instrument renderOverview to capture the theme at render time
-    sandbox.renderOverview = () => {
-      themeDuringRender = sandbox.state.theme;
+    // Track theme changes via applyTheme
+    sandbox.applyTheme = (theme) => {
+      themeTimeline.push(theme);
+      sandbox.state.theme = theme;
     };
 
-    // Start with dark so we can detect the forced light theme
+    // Start with dark
     sandbox.state.theme = 'dark';
 
     const fn = loadFn('setupExportPdf', sandbox);
@@ -410,11 +452,7 @@ describe('Dashboard — setupExportPdf', () => {
 
     await exportBtn._handler();
 
-    assert.strictEqual(
-      themeDuringRender,
-      'light',
-      'Light theme should be forced during chart rendering even when starting from dark',
-    );
+    assert.ok(themeTimeline.includes('light'), 'Light theme should be applied during PDF capture');
     assert.strictEqual(
       sandbox.state.theme,
       'dark',

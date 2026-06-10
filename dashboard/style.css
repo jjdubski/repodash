@@ -204,6 +204,10 @@ body {
 .export-btn:active {
   transform: scale(0.97);
 }
+.export-btn.export-error {
+  border-color: var(--red);
+  color: var(--red);
+}
 
 /* Sun visible in light mode only */
 .sun-icon {
@@ -367,6 +371,25 @@ body {
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ── PDF export overlay ──────────────────────────────────────────── */
+.export-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 500;
+}
+.export-overlay.hidden {
+  display: none;
 }
 
 /* ── Metric cards grid ──────────────────────────────────────────────── */
@@ -804,18 +827,12 @@ body.printing .chart-card {
   /* Targeted minimum heights for specific chart sizes to avoid excess whitespace */
   .chart-wrap-sm {
     min-height: 200px !important;
+    height: 200px !important;
   }
 
   .chart-wrap-lg {
     min-height: 360px !important;
-  }
-
-  .chart-wrap-sm {
-    height: 200px;
-  }
-
-  .chart-wrap-lg {
-    height: 320px;
+    height: 320px !important;
   }
 
   .chart-row {
