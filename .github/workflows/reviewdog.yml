@@ -533,9 +533,9 @@ jobs:
           STYLELINT: ${{ steps.stylelint.outcome }}
         run: |
           cat >> "$GITHUB_STEP_SUMMARY" << 'EOF'
-          ## reviewdog Linter Results
+          ## reviewdog Results
 
-          | Linter | Status |
+          | Check | Status |
           |--------|--------|
           EOF
 
@@ -563,10 +563,10 @@ jobs:
           add_result stylelint STYLELINT
 
           if [[ ${#failures[@]} -gt 0 ]]; then
-              printf "\n**Linters with errors: %s**\n" "${failures[*]}" >> "$GITHUB_STEP_SUMMARY"
-              echo "Linters with errors: ${failures[*]}"
+              printf "\n**Checks with errors: %s**\n" "${failures[*]}" >> "$GITHUB_STEP_SUMMARY"
+              echo "Checks with errors: ${failures[*]}"
               exit 1
           else
-              printf "\n**All linters passed!**\n" >> "$GITHUB_STEP_SUMMARY"
-              echo "All linters passed"
+              printf "\n**All checks passed!**\n" >> "$GITHUB_STEP_SUMMARY"
+              echo "All checks passed"
           fi

@@ -59,6 +59,7 @@ function getTodayLocal() {
 let _escapeDiv = null;
 
 function escapeHtml(str) {
+  if (str == null) return '';
   if (!_escapeDiv) _escapeDiv = document.createElement('div');
   _escapeDiv.textContent = str;
   return _escapeDiv.innerHTML;
@@ -705,7 +706,7 @@ function renderContributionAuthor(contributions, contributors) {
   const seen = {};
   const authorKeys = [];
   (contributors || []).forEach(function (c) {
-    const key = c.name || c.email;
+    const key = c.name?.trim() || c.email;
     if (!seen[key]) {
       seen[key] = true;
       authorKeys.push({ key: key, label: key });
@@ -847,7 +848,7 @@ function renderTopContributorsChart(contributors, mode = 'commits') {
     'bar',
     {
       labels: top.map(function (c) {
-        return c.name || c.email;
+        return c.name?.trim() || c.email;
       }),
       datasets: [
         {
@@ -865,7 +866,22 @@ function renderTopContributorsChart(contributors, mode = 'commits') {
         x: { beginAtZero: true },
         y: { grid: { display: false } },
       },
-      plugins: { legend: { display: false }, tooltip: { mode: 'y', intersect: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'y',
+          intersect: false,
+          callbacks: {
+            afterLabel: function (context) {
+              const contributor = top[context.dataIndex];
+              if (contributor?.name && contributor?.email) {
+                return contributor.email;
+              }
+              return '';
+            },
+          },
+        },
+      },
     },
   );
 }
@@ -891,9 +907,13 @@ function renderContributorsTable(contributors) {
   tbody.innerHTML = '';
   contributors.forEach(function (c) {
     const tr = document.createElement('tr');
+    const displayName = c.name?.trim() || c.email;
+    const titleText = c.name?.trim() && c.email ? c.name?.trim() + ' <' + c.email + '>' : c.email;
     tr.innerHTML =
-      '<td>' +
-      escapeHtml(c.name || c.email) +
+      '<td title="' +
+      escapeHtml(titleText) +
+      '">' +
+      escapeHtml(displayName) +
       '</td>' +
       '<td class="num-col">' +
       formatNumber(c.totalCommits) +
@@ -929,7 +949,7 @@ function renderContributorBarChart(contributors) {
     'bar',
     {
       labels: list.map(function (c) {
-        return c.name || c.email;
+        return c.name?.trim() || c.email;
       }),
       datasets: [
         {
@@ -955,7 +975,22 @@ function renderContributorBarChart(contributors) {
         },
         x: { beginAtZero: true },
       },
-      plugins: { legend: { display: false }, tooltip: { mode: 'y', intersect: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'y',
+          intersect: false,
+          callbacks: {
+            afterLabel: function (context) {
+              const contributor = list[context.dataIndex];
+              if (contributor?.name && contributor?.email) {
+                return contributor.email;
+              }
+              return '';
+            },
+          },
+        },
+      },
     },
   );
 }
@@ -1292,7 +1327,7 @@ function setupExportPdf() {
           head: [['Name', 'Commits', 'Additions', 'Deletions', 'First Commit', 'Last Commit']],
           body: contributors.map(function (c) {
             return [
-              c.name || c.email,
+              c.name?.trim() || c.email,
               formatNumber(c.totalCommits),
               formatNumber(c.additions),
               formatNumber(c.deletions),
