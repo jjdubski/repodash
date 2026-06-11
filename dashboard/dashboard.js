@@ -4,6 +4,31 @@
 
 'use strict';
 
+import {
+  formatNumber,
+  formatDate,
+  clampDate,
+  getCutoffDate,
+  filterByDate,
+  downsampleData,
+  computeFilteredSummary,
+  computeFilteredContributors,
+  computeFilteredActivity,
+  sortContributors,
+  MAX_CHART_POINTS
+} from './filter.js';
+
+// Re-export for backward-compat (Phase 3 — tests still import from dashboard.js)
+export {
+  formatNumber,
+  formatDate,
+  clampDate,
+  getCutoffDate,
+  filterByDate,
+  computeFilteredContributors,
+  computeFilteredActivity
+};
+
 // ── State ───────────────────────────────────────────────────────────
 const state = {
   data: null,
@@ -18,39 +43,15 @@ const state = {
   contributorsSortBy: 'commits',
   contributorsSortOrder: 'desc',
   _filterCacheKey: null,
-  _filterCache: null
+  _filterCache: null,
+  worker: null,
+  workerReady: false,
+  loadingPhase: 'init'
 };
 
 // ═════════════════════════════════════════════════════════════════════
-//  UTILITIES
+//  UTILITIES (UI-specific — NOT in filter.js)
 // ═════════════════════════════════════════════════════════════════════
-
-export function formatNumber(n) {
-  if (n == null || Number.isNaN(n)) return '\u2014'; // em dash
-  const abs = Math.abs(n);
-  const sign = n < 0 ? '-' : '';
-  if (abs >= 1000000) return sign + (abs / 1000000).toFixed(1) + 'M';
-  if (abs >= 1000) return sign + (abs / 1000).toFixed(1) + 'K';
-  return String(n);
-}
-
-export function formatDate(iso) {
-  if (!iso) return '\u2014';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
-  return d.toLocaleDateString(undefined, {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  });
-}
-
-export function clampDate(dateStr, minStr, maxStr) {
-  if (!dateStr) return dateStr;
-  if (minStr && dateStr < minStr) return minStr;
-  if (maxStr && dateStr > maxStr) return maxStr;
-  return dateStr;
-}
 
 function getTodayLocal() {
   const d = new Date();
@@ -83,7 +84,7 @@ function getDateRangeLabel(d) {
     startLabel = formatDate(d.summary.firstCommit);
     endLabel = formatDate(getTodayLocal());
   } else {
-    const bounds = getCutoffDate(state.timeFilter);
+    const bounds = getCutoffDate(state.timeFilter, state.customStartDate, state.customEndDate);
     if (bounds) {
       startLabel = bounds.start ? formatDate(bounds.start) : 'Beginning';
       endLabel = bounds.end ? formatDate(bounds.end) : formatDate(getTodayLocal());
@@ -94,191 +95,6 @@ function getDateRangeLabel(d) {
   }
   if (startLabel === endLabel) return startLabel;
   return startLabel + ' \u2014 ' + endLabel;
-}
-
-// ── Downsample ──────────────────────────────────────────────────────
-
-const MAX_CHART_POINTS = 500;
-
-/**
- * Downsample an array to at most maxPoints by evenly-spaced sampling.
- * Preserves the first and last elements. Used to prevent Chart.js from
- * freezing when rendering repos with thousands of days of history.
- */
-function downsampleData(arr, maxPoints) {
-  if (!arr || arr.length <= maxPoints) return arr;
-  const step = (arr.length - 1) / (maxPoints - 1);
-  const result = [];
-  for (let i = 0; i < maxPoints; i++) {
-    result.push(arr[Math.round(i * step)]);
-  }
-  return result;
-}
-
-// ── Time filter helpers ──────────────────────────────────────────────
-
-export function getCutoffDate(filter) {
-  if (filter === 'custom') {
-    return {
-      start: state.customStartDate || null,
-      end: state.customEndDate || null
-    };
-  }
-  const now = new Date();
-  const d = new Date(now);
-  switch (filter) {
-    case 'thisWeek':
-      d.setDate(now.getDate() - 7);
-      break;
-    case 'last3months':
-      d.setMonth(now.getMonth() - 3);
-      break;
-    case 'pastYear':
-      d.setFullYear(now.getFullYear() - 1);
-      break;
-    default:
-      return null; // allTime
-  }
-  return { start: d.toISOString().slice(0, 10), end: null };
-}
-
-export function filterByDate(arr, bounds, field = 'date') {
-  if (!arr?.length || !bounds) return arr;
-  return arr.filter(function (item) {
-    if (bounds.start && item[field] < bounds.start) return false;
-    if (bounds.end && item[field] > bounds.end) return false;
-    return true;
-  });
-}
-
-function computeFilteredSummary(contributions, frequency) {
-  const totalCommits = contributions.reduce(function (sum, d) {
-    return sum + d.count;
-  }, 0);
-  const totalAdditions = frequency.reduce(function (sum, d) {
-    return sum + d.additions;
-  }, 0);
-  const totalDeletions = frequency.reduce(function (sum, d) {
-    return sum + d.deletions;
-  }, 0);
-
-  const authorSet = {};
-  contributions.forEach(function (day) {
-    (day.authorDetails || []).forEach(function (a) {
-      authorSet[a.email || a.author] = true;
-    });
-  });
-  const totalContributors = Object.keys(authorSet).length;
-
-  let firstDate = null;
-  let lastDate = null;
-  for (const c of contributions) {
-    if (c.date) {
-      if (!firstDate || c.date < firstDate) firstDate = c.date;
-      if (!lastDate || c.date > lastDate) lastDate = c.date;
-    }
-  }
-
-  return {
-    totalCommits: totalCommits,
-    totalContributors: totalContributors,
-    totalAdditions: totalAdditions,
-    totalDeletions: totalDeletions,
-    firstCommit: firstDate || state.data.summary.firstCommit,
-    lastCommit: lastDate || state.data.summary.lastCommit,
-    activeBranches: state.data.summary.activeBranches
-  };
-}
-
-export function computeFilteredContributors(contributions, allContributors) {
-  const authorStats = {};
-  contributions.forEach(function (day) {
-    (day.authorDetails || []).forEach(function (a) {
-      const key = a.email || a.author;
-      if (!authorStats[key]) {
-        authorStats[key] = {
-          totalCommits: 0,
-          additions: 0,
-          deletions: 0
-        };
-      }
-      authorStats[key].totalCommits += a.count;
-      authorStats[key].additions += a.additions;
-      authorStats[key].deletions += a.deletions;
-    });
-  });
-
-  return allContributors
-    .filter(function (c) {
-      return Object.hasOwn(authorStats, c.email);
-    })
-    .map(function (c) {
-      const stats = authorStats[c.email] || {
-        totalCommits: 0,
-        additions: 0,
-        deletions: 0
-      };
-      return {
-        name: c.name,
-        email: c.email,
-        totalCommits: stats.totalCommits,
-        additions: stats.additions,
-        deletions: stats.deletions,
-        firstCommit: c.firstCommit,
-        lastCommit: c.lastCommit
-      };
-    })
-    .sort(function (a, b) {
-      return b.totalCommits - a.totalCommits || (a.name || '').localeCompare(b.name || '');
-    });
-}
-
-export function computeFilteredActivity(contributions) {
-  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  const dayCounts = [0, 0, 0, 0, 0, 0, 0];
-  const hourCounts = new Array(24).fill(0);
-  const fileMap = {};
-
-  for (const c of contributions) {
-    const jsDay = new Date(c.date + 'T00:00:00Z').getUTCDay();
-    const idx = (jsDay + 6) % 7;
-    dayCounts[idx] += c.count;
-
-    if (c.byHour) {
-      for (let h = 0; h < c.byHour.length; h++) {
-        hourCounts[h] += c.byHour[h].count;
-      }
-    }
-
-    if (c.topFiles) {
-      for (const f of c.topFiles) {
-        fileMap[f.path] = (fileMap[f.path] || 0) + f.changes;
-      }
-    }
-  }
-
-  const byDayOfWeek = dayNames.map(function (day, i) {
-    return { day: day, count: dayCounts[i] };
-  });
-
-  const byHour = Array.from(hourCounts, function (count, hour) {
-    return { hour: hour, count: count };
-  });
-
-  const topFiles = Object.keys(fileMap)
-    .map(function (path) {
-      return { path: path, changes: fileMap[path] };
-    })
-    .sort(function (a, b) {
-      return b.changes - a.changes || a.path.localeCompare(b.path);
-    })
-    .slice(0, 30);
-
-  return {
-    byDayOfWeek: byDayOfWeek,
-    byHour: byHour,
-    topFiles: topFiles
-  };
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -300,97 +116,34 @@ function lineChartOptions(frequency) {
   };
 }
 
-function downsampleFrequency(frequency) {
-  if (!frequency || frequency.length <= MAX_CHART_POINTS) return frequency;
-  return downsampleData(frequency, MAX_CHART_POINTS);
-}
-
-function renderFrequencyLineChart(frequency, chartId, alpha, pointRadius, pointHoverRadius) {
-  if (!frequency?.length) {
-    destroyChart(chartId);
-    return;
-  }
-
-  frequency = downsampleFrequency(frequency);
-
-  createChart(
-    chartId,
-    'line',
-    {
-      labels: frequency.map(function (x) {
-        return x.date;
-      }),
-      datasets: [
-        {
-          label: 'Additions',
-          data: frequency.map(function (x) {
-            return x.additions;
-          }),
-          borderColor: globalThis.window.COLORS.green,
-          backgroundColor: globalThis.window.COLORS.green + alpha,
-          fill: true,
-          tension: 0.3,
-          pointRadius: pointRadius,
-          pointHoverRadius: pointHoverRadius,
-          borderWidth: 2
-        },
-        {
-          label: 'Deletions',
-          data: frequency.map(function (x) {
-            return x.deletions;
-          }),
-          borderColor: globalThis.window.COLORS.red,
-          backgroundColor: globalThis.window.COLORS.red + alpha,
-          fill: true,
-          tension: 0.3,
-          pointRadius: pointRadius,
-          pointHoverRadius: pointHoverRadius,
-          borderWidth: 2
-        }
-      ]
-    },
-    lineChartOptions(frequency)
-  );
-}
-
-/**
- * Build a complete Chart.js options object by merging CHART_DEFAULTS,
- * theme-aware scale colors, and caller-provided overrides.  Scales
- * are deep-merged so theme ticks/grid colors flow through correctly.
- */
 function buildOptions(override) {
   const D = globalThis.window.CHART_DEFAULTS;
   const theme = globalThis.window.getScaleDefaults();
   const text = globalThis.window.getTextColor();
 
-  // Start with a shallow copy of DEFAULTS
   const opts = {};
   let key;
   for (key in D) {
     if (Object.hasOwn(D, key)) opts[key] = D[key];
   }
 
-  // Apply top-level overrides
   if (override) {
     for (key in override) {
       if (Object.hasOwn(override, key)) opts[key] = override[key];
     }
   }
 
-  // Deep-merge scales: DEFAULTS.scales → theme → override.scales
   const srcScales = override?.scales || {};
   opts.scales = opts.scales || {};
   opts.scales.x = { ...D.scales.x, ...theme.x, ...srcScales.x };
   opts.scales.y = { ...D.scales.y, ...theme.y, ...srcScales.y };
 
-  // Merge plugins: override.plugins wins over DEFAULTS.plugins
   if (override?.plugins) {
     opts.plugins = { ...D.plugins, ...override.plugins };
   } else {
     opts.plugins = { ...D.plugins };
   }
 
-  // Inject theme text color into legend labels if not explicitly set
   if (opts.plugins.legend && !opts.plugins.legend.labels) {
     opts.plugins.legend.labels = { color: text };
   } else if (opts.plugins.legend?.labels && !opts.plugins.legend.labels.color) {
@@ -444,6 +197,65 @@ function updateAllChartColors() {
 
     chart.update();
   }
+}
+
+// ── rAF Chart Scheduler ──────────────────────────────────────────────
+
+const _chartQueue = [];
+let _chartScheduled = false;
+
+function _clearChartQueue() {
+  _chartQueue.length = 0;
+  _chartScheduled = false;
+}
+
+function scheduleChart(id, type, data, options) {
+  return new Promise(function (resolve) {
+    _chartQueue.push({ id, type, data, options, resolve });
+    if (!_chartScheduled) {
+      _chartScheduled = true;
+      requestAnimationFrame(_processChartQueue);
+    }
+  });
+}
+
+function _processChartQueue() {
+  const item = _chartQueue.shift();
+  if (!item) {
+    _chartScheduled = false;
+    return;
+  }
+
+  createOrUpdateChart(item.id, item.type, item.data, item.options);
+  item.resolve();
+
+  if (_chartQueue.length > 0) {
+    requestAnimationFrame(_processChartQueue);
+  } else {
+    _chartScheduled = false;
+  }
+}
+
+function createOrUpdateChart(id, type, data, options) {
+  const existing = state.charts[id];
+  if (!existing) {
+    return createChart(id, type, data, options);
+  }
+
+  if (existing.config.type === type && existing.data.datasets.length === data.datasets.length) {
+    existing.data.labels = data.labels;
+    data.datasets.forEach(function (ds, i) {
+      const target = existing.data.datasets[i];
+      if (!target) return;
+      Object.keys(ds).forEach(function (k) {
+        target[k] = ds[k];
+      });
+    });
+    existing.update('none');
+    return existing;
+  }
+
+  return createChart(id, type, data, options);
 }
 
 // ── Empty chart skeletons ────────────────────────────────────────────
@@ -513,11 +325,6 @@ function showContent(tab) {
   if (section) section.classList.remove('tab-loading');
 }
 
-function showLoading(tab) {
-  const section = document.getElementById('tab-' + tab);
-  if (section) section.classList.add('tab-loading');
-  showElem(tab + '-loading');
-}
 function showError(tab, msg) {
   const el = document.getElementById(tab + '-error');
   if (el) {
@@ -536,15 +343,89 @@ function clearStates(tab) {
   showContent(tab);
 }
 
+// ── Web Worker ───────────────────────────────────────────────────────
+
+function initWorker() {
+  try {
+    state.worker = new Worker('worker.js', { type: 'module' });
+    state.workerReady = false;
+
+    state.worker.addEventListener('message', function (e) {
+      const msg = e.data;
+      if (msg.type === 'ready') {
+        state.workerReady = true;
+        state.loadingPhase = 'complete';
+        renderCurrentTab();
+      }
+    });
+
+    state.worker.addEventListener('error', function (err) {
+      console.error('Worker error:', err);
+      state.workerReady = false;
+      renderCurrentTab();
+    });
+
+    state.worker.postMessage({
+      type: 'init',
+      data: {
+        contributions: state.data.contributions,
+        contributors: state.data.contributors,
+        frequency: state.data.frequency,
+        summary: state.data.summary
+      }
+    });
+  } catch (err) {
+    console.error('Failed to create worker:', err);
+    state.workerReady = false;
+    state.loadingPhase = 'complete';
+    renderCurrentTab();
+  }
+}
+
 function loadData() {
-  return fetch('/data/all.json')
+  return fetch('/data/summary.json')
     .then(function (r) {
       if (!r.ok) throw new Error('HTTP ' + r.status);
       return r.json();
     })
-    .then(function (data) {
-      state.data = data;
-      return state.data;
+    .then(function (summary) {
+      state.data = { summary: summary };
+      state.loadingPhase = 'summary';
+
+      document.getElementById('metric-commits').textContent = formatNumber(summary.totalCommits);
+      document.getElementById('metric-contributors').textContent = formatNumber(
+        summary.totalContributors
+      );
+      document.getElementById('metric-additions').textContent = formatNumber(
+        summary.totalAdditions
+      );
+      document.getElementById('metric-deletions').textContent = formatNumber(
+        summary.totalDeletions
+      );
+
+      return Promise.all([
+        fetch('/data/contributions.json').then(function (r) {
+          return r.json();
+        }),
+        fetch('/data/contributors.json').then(function (r) {
+          return r.json();
+        }),
+        fetch('/data/frequency.json').then(function (r) {
+          return r.json();
+        })
+      ]);
+    })
+    .then(function (results) {
+      state.data.contributions = results[0];
+      state.data.contributors = results[1];
+      state.data.frequency = results[2];
+      state.loadingPhase = 'charts';
+
+      TABS.forEach(function (t) {
+        clearStates(t);
+      });
+
+      initWorker();
     })
     .catch(function (err) {
       console.error('Failed to load data:', err);
@@ -619,8 +500,8 @@ function switchTab(tabName) {
   state.activeTab = tabName;
 
   globalThis.window.location.hash = tabName;
-
   syncTabUI(tabName);
+  _clearChartQueue();
 
   if (!state.data) {
     initEmptyCharts(tabName);
@@ -661,37 +542,109 @@ function setTimeFilter(filter) {
   renderCurrentTab();
 }
 
-function getFilteredData() {
-  if (!state.data) return null;
+function getFilteredData(allTabs) {
+  if (!state.data?.contributions) return null;
+
   const key =
-    state.timeFilter + '|' + (state.customStartDate || '') + '|' + (state.customEndDate || '');
-  if (state._filterCacheKey === key && state._filterCache) return state._filterCache;
+    state.timeFilter +
+    '|' +
+    (state.customStartDate || '') +
+    '|' +
+    (state.customEndDate || '') +
+    '|' +
+    state.activeTab +
+    '|' +
+    state.contributorsSortBy +
+    '|' +
+    state.contributorsSortOrder;
 
-  const bounds = getCutoffDate(state.timeFilter);
+  if (!allTabs) {
+    if (state._filterCacheKey === key && state._filterCache) {
+      return state._filterCache;
+    }
 
+    if (state.worker && state.workerReady) {
+      if (state._filterPromise?._key === key) {
+        return state._filterPromise;
+      }
+
+      const promise = new Promise(function (resolve) {
+        const handler = function (e) {
+          if (e.data.type === 'result') {
+            state.worker.removeEventListener('message', handler);
+            state._filterPromise = null;
+            state._filterCacheKey = key;
+            state._filterCache = e.data.data;
+            resolve(e.data.data);
+          }
+        };
+
+        state.worker.addEventListener('message', handler);
+
+        state.worker.postMessage({
+          type: 'filter',
+          filter: state.timeFilter,
+          customStartDate: state.customStartDate,
+          customEndDate: state.customEndDate,
+          activeTab: state.activeTab,
+          sortBy: state.contributorsSortBy,
+          sortOrder: state.contributorsSortOrder
+        });
+      });
+      promise._key = key;
+      state._filterPromise = promise;
+      return promise;
+    }
+  }
+
+  const bounds = getCutoffDate(state.timeFilter, state.customStartDate, state.customEndDate);
   const filteredContributions = filterByDate(state.data.contributions, bounds);
   const filteredFrequency = filterByDate(state.data.frequency, bounds);
 
-  const filteredSummary = computeFilteredSummary(filteredContributions, filteredFrequency);
-  const filteredContributors = computeFilteredContributors(
-    filteredContributions,
-    state.data.contributors
-  );
+  const result = {};
+  result.contributions = downsampleData(filteredContributions, MAX_CHART_POINTS);
 
-  state._filterCacheKey = key;
-  state._filterCache = {
-    summary: filteredSummary,
-    contributions: filteredContributions,
-    contributors: filteredContributors,
-    frequency: filteredFrequency,
-    activity: computeFilteredActivity(filteredContributions)
-  };
-  return state._filterCache;
+  if (allTabs) {
+    result.summary = computeFilteredSummary(filteredContributions, filteredFrequency);
+    result.frequency = downsampleData(filteredFrequency, MAX_CHART_POINTS);
+    result.contributors = computeFilteredContributors(
+      filteredContributions,
+      state.data.contributors
+    );
+    result.activity = computeFilteredActivity(filteredContributions);
+  } else if (state.activeTab === 'overview') {
+    result.summary = computeFilteredSummary(filteredContributions, filteredFrequency);
+    result.contributors = computeFilteredContributors(
+      filteredContributions,
+      state.data.contributors
+    );
+    result.frequency = downsampleData(filteredFrequency, MAX_CHART_POINTS);
+  } else if (state.activeTab === 'contributors') {
+    result.contributors = sortContributors(
+      computeFilteredContributors(filteredContributions, state.data.contributors),
+      state.contributorsSortBy,
+      state.contributorsSortOrder
+    );
+  } else if (state.activeTab === 'activity') {
+    result.activity = computeFilteredActivity(filteredContributions);
+  }
+
+  if (!allTabs) {
+    state._filterCacheKey = key;
+    state._filterCache = result;
+  }
+  return result;
 }
 
-function renderCurrentTab() {
-  if (!state.data) return;
-  const d = getFilteredData();
+async function renderCurrentTab() {
+  if (!state.data?.contributions) return;
+
+  let d = getFilteredData();
+  if (d && typeof d.then === 'function') {
+    d = await d;
+  }
+  if (!d) return;
+
   switch (state.activeTab) {
     case 'overview':
       renderOverview(d);
@@ -745,11 +698,6 @@ function renderContributionChart(contributions, mode, contributors) {
   }
 }
 
-function downsampleContributions(contributions) {
-  if (!contributions || contributions.length <= MAX_CHART_POINTS) return contributions;
-  return downsampleData(contributions, MAX_CHART_POINTS);
-}
-
 function buildOthersDataset(contributions, topAuthors) {
   if (!topAuthors.length) return null;
   const topSet = {};
@@ -772,7 +720,7 @@ function buildOthersDataset(contributions, topAuthors) {
 }
 
 function renderContributionAuthor(contributions, contributors) {
-  contributions = downsampleContributions(contributions);
+  contributions = downsampleData(contributions, MAX_CHART_POINTS);
   const TOP = 10;
   const seen = {};
   const authorKeys = [];
@@ -786,7 +734,6 @@ function renderContributionAuthor(contributions, contributors) {
   const topAuthors = authorKeys.slice(0, TOP);
   const hasOthers = authorKeys.length > TOP;
 
-  // Build a lookup from key -> { date -> count }
   const authorDayIndex = {};
   topAuthors.forEach(function (a) {
     authorDayIndex[a.key] = {};
@@ -819,7 +766,7 @@ function renderContributionAuthor(contributions, contributors) {
     if (othersDataset) datasets.push(othersDataset);
   }
 
-  createChart(
+  scheduleChart(
     'chart-contribution',
     'bar',
     {
@@ -851,8 +798,8 @@ function renderContributionAuthor(contributions, contributors) {
 }
 
 function renderContributionCommits(contributions) {
-  const display = downsampleContributions(contributions);
-  createChart(
+  const display = downsampleData(contributions, MAX_CHART_POINTS);
+  scheduleChart(
     'chart-contribution',
     'bar',
     {
@@ -914,7 +861,7 @@ function renderTopContributorsChart(contributors, mode = 'commits') {
     });
   }
 
-  createChart(
+  scheduleChart(
     'chart-top-contributors',
     'bar',
     {
@@ -948,6 +895,56 @@ function renderTopContributorsChart(contributors, mode = 'commits') {
   );
 }
 
+// -- Code frequency line chart -----------------------------------
+
+function renderFrequencyLineChart(frequency, chartId, alpha, pointRadius, pointHoverRadius) {
+  if (!frequency?.length) {
+    destroyChart(chartId);
+    return;
+  }
+
+  frequency = downsampleData(frequency, MAX_CHART_POINTS);
+
+  scheduleChart(
+    chartId,
+    'line',
+    {
+      labels: frequency.map(function (x) {
+        return x.date;
+      }),
+      datasets: [
+        {
+          label: 'Additions',
+          data: frequency.map(function (x) {
+            return x.additions;
+          }),
+          borderColor: globalThis.window.COLORS.green,
+          backgroundColor: globalThis.window.COLORS.green + alpha,
+          fill: true,
+          tension: 0.3,
+          pointRadius: pointRadius,
+          pointHoverRadius: pointHoverRadius,
+          borderWidth: 2
+        },
+        {
+          label: 'Deletions',
+          data: frequency.map(function (x) {
+            return x.deletions;
+          }),
+          borderColor: globalThis.window.COLORS.red,
+          backgroundColor: globalThis.window.COLORS.red + alpha,
+          fill: true,
+          tension: 0.3,
+          pointRadius: pointRadius,
+          pointHoverRadius: pointHoverRadius,
+          borderWidth: 2
+        }
+      ]
+    },
+    lineChartOptions(frequency)
+  );
+}
+
 // -- Code frequency overview chart -----------------------------------
 
 function renderFrequencyOverviewChart(frequency) {
@@ -955,7 +952,7 @@ function renderFrequencyOverviewChart(frequency) {
     frequency,
     'chart-frequency-overview',
     '30',
-    frequency.length < 60 ? 2 : 0,
+    frequency && frequency.length < 60 ? 2 : 0,
     4
   );
 }
@@ -963,33 +960,6 @@ function renderFrequencyOverviewChart(frequency) {
 // ═════════════════════════════════════════════════════════════════════
 //  CONTRIBUTORS TAB
 // ═════════════════════════════════════════════════════════════════════
-
-function sortContributors(contributors) {
-  const by = state.contributorsSortBy;
-  const order = state.contributorsSortOrder;
-  const fieldMap = { commits: 'totalCommits' };
-  const field = fieldMap[by] || by;
-
-  return [...contributors].sort(function (a, b) {
-    let cmp;
-
-    if (typeof a[field] === 'string') {
-      const aVal = a[field] || '';
-      const bVal = b[field] || '';
-      cmp = aVal.localeCompare(bVal);
-    } else {
-      const aVal = a[field] || 0;
-      const bVal = b[field] || 0;
-      cmp = aVal - bVal;
-    }
-
-    if (cmp === 0 && by !== 'name') {
-      cmp = (a.name || '').localeCompare(b.name || '');
-    }
-
-    return order === 'asc' ? cmp : -cmp;
-  });
-}
 
 function updateContributorsThead() {
   const thead = document.querySelector('#contributors-table thead');
@@ -1060,7 +1030,7 @@ function renderContributorBarChart(contributors) {
   const wrap = document.getElementById('chart-contributor-distribution').parentElement;
   wrap.style.height = chartHeight + 'px';
 
-  createChart(
+  scheduleChart(
     'chart-contributor-distribution',
     'bar',
     {
@@ -1110,16 +1080,17 @@ function renderContributors(d) {
     return;
   }
 
-  const sorted = sortContributors(d.contributors);
-  renderContributorsTable(sorted);
-  renderContributorBarChart(sorted);
+  // d.contributors is already sorted by getFilteredData
+  const list = d.contributors;
+  renderContributorsTable(list);
+  renderContributorBarChart(list);
 }
 
 function setupContributorsSort() {
   const thead = document.querySelector('#contributors-table thead');
   if (!thead) return;
 
-  function sortByColumn(th) {
+  async function sortByColumn(th) {
     const sortBy = th.dataset.sortBy;
     if (!sortBy) return;
     if (state.contributorsSortBy === sortBy) {
@@ -1128,10 +1099,17 @@ function setupContributorsSort() {
       state.contributorsSortBy = sortBy;
       state.contributorsSortOrder = sortBy === 'name' ? 'asc' : 'desc';
     }
+    state._filterCacheKey = null;
+    state._filterCache = null;
 
-    const d = getFilteredData();
+    let d = getFilteredData();
+    if (d && typeof d.then === 'function') d = await d;
     if (d) {
-      const sorted = sortContributors(d.contributors);
+      const sorted = sortContributors(
+        d.contributors,
+        state.contributorsSortBy,
+        state.contributorsSortOrder
+      );
       renderContributorsTable(sorted);
       renderContributorBarChart(sorted);
     }
@@ -1179,7 +1157,7 @@ function renderTopFilesTable(a) {
 function renderActivityBarChart(chartId, items, color, labelMapper) {
   destroyChart(chartId);
   if (!items?.length) return;
-  createChart(
+  scheduleChart(
     chartId,
     'bar',
     {
@@ -1245,14 +1223,17 @@ function renderActivity(d) {
 function setupModeSelect(selectId, stateKey, renderFn) {
   const el = document.getElementById(selectId);
   if (el) {
-    const debouncedRender = debounce(function () {
+    const debouncedRender = debounce(async function () {
       if (state.activeTab === 'overview') {
-        const d = getFilteredData();
+        let d = getFilteredData();
+        if (d && typeof d.then === 'function') d = await d;
         if (d) renderFn(d);
       }
     }, 300);
     el.addEventListener('change', function () {
       state[stateKey] = el.value;
+      state._filterCacheKey = null;
+      state._filterCache = null;
       debouncedRender();
     });
   }
@@ -1282,42 +1263,41 @@ function setupKeyboardNav() {
 function setupDateRangeListeners() {
   const dateStart = document.getElementById('date-start');
   const dateEnd = document.getElementById('date-end');
-  if (dateStart) {
-    dateStart.addEventListener('input', function () {
-      const val = dateStart.value;
+
+  function handleInput(inputEl, stateKey, getMin, postSet) {
+    inputEl.addEventListener('input', function () {
+      const val = inputEl.value;
       if (val.length !== 10) {
-        if (state.customStartDate !== null) {
-          state.customStartDate = null;
-        }
+        if (state[stateKey] !== null) state[stateKey] = null;
         return;
       }
       const today = getTodayLocal();
-      const min = state.data?.summary ? state.data.summary.firstCommit : null;
-      const date = clampDate(val, min, today);
-      state.customStartDate = date;
-      dateStart.value = date || '';
-      if (date && state.customEndDate && state.customEndDate < date) {
-        state.customEndDate = clampDate(date, null, today);
-        if (dateEnd) dateEnd.value = state.customEndDate;
-      }
+      const date = clampDate(val, getMin(), today);
+      state[stateKey] = date;
+      inputEl.value = date || '';
+      if (postSet) postSet(date, today);
       setTimeFilter('custom');
     });
   }
-  if (dateEnd) {
-    dateEnd.addEventListener('input', function () {
-      const val = dateEnd.value;
-      if (val.length !== 10) {
-        if (state.customEndDate !== null) {
-          state.customEndDate = null;
+
+  if (dateStart) {
+    handleInput(
+      dateStart,
+      'customStartDate',
+      function () {
+        return state.data?.summary ? state.data.summary.firstCommit : null;
+      },
+      function (date, today) {
+        if (date && state.customEndDate && state.customEndDate < date) {
+          state.customEndDate = clampDate(date, null, today);
+          if (dateEnd) dateEnd.value = state.customEndDate;
         }
-        return;
       }
-      const today = getTodayLocal();
-      const min = state.customStartDate || null;
-      const date = clampDate(val, min, today);
-      state.customEndDate = date;
-      dateEnd.value = date || '';
-      setTimeFilter('custom');
+    );
+  }
+  if (dateEnd) {
+    handleInput(dateEnd, 'customEndDate', function () {
+      return state.customStartDate || null;
     });
   }
 }
@@ -1339,9 +1319,51 @@ function setupTabListeners() {
 function setupExportPdf() {
   const exportBtn = document.getElementById('export-pdf');
   if (!exportBtn) return;
+
+  async function loadPdfDependencies() {
+    if (globalThis.window.html2canvas && globalThis.window.jspdf) return;
+
+    async function loadScript(src) {
+      return new Promise(function (resolve) {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        document.head.appendChild(s);
+      });
+    }
+
+    return loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js')
+      .then(function () {
+        return loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
+      })
+      .then(function () {
+        return loadScript(
+          'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js'
+        );
+      });
+  }
+
   exportBtn.addEventListener('click', async function () {
-    const filtered = getFilteredData();
-    if (!filtered?.contributions?.length) return;
+    const overlay = document.getElementById('export-overlay');
+    if (overlay) {
+      const style = getComputedStyle(document.documentElement);
+      overlay.style.background = style.getPropertyValue('--bg').trim() || '#ffffff';
+      overlay.style.color = style.getPropertyValue('--text').trim() || '#000000';
+      overlay.classList.remove('hidden');
+    }
+
+    if (!globalThis.window.html2canvas || !globalThis.window.jspdf) {
+      if (overlay) overlay.querySelector('span').textContent = 'Loading PDF dependencies\u2026';
+      await loadPdfDependencies();
+      if (overlay) overlay.querySelector('span').textContent = 'Generating PDF\u2026';
+    }
+
+    let filtered = getFilteredData(true);
+    if (filtered && typeof filtered.then === 'function') filtered = await filtered;
+    if (!filtered?.contributions?.length) {
+      if (overlay) overlay.classList.add('hidden');
+      return;
+    }
 
     const btnText = exportBtn.querySelector('span');
     const originalBtnText = btnText ? btnText.textContent : 'Export PDF';
@@ -1360,14 +1382,9 @@ function setupExportPdf() {
 
     document.body.classList.add('printing');
     const savedTheme = state.theme;
-    (() => document.body.offsetHeight)();
-    const overlay = document.getElementById('export-overlay');
-    if (overlay) {
-      const style = getComputedStyle(document.documentElement);
-      overlay.style.background = style.getPropertyValue('--bg').trim() || '#ffffff';
-      overlay.style.color = style.getPropertyValue('--text').trim() || '#000000';
-      overlay.classList.remove('hidden');
-    }
+    (function () {
+      return document.body.offsetHeight;
+    })();
     document.body.style.overflow = 'hidden';
 
     applyTheme('light');
@@ -1480,7 +1497,11 @@ function setupExportPdf() {
         y = await addChartToPdf(pdf, overviewCharts[i], usableWidth, y, margin, pageHeight);
       }
 
-      const contributors = sortContributors(filtered.contributors);
+      const contributors = sortContributors(
+        filtered.contributors,
+        state.contributorsSortBy,
+        state.contributorsSortOrder
+      );
       if (contributors?.length) {
         pdf.autoTable({
           head: [['Name', 'Commits', 'Additions', 'Deletions', 'First Commit', 'Last Commit']],
@@ -1607,7 +1628,6 @@ function setupEvents() {
       });
   }
 
-  // Sync tab from URL hash on browser back/forward
   globalThis.window.addEventListener('hashchange', function () {
     const tab = globalThis.window.location.hash.replace('#', '');
     if (tab && TABS.includes(tab)) {
@@ -1666,7 +1686,6 @@ function init() {
   applyTheme(detectTheme());
   setupEvents();
 
-  // Sync active pill state with loaded timeFilter
   document.querySelectorAll('.pill').forEach(function (btn) {
     btn.classList.toggle('active', btn.dataset.filter === state.timeFilter);
   });
@@ -1682,14 +1701,12 @@ function init() {
     document.getElementById('date-end').value = state.customEndDate;
   }
 
-  // Sync active tab state with loaded activeTab
   syncTabUI(state.activeTab);
 
   initEmptyCharts(state.activeTab);
 
   loadData()
     .then(function () {
-      // Clamp custom dates restored from URL params
       const startEl = document.getElementById('date-start');
       const endEl = document.getElementById('date-end');
       const today = getTodayLocal();
@@ -1709,10 +1726,10 @@ function init() {
         endEl.value = clampedEnd;
       }
 
-      TABS.forEach(function (t) {
-        clearStates(t);
-      });
-      renderCurrentTab();
+      if (!state.workerReady) {
+        state.loadingPhase = 'complete';
+        renderCurrentTab();
+      }
     })
     .catch(function () {
       // Errors already surfaced per-tab by loadData

@@ -139,14 +139,13 @@ function createTempDir() {
   return { tmpDir, dataDir };
 }
 
-const DATA_FILE_KEYS = ['summary', 'contributions', 'contributors', 'frequency', 'activity'];
+const DATA_FILE_KEYS = ['summary', 'contributions', 'contributors', 'frequency'];
 
 async function writeDataFiles(dataDir, data) {
   try {
     const writes = DATA_FILE_KEYS.map((key) =>
       writeFile(join(dataDir, `${key}.json`), JSON.stringify(data[key] ?? {}))
     );
-    writes.push(writeFile(join(dataDir, 'all.json'), JSON.stringify(data)));
     await Promise.all(writes);
   } catch (err) {
     throw new Error(`Failed to write data files: ${err.message}`, { cause: err });
@@ -182,7 +181,7 @@ async function resolvePort(port) {
  * The caller is responsible for browser opening and process signal handling.
  *
  * @param {object} data - Object returned by aggregate() with keys:
- *   summary, contributions, contributors, frequency, activity
+ *   summary, contributions, contributors, frequency
  * @param {string} dashboardDir - Absolute path to the bundled dashboard/ directory
  * @param {number} [port=0] - Preferred port (0 = OS-assigned)
  * @returns {Promise<{port: number, tmpDir: string, server: http.Server}>}

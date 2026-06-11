@@ -361,10 +361,13 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
             contributors: [],
             activity: { byHour: [], topFiles: [] }
           },
-          timeFilter: 'last3months'
+          timeFilter: 'last3months',
+          activeTab: 'activity'
         },
         getCutoffDate: () => ({ start: '2024-01-01', end: null }),
         filterByDate: (arr) => arr,
+        downsampleData: (arr) => arr,
+        MAX_CHART_POINTS: 500,
         computeFilteredSummary: (_c, _f) => ({
           totalCommits: 1,
           totalContributors: 1,
@@ -399,10 +402,13 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
             contributors: [],
             activity: { byHour: [{ hour: 0, count: 5 }], topFiles: [] }
           },
-          timeFilter: 'custom'
+          timeFilter: 'custom',
+          activeTab: 'activity'
         },
         getCutoffDate: () => ({ start: '2024-01-01', end: '2024-01-31' }),
         filterByDate: (arr) => arr,
+        downsampleData: (arr) => arr,
+        MAX_CHART_POINTS: 500,
         computeFilteredSummary: () => ({}),
         computeFilteredContributors: () => [],
         computeFilteredActivity: (c) => {

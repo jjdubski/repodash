@@ -82,7 +82,8 @@ describe('Dashboard — setupExportPdf', () => {
         add: (c) => overlayClassSet.add(c),
         remove: (c) => overlayClassSet.delete(c),
         contains: (c) => overlayClassSet.has(c)
-      }
+      },
+      querySelector: () => ({ textContent: '' })
     };
 
     function chartCardEl() {
@@ -226,6 +227,19 @@ describe('Dashboard — setupExportPdf', () => {
       // Make setTimeout resolve immediately to avoid real delays in tests
       setTimeout: (cb, _ms) => {
         cb();
+      }
+    };
+
+    document.createElement = (tag) => {
+      if (tag === 'script') {
+        return {};
+      }
+      return {};
+    };
+
+    document.head = {
+      appendChild: (el) => {
+        if (el.onload) sandbox.setTimeout(() => el.onload(), 0);
       }
     };
 
