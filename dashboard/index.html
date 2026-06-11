@@ -170,22 +170,7 @@
         role="tabpanel"
         aria-labelledby="tab-overview-label"
       >
-        <!-- Loading / error / empty states -->
-        <div class="state-message" id="overview-loading" aria-live="polite">
-          <svg class="spinner" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <circle
-              cx="12"
-              cy="12"
-              r="10"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-dasharray="31.4 31.4"
-              stroke-linecap="round"
-            />
-          </svg>
-          <span class="sr-only">Loading…</span>
-        </div>
+        <!-- Error / empty states -->
         <div class="state-message hidden" id="overview-error" role="alert"></div>
         <div class="state-message hidden" id="overview-empty" aria-live="polite">
           No commits found in the selected time range.
@@ -264,21 +249,6 @@
         role="tabpanel"
         aria-labelledby="tab-contributors-label"
       >
-        <div class="state-message" id="contributors-loading" aria-live="polite">
-          <svg class="spinner" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <circle
-              cx="12"
-              cy="12"
-              r="10"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-dasharray="31.4 31.4"
-              stroke-linecap="round"
-            />
-          </svg>
-          <span class="sr-only">Loading…</span>
-        </div>
         <div class="state-message hidden" id="contributors-error" role="alert"></div>
         <div class="state-message hidden" id="contributors-empty" aria-live="polite">
           No contributors found in this time range.
@@ -383,21 +353,6 @@
         role="tabpanel"
         aria-labelledby="tab-activity-label"
       >
-        <div class="state-message" id="activity-loading" aria-live="polite">
-          <svg class="spinner" viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-            <circle
-              cx="12"
-              cy="12"
-              r="10"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="3"
-              stroke-dasharray="31.4 31.4"
-              stroke-linecap="round"
-            />
-          </svg>
-          <span class="sr-only">Loading…</span>
-        </div>
         <div class="state-message hidden" id="activity-error" role="alert"></div>
         <div class="state-message hidden" id="activity-empty" aria-live="polite">
           No activity data in this time range.

@@ -193,8 +193,7 @@ describe('Dashboard — file structure', () => {
       assert.ok(html.includes('id="date-end"'), 'Missing date-end input');
     });
 
-    it('should have loading / error / empty state elements', () => {
-      assert.ok(html.includes('Loading'), 'Missing loading state');
+    it('should have error / empty state elements', () => {
       assert.ok(html.includes('-error'), 'Missing error state element');
       assert.ok(html.includes('-empty'), 'Missing empty state element');
     });
@@ -212,10 +211,14 @@ describe('Dashboard — file structure', () => {
       assert.strictEqual(opts?.length, 2, 'expected exactly 2 options');
     });
 
-    it('should have loading spinners in all 3 tabs', () => {
+    it('should have export overlay spinner only (no tab loading spinners)', () => {
       const loadingEls = html.match(/class="spinner"/g);
       assert.ok(loadingEls, 'No .spinner elements found');
-      assert.ok(loadingEls.length >= 3, `Expected at least 3 spinners, got ${loadingEls.length}`);
+      assert.strictEqual(
+        loadingEls.length,
+        1,
+        `Expected exactly 1 spinner (export overlay), got ${loadingEls.length}`
+      );
     });
 
     it('should have export overlay with spinner and Generating PDF text', () => {
@@ -247,6 +250,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
     it('should not return early when filter is "custom" even if already in custom mode', () => {
       const renderCalled = { value: false };
       const sandbox = {
+        setTimeout: (fn) => fn(),
         state: {
           timeFilter: 'custom',
           customStartDate: '2024-01-01',
@@ -299,6 +303,7 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
     it('should not return early when switching to custom from another filter', () => {
       const renderCalled = { value: false };
       const sandbox = {
+        setTimeout: (fn) => fn(),
         state: { timeFilter: 'last3months' },
         window: {
           location: { href: 'http://localhost:3000/' },

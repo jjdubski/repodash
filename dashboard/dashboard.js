@@ -16,7 +16,9 @@ const state = {
   contributionMode: 'author',
   topContributorsMode: 'commits',
   contributorsSortBy: 'commits',
-  contributorsSortOrder: 'desc'
+  contributorsSortOrder: 'desc',
+  _filterCacheKey: null,
+  _filterCache: null
 };
 
 // ═════════════════════════════════════════════════════════════════════
@@ -444,6 +446,53 @@ function updateAllChartColors() {
   }
 }
 
+// ── Empty chart skeletons ────────────────────────────────────────────
+
+function initEmptyChart(id, type) {
+  destroyChart(id);
+  const canvas = document.getElementById(id);
+  if (!canvas) return;
+  const dataset =
+    type === 'line'
+      ? {
+          data: [0],
+          borderColor: 'transparent',
+          backgroundColor: 'transparent',
+          fill: false
+        }
+      : { data: [0], backgroundColor: 'transparent', borderColor: 'transparent' };
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  state.charts[id] = new globalThis.window.Chart(ctx, {
+    type: type,
+    data: { labels: [''], datasets: [dataset] },
+    options: buildOptions({
+      scales: { y: { beginAtZero: true } },
+      plugins: { legend: { display: false } }
+    })
+  });
+}
+
+function initEmptyCharts(tab) {
+  clearStates(tab);
+  if (tab === 'overview') {
+    initEmptyChart('chart-contribution', 'bar');
+    initEmptyChart('chart-top-contributors', 'bar');
+    initEmptyChart('chart-frequency-overview', 'line');
+  } else if (tab === 'contributors') {
+    initEmptyChart('chart-contributor-distribution', 'bar');
+    const tbody = document.querySelector('#contributors-table tbody');
+    if (tbody && !tbody.children.length) {
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>\u2014</td><td class="num-col">\u2014</td><td class="num-col">\u2014</td><td class="num-col">\u2014</td><td>\u2014</td><td>\u2014</td>';
+      tbody.appendChild(tr);
+    }
+  } else if (tab === 'activity') {
+    initEmptyChart('chart-dayofweek', 'bar');
+    initEmptyChart('chart-hour', 'bar');
+  }
+}
+
 // ═════════════════════════════════════════════════════════════════════
 //  DATA LOADING & STATE MESSAGES
 // ═════════════════════════════════════════════════════════════════════
@@ -459,7 +508,14 @@ function hideElem(id) {
   if (e) e.classList.add('hidden');
 }
 
+function showContent(tab) {
+  const section = document.getElementById('tab-' + tab);
+  if (section) section.classList.remove('tab-loading');
+}
+
 function showLoading(tab) {
+  const section = document.getElementById('tab-' + tab);
+  if (section) section.classList.add('tab-loading');
   showElem(tab + '-loading');
 }
 function showError(tab, msg) {
@@ -477,6 +533,7 @@ function clearStates(tab) {
   hideElem(tab + '-loading');
   hideElem(tab + '-error');
   hideElem(tab + '-empty');
+  showContent(tab);
 }
 
 function loadData() {
@@ -565,12 +622,18 @@ function switchTab(tabName) {
 
   syncTabUI(tabName);
 
+  if (!state.data) {
+    initEmptyCharts(tabName);
+  }
+
   renderCurrentTab();
 }
 
 function setTimeFilter(filter) {
   if (state.timeFilter === filter && filter !== 'custom') return;
   state.timeFilter = filter;
+  state._filterCacheKey = null;
+  state._filterCache = null;
 
   try {
     const url = new URL(globalThis.window.location.href);
@@ -600,6 +663,10 @@ function setTimeFilter(filter) {
 
 function getFilteredData() {
   if (!state.data) return null;
+  const key =
+    state.timeFilter + '|' + (state.customStartDate || '') + '|' + (state.customEndDate || '');
+  if (state._filterCacheKey === key && state._filterCache) return state._filterCache;
+
   const bounds = getCutoffDate(state.timeFilter);
 
   const filteredContributions = filterByDate(state.data.contributions, bounds);
@@ -611,13 +678,15 @@ function getFilteredData() {
     state.data.contributors
   );
 
-  return {
+  state._filterCacheKey = key;
+  state._filterCache = {
     summary: filteredSummary,
     contributions: filteredContributions,
     contributors: filteredContributors,
     frequency: filteredFrequency,
     activity: computeFilteredActivity(filteredContributions)
   };
+  return state._filterCache;
 }
 
 function renderCurrentTab() {
@@ -1616,9 +1685,7 @@ function init() {
   // Sync active tab state with loaded activeTab
   syncTabUI(state.activeTab);
 
-  TABS.forEach(function (t) {
-    showLoading(t);
-  });
+  initEmptyCharts(state.activeTab);
 
   loadData()
     .then(function () {
