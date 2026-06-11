@@ -486,4 +486,21 @@ describe('edge cases', () => {
       'should reject for a regular directory without .git'
     );
   });
+
+  it('should decode RFC 2047 quoted-printable author names', async () => {
+    const { cleanAuthorName } = await import('../src/git.js');
+    assert.strictEqual(cleanAuthorName('=?utf-8?q?Michel_D=C3=A4nzer?='), 'Michel Dänzer');
+    assert.strictEqual(cleanAuthorName('=?utf-8?q?Felix_K=C3=BChling?='), 'Felix Kühling');
+  });
+
+  it('should strip leading ? from truncated encoded names', async () => {
+    const { cleanAuthorName } = await import('../src/git.js');
+    assert.strictEqual(cleanAuthorName('? jiang'), 'jiang');
+    assert.strictEqual(cleanAuthorName('? '), '');
+  });
+
+  it('should unescape backslash-escaped quotes and trailing backslash', async () => {
+    const { cleanAuthorName } = await import('../src/git.js');
+    assert.strictEqual(cleanAuthorName('\\"Talpey, Thomas\\'), '"Talpey, Thomas');
+  });
 });

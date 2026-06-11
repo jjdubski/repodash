@@ -8,6 +8,21 @@ import { getLocalBranchCount } from './git.js';
 import { aggregateStreamParallel } from './aggregate.js';
 import { serveDashboard } from './server.js';
 
+/** @type {string|null} */
+let tmpDirCleanup = null;
+
+function cleanupSync() {
+  if (!tmpDirCleanup) return;
+  try {
+    rmSync(tmpDirCleanup, { recursive: true, force: true });
+  } catch {
+    void 0;
+  }
+  tmpDirCleanup = null;
+}
+
+process.on('exit', cleanupSync);
+
 export async function main(repoPath, options = {}) {
   console.error(chalk.cyan(`insights: scanning repo at ${repoPath}`));
 
@@ -59,6 +74,8 @@ export async function main(repoPath, options = {}) {
     const dashboardDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
     const { port, tmpDir, server } = await serveDashboard(result, dashboardDir);
 
+    tmpDirCleanup = tmpDir;
+
     const addr = `http://localhost:${port}`;
     dashboardUrl = addr;
 
@@ -75,25 +92,16 @@ export async function main(repoPath, options = {}) {
       shuttingDown = true;
       console.log(chalk.gray('\nShutting down insights server...'));
       server.close(() => {
-        try {
-          rmSync(tmpDir, { recursive: true, force: true });
-        } catch {
-          void 0;
-        }
         process.exit(0);
       });
       setTimeout(() => {
-        try {
-          rmSync(tmpDir, { recursive: true, force: true });
-        } catch {
-          void 0;
-        }
         process.exit(0);
       }, 5000).unref();
     }
 
     process.once('SIGINT', cleanup);
     process.once('SIGTERM', cleanup);
+    process.once('SIGHUP', cleanup);
     process.stdin.on('close', cleanup);
   }
 

@@ -592,6 +592,24 @@ th.active .sort-indicator {
   transform: rotate(180deg);
 }
 
+/* ── Pagination ─────────────────────────────────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 20px 0;
+  flex-wrap: wrap;
+}
+
+.page-info {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+
 /* ── Print hint (hidden on screen) ──────────────────────────────────── */
 .print-hint {
   display: none;

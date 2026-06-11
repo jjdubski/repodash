@@ -2,6 +2,58 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { statSync } from 'node:fs';
 
+// RFC 2047 encoded-word: =?charset?encoding?encoded_text?=
+const RFC2047_RE = /=\?([^?]+)\?([qQbB])\?([^?]*)\?=/g;
+
+function decodeRfc2047Word(word) {
+  const m = word.match(/^=\?([^?]+)\?([qQbB])\?([^?]*)\?=$/);
+  if (!m) return null;
+
+  const charset = m[1];
+  const encoding = m[2].toLowerCase();
+  let encodedText = m[3];
+  let bytes;
+
+  if (encoding === 'q') {
+    encodedText = encodedText.replace(/_/g, ' ');
+    bytes = [];
+    for (let i = 0; i < encodedText.length; i++) {
+      if (encodedText[i] === '=' && i + 2 < encodedText.length) {
+        bytes.push(Number.parseInt(encodedText.slice(i + 1, i + 3), 16));
+        i += 2;
+      } else {
+        bytes.push(encodedText.charCodeAt(i));
+      }
+    }
+    bytes = new Uint8Array(bytes);
+  } else {
+    bytes = Buffer.from(encodedText, 'base64');
+  }
+
+  try {
+    return new TextDecoder(charset).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+function decodeRfc2047(text) {
+  return text.replace(RFC2047_RE, (match) => decodeRfc2047Word(match) ?? match);
+}
+
+export function cleanAuthorName(name) {
+  let result = name;
+  // Unescape backslash-escaped quotes: \" -> "
+  result = result.replace(/\\"/g, '"');
+  // Strip trailing backslash from names like \"Talpey, Thomas\
+  result = result.replace(/\\$/, '');
+  // Decode RFC 2047 encoded words
+  result = decodeRfc2047(result);
+  // Strip leading "? " from truncated encoded words (missing =?charset?q? prefix)
+  result = result.replace(/^\?\s+/, '');
+  return result.trim();
+}
+
 // Using %s (subject-only) in the pretty=format is intentional — commit
 // subjects are single-line, which keeps the output safe to split on this
 // delimiter. A full-body format (%B) could contain arbitrary characters
@@ -110,7 +162,7 @@ function parseCommit(lines) {
 
   return {
     hash,
-    author: { name, email },
+    author: { name: cleanAuthorName(name), email },
     date,
     message,
     stats: { additions, deletions, files: files.length },

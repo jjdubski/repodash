@@ -42,6 +42,8 @@ const state = {
   topContributorsMode: 'commits',
   contributorsSortBy: 'commits',
   contributorsSortOrder: 'desc',
+  contributorsPage: 1,
+  contributorsPageSize: 500,
   _filterCacheKey: null,
   _filterCache: null,
   worker: null,
@@ -251,6 +253,7 @@ function createOrUpdateChart(id, type, data, options) {
         target[k] = ds[k];
       });
     });
+    existing.options = buildOptions(options);
     existing.update('none');
     return existing;
   }
@@ -515,6 +518,7 @@ function setTimeFilter(filter) {
   state.timeFilter = filter;
   state._filterCacheKey = null;
   state._filterCache = null;
+  state.contributorsPage = 1;
 
   try {
     const url = new URL(globalThis.window.location.href);
@@ -1020,6 +1024,35 @@ function renderContributorsTable(contributors) {
   });
 }
 
+function renderContributorsPagination(total, totalPages) {
+  const page = state.contributorsPage;
+  const pageSize = state.contributorsPageSize;
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(page * pageSize, total);
+  const info = document.getElementById('page-info');
+  if (info) {
+    info.textContent =
+      'Page ' +
+      page +
+      ' of ' +
+      totalPages +
+      ' \u2014 Showing ' +
+      start +
+      '\u2013' +
+      end +
+      ' of ' +
+      total;
+  }
+
+  const prevBtn = document.getElementById('prev-page');
+  const nextBtn = document.getElementById('next-page');
+  if (prevBtn) prevBtn.disabled = page <= 1;
+  if (nextBtn) nextBtn.disabled = page >= totalPages;
+
+  const sizeSelect = document.getElementById('page-size');
+  if (sizeSelect) sizeSelect.value = String(pageSize);
+}
+
 function renderContributorBarChart(contributors) {
   const barHeight = 14;
   const maxChartHeight = 560;
@@ -1082,8 +1115,19 @@ function renderContributors(d) {
 
   // d.contributors is already sorted by getFilteredData
   const list = d.contributors;
-  renderContributorsTable(list);
+  const total = list.length;
+  const pageSize = state.contributorsPageSize;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // Clamp current page after filtering/sorting changes
+  if (state.contributorsPage > totalPages) state.contributorsPage = totalPages;
+
+  const start = (state.contributorsPage - 1) * pageSize;
+  const pageItems = list.slice(start, start + pageSize);
+
+  renderContributorsTable(pageItems);
   renderContributorBarChart(list);
+  renderContributorsPagination(total, totalPages);
 }
 
 function setupContributorsSort() {
@@ -1101,17 +1145,17 @@ function setupContributorsSort() {
     }
     state._filterCacheKey = null;
     state._filterCache = null;
+    state.contributorsPage = 1;
 
     let d = getFilteredData();
     if (d && typeof d.then === 'function') d = await d;
     if (d) {
-      const sorted = sortContributors(
+      d.contributors = sortContributors(
         d.contributors,
         state.contributorsSortBy,
         state.contributorsSortOrder
       );
-      renderContributorsTable(sorted);
-      renderContributorBarChart(sorted);
+      renderContributors(d);
     }
   }
 
@@ -1129,6 +1173,55 @@ function setupContributorsSort() {
       sortByColumn(th);
     }
   });
+}
+
+function setupContributorsPagination() {
+  async function goToPage(page) {
+    const list = state._filterCache?.contributors;
+    if (!list?.length) return;
+
+    const totalPages = Math.ceil(list.length / state.contributorsPageSize);
+    state.contributorsPage = Math.max(1, Math.min(page, totalPages));
+
+    const start = (state.contributorsPage - 1) * state.contributorsPageSize;
+    const pageItems = list.slice(start, start + state.contributorsPageSize);
+
+    renderContributorsTable(pageItems);
+    renderContributorsPagination(list.length, totalPages);
+  }
+
+  const prevBtn = document.getElementById('prev-page');
+  const nextBtn = document.getElementById('next-page');
+
+  if (prevBtn) {
+    prevBtn.addEventListener('click', async function () {
+      await goToPage(state.contributorsPage - 1);
+    });
+  }
+
+  if (nextBtn) {
+    nextBtn.addEventListener('click', async function () {
+      await goToPage(state.contributorsPage + 1);
+    });
+  }
+
+  const sizeSelect = document.getElementById('page-size');
+  if (sizeSelect) {
+    sizeSelect.addEventListener('change', async function () {
+      state.contributorsPageSize = Number(sizeSelect.value);
+      state.contributorsPage = 1;
+      let d = getFilteredData();
+      if (d && typeof d.then === 'function') d = await d;
+      if (d) {
+        d.contributors = sortContributors(
+          d.contributors,
+          state.contributorsSortBy,
+          state.contributorsSortOrder
+        );
+        renderContributors(d);
+      }
+    });
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -1654,6 +1747,7 @@ function setupEvents() {
   setupKeyboardNav();
 
   setupContributorsSort();
+  setupContributorsPagination();
 }
 
 // ═════════════════════════════════════════════════════════════════════
