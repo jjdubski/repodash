@@ -1330,12 +1330,16 @@ function setupExportPdf() {
       let unicodeFont = 'helvetica';
 
       try {
-        if (globalThis.window.NOTO_SANS_MULTILANGUAGE_BASE64) {
-          pdf.addFileToVFS(
-            'noto-sans-multilanguage.ttf',
-            globalThis.window.NOTO_SANS_MULTILANGUAGE_BASE64
-          );
-          pdf.addFont('noto-sans-multilanguage.ttf', 'NotoSansMultilanguage', 'normal');
+        const resp = await fetch('fonts/NotoSansMultilanguage-Regular.ttf');
+        if (resp.ok) {
+          const buf = await resp.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          let binary = '';
+          for (let i = 0; i < bytes.length; i++) {
+            binary += String.fromCharCode(bytes[i]);
+          }
+          pdf.addFileToVFS('NotoSansMultilanguage-Regular.ttf', btoa(binary));
+          pdf.addFont('NotoSansMultilanguage-Regular.ttf', 'NotoSansMultilanguage', 'normal');
           unicodeFont = 'NotoSansMultilanguage';
         }
       } catch {

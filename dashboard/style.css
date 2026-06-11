@@ -32,6 +32,13 @@
   color-scheme: light;
 }
 
+/* ── Custom font for universal script support ──────────────────────────── */
+@font-face {
+  font-family: "Noto Sans Multilanguage";
+  src: url("fonts/NotoSansMultilanguage-Regular.ttf") format("truetype");
+  font-display: swap;
+}
+
 /* ── Dark Theme ─────────────────────────────────────────────────────── */
 [data-theme="dark"] {
   --bg: #0d1117;

@@ -119,7 +119,6 @@ describe('Dashboard — setupExportPdf', () => {
         height: 100,
         toDataURL: () => 'data:image/png;base64,ABCD'
       }),
-      NOTO_SANS_MULTILANGUAGE_BASE64: 'mockBase64String',
       jspdf: {
         jsPDF: function () {
           const pdf = {
@@ -219,6 +218,10 @@ describe('Dashboard — setupExportPdf', () => {
       }),
       document,
       window,
+      fetch: async () => ({
+        ok: false
+      }),
+      btoa: (s) => s,
       console: { error: () => {} },
       // Make setTimeout resolve immediately to avoid real delays in tests
       setTimeout: (cb, _ms) => {
