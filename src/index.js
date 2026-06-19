@@ -39,7 +39,7 @@ export async function main(repoPath, options = {}) {
     options.timing
       ? (label, elapsed) => console.error(`  ${label.padEnd(22)} ${elapsed.toFixed(2)}s`)
       : undefined,
-    { noMerges: options['no-merges'] }
+    { noMerges: options['no-merges'], concurrency: options.concurrency }
   );
 
   result.summary.repoName = repoPath

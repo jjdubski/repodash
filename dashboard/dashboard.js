@@ -51,6 +51,8 @@ const state = {
   loadingPhase: 'init'
 };
 
+let _requestId = 0;
+
 // ═════════════════════════════════════════════════════════════════════
 //  UTILITIES (UI-specific — NOT in filter.js)
 // ═════════════════════════════════════════════════════════════════════
@@ -365,6 +367,20 @@ function initWorker() {
     state.worker.addEventListener('error', function (err) {
       console.error('Worker error:', err);
       state.workerReady = false;
+      if (state._filterPromise) {
+        state._filterPromise._reject(err);
+        state._filterPromise = null;
+      }
+      renderCurrentTab();
+    });
+
+    state.worker.addEventListener('messageerror', function () {
+      console.error('Worker message error');
+      state.workerReady = false;
+      if (state._filterPromise) {
+        state._filterPromise._reject(new Error('Worker message error'));
+        state._filterPromise = null;
+      }
       renderCurrentTab();
     });
 
@@ -385,61 +401,54 @@ function initWorker() {
   }
 }
 
-function loadData() {
-  return fetch('/data/summary.json')
-    .then(function (r) {
-      if (!r.ok) throw new Error('HTTP ' + r.status);
-      return r.json();
-    })
-    .then(function (summary) {
-      state.data = { summary: summary };
-      state.loadingPhase = 'summary';
+async function loadData() {
+  try {
+    const res = await fetch('/data/summary.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const summary = await res.json();
 
-      document.getElementById('metric-commits').textContent = formatNumber(summary.totalCommits);
-      document.getElementById('metric-contributors').textContent = formatNumber(
-        summary.totalContributors
-      );
-      document.getElementById('metric-additions').textContent = formatNumber(
-        summary.totalAdditions
-      );
-      document.getElementById('metric-deletions').textContent = formatNumber(
-        summary.totalDeletions
-      );
+    state.data = { summary };
+    state.loadingPhase = 'summary';
 
-      return Promise.all([
-        fetch('/data/contributions.json').then(function (r) {
-          return r.json();
-        }),
-        fetch('/data/contributors.json').then(function (r) {
-          return r.json();
-        }),
-        fetch('/data/frequency.json').then(function (r) {
-          return r.json();
-        })
-      ]);
-    })
-    .then(function (results) {
-      state.data.contributions = results[0];
-      state.data.contributors = results[1];
-      state.data.frequency = results[2];
-      state.loadingPhase = 'charts';
+    document.getElementById('metric-commits').textContent = formatNumber(summary.totalCommits);
+    document.getElementById('metric-contributors').textContent = formatNumber(
+      summary.totalContributors
+    );
+    document.getElementById('metric-additions').textContent = formatNumber(summary.totalAdditions);
+    document.getElementById('metric-deletions').textContent = formatNumber(summary.totalDeletions);
 
-      TABS.forEach(function (t) {
-        clearStates(t);
-      });
+    const [contributions, contributors, frequency] = await Promise.all([
+      fetch('/data/contributions.json').then(function (r) {
+        return r.json();
+      }),
+      fetch('/data/contributors.json').then(function (r) {
+        return r.json();
+      }),
+      fetch('/data/frequency.json').then(function (r) {
+        return r.json();
+      })
+    ]);
 
-      initWorker();
-    })
-    .catch(function (err) {
-      console.error('Failed to load data:', err);
-      TABS.forEach(function (t) {
-        showError(
-          t,
-          'Failed to load dashboard data. Ensure the server is running and the repository has been analyzed.'
-        );
-      });
-      throw err;
+    state.data.contributions = contributions;
+    state.data.contributors = contributors;
+    state.data.frequency = frequency;
+    state.loadingPhase = 'charts';
+
+    TABS.forEach(function (t) {
+      clearStates(t);
     });
+
+    initWorker();
+  } catch (err) {
+    console.error('Failed to load data:', err);
+    TABS.forEach(function (t) {
+      showError(
+        t,
+        'Failed to load dashboard data. Ensure the server is running and the repository has been analyzed.'
+      );
+    });
+    throw err;
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -572,9 +581,10 @@ function getFilteredData(allTabs) {
         return state._filterPromise;
       }
 
+      const id = ++_requestId;
       const promise = new Promise(function (resolve) {
         const handler = function (e) {
-          if (e.data.type === 'result') {
+          if (e.data.type === 'result' && e.data.requestId === id) {
             state.worker.removeEventListener('message', handler);
             state._filterPromise = null;
             state._filterCacheKey = key;
@@ -587,6 +597,7 @@ function getFilteredData(allTabs) {
 
         state.worker.postMessage({
           type: 'filter',
+          requestId: id,
           filter: state.timeFilter,
           customStartDate: state.customStartDate,
           customEndDate: state.customEndDate,
@@ -645,7 +656,18 @@ async function renderCurrentTab() {
 
   let d = getFilteredData();
   if (d && typeof d.then === 'function') {
-    d = await d;
+    d = await Promise.race([
+      d,
+      new Promise(function (_, reject) {
+        setTimeout(function () {
+          reject(new Error('Worker filter timed out'));
+        }, 15000);
+      })
+    ]).catch(function (err) {
+      console.error('Filter failed, falling back to main thread:', err);
+      state.workerReady = false;
+      return getFilteredData();
+    });
   }
   if (!d) return;
 
@@ -1360,7 +1382,7 @@ function setupDateRangeListeners() {
   function handleInput(inputEl, stateKey, getMin, postSet) {
     inputEl.addEventListener('input', function () {
       const val = inputEl.value;
-      if (val.length !== 10) {
+      if (val.length !== 10 || Number.isNaN(new Date(val).getTime())) {
         if (state[stateKey] !== null) state[stateKey] = null;
         return;
       }
@@ -1425,15 +1447,11 @@ function setupExportPdf() {
       });
     }
 
-    return loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js')
-      .then(function () {
-        return loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
-      })
-      .then(function () {
-        return loadScript(
-          'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js'
-        );
-      });
+    await loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+    await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
+    await loadScript(
+      'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js'
+    );
   }
 
   exportBtn.addEventListener('click', async function () {
@@ -1774,7 +1792,7 @@ function restoreUrlState() {
   }
 }
 
-function init() {
+async function init() {
   restoreUrlState();
 
   applyTheme(detectTheme());
@@ -1799,35 +1817,31 @@ function init() {
 
   initEmptyCharts(state.activeTab);
 
-  loadData()
-    .then(function () {
-      const startEl = document.getElementById('date-start');
-      const endEl = document.getElementById('date-end');
-      const today = getTodayLocal();
-      if (startEl && state.customStartDate) {
-        const clampedStart = clampDate(
-          state.customStartDate,
-          state.data.summary.firstCommit,
-          today
-        );
-        state.customStartDate = clampedStart;
-        startEl.value = clampedStart;
-      }
-      if (endEl && state.customEndDate) {
-        const endClampStart = state.customStartDate || state.data.summary.firstCommit || null;
-        const clampedEnd = clampDate(state.customEndDate, endClampStart, today);
-        state.customEndDate = clampedEnd;
-        endEl.value = clampedEnd;
-      }
+  try {
+    await loadData();
 
-      if (!state.workerReady) {
-        state.loadingPhase = 'complete';
-        renderCurrentTab();
-      }
-    })
-    .catch(function () {
-      // Errors already surfaced per-tab by loadData
-    });
+    const startEl = document.getElementById('date-start');
+    const endEl = document.getElementById('date-end');
+    const today = getTodayLocal();
+    if (startEl && state.customStartDate) {
+      const clampedStart = clampDate(state.customStartDate, state.data.summary.firstCommit, today);
+      state.customStartDate = clampedStart;
+      startEl.value = clampedStart;
+    }
+    if (endEl && state.customEndDate) {
+      const endClampStart = state.customStartDate || state.data.summary.firstCommit || null;
+      const clampedEnd = clampDate(state.customEndDate, endClampStart, today);
+      state.customEndDate = clampedEnd;
+      endEl.value = clampedEnd;
+    }
+
+    if (!state.workerReady) {
+      state.loadingPhase = 'complete';
+      renderCurrentTab();
+    }
+  } catch {
+    // Errors already surfaced per-tab by loadData
+  }
 }
 
 if (typeof document !== 'undefined') {

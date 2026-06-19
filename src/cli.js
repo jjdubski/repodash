@@ -10,6 +10,7 @@ Options:
   --file [path]         Write datasets as JSON to a file (default: repo dir)
   --timing              Show timing breakdown for each step
   --no-merges           Exclude merge commits (faster for large repos)
+  --concurrency <n>     Number of parallel workers (default: 4, max: 8)
   --summary             Include summary dataset
   --contributions       Include contributions dataset
   --contributors        Include contributors dataset
@@ -87,7 +88,8 @@ export function parseAndValidate(argv) {
       frequency: { type: 'boolean' },
       activity: { type: 'boolean' },
       timing: { type: 'boolean' },
-      'no-merges': { type: 'boolean' }
+      'no-merges': { type: 'boolean' },
+      concurrency: { type: 'string' }
     },
     strict: false,
     allowPositionals: true,
@@ -103,6 +105,20 @@ export function parseAndValidate(argv) {
   if (values.help) {
     printUsage();
     process.exit(0);
+  }
+
+  if (values.concurrency !== undefined) {
+    const n = Number(values.concurrency);
+    if (!Number.isInteger(n) || n < 1) {
+      console.error(chalk.red('Error: --concurrency must be a positive integer.\n'));
+      printUsage();
+      process.exit(1);
+    }
+    if (n > 8) {
+      console.log(chalk.yellow('Warning: --concurrency cannot exceed 8, setting to 8.\n'));
+      values.concurrency = 8;
+    }
+    values.concurrency = n;
   }
 
   const repoPath = determineRepoPath(values, positionals);

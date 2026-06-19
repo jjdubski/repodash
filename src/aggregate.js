@@ -3,6 +3,44 @@ import { getAllCommits, getCommitYearRange } from './git.js';
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const GITHUB_NOREPLY_RE = /^(?:\d+\+)?([^@+]+)@users\.noreply\.github\.com$/;
 
+/**
+ * @typedef {Object} ProcessingState
+ * @property {number} totalAdditions
+ * @property {number} totalDeletions
+ * @property {string|null} firstCommit - ISO date string of the first commit seen
+ * @property {string|null} lastCommit - ISO date string of the last commit seen
+ * @property {number} commitCount
+ * @property {Map<string, DayEntry>} contributionsMap - Keyed by YYYY-MM-DD
+ * @property {Map<string, {additions: number, deletions: number}>} frequencyMap - Keyed by YYYY-MM-DD
+ * @property {Map<string, ContributorEntry>} contributorsMap - Keyed by email
+ * @property {number[]} dayOfWeekCounts - Index 0=Mon … 6=Sun
+ * @property {number[]} hourCounts - Index 0-23
+ * @property {Map<string, number>} fileChangesMap - Keyed by file path
+ *
+ * @typedef {Object} DayEntry
+ * @property {string} date - YYYY-MM-DD
+ * @property {number} count
+ * @property {Map<string, AuthorData>} authors - Keyed by email
+ * @property {number[]} byHour - Length 24
+ * @property {Map<string, number>} files - Keyed by file path
+ *
+ * @typedef {Object} AuthorData
+ * @property {string} name
+ * @property {number} count
+ * @property {number} additions
+ * @property {number} deletions
+ *
+ * @typedef {Object} ContributorEntry
+ * @property {string} name
+ * @property {string} email
+ * @property {number} totalCommits
+ * @property {number} additions
+ * @property {number} deletions
+ * @property {string} firstCommit
+ * @property {string} lastCommit
+ * @property {Map<string, number>} names - Keyed by name, value is occurrence count
+ */
+
 function extractDate(isoString) {
   return isoString.slice(0, 10);
 }
@@ -124,8 +162,11 @@ function initOrUpdateContributor(contributorsMap, commit) {
   contributor.additions += commit.stats?.additions ?? 0;
   contributor.deletions += commit.stats?.deletions ?? 0;
   contributor.names.set(name, (contributor.names.get(name) ?? 0) + 1);
-  if (commit.date < contributor.firstCommit) contributor.firstCommit = commit.date;
-  if (commit.date > contributor.lastCommit) contributor.lastCommit = commit.date;
+  const commitDate = new Date(commit.date);
+  const firstDate = new Date(contributor.firstCommit);
+  const lastDate = new Date(contributor.lastCommit);
+  if (commitDate < firstDate) contributor.firstCommit = commit.date;
+  if (commitDate > lastDate) contributor.lastCommit = commit.date;
 
   return contributor;
 }
@@ -140,7 +181,7 @@ function initOrUpdateContributor(contributorsMap, commit) {
  * been created via {@link createProcessingState}.
  *
  * @param {object} commit - A parsed commit object (see git.js output shape).
- * @param {object} state  - Mutable processing state from createProcessingState().
+ * @param {ProcessingState} state - Mutable processing state from createProcessingState().
  */
 function processSingleCommit(commit, state) {
   const dateKey = extractDate(commit.date);
@@ -150,9 +191,10 @@ function processSingleCommit(commit, state) {
   state.totalAdditions += commit.stats?.additions ?? 0;
   state.totalDeletions += commit.stats?.deletions ?? 0;
 
-  if (state.firstCommit === null || commit.date < state.firstCommit)
+  if (state.firstCommit === null || jsDate < new Date(state.firstCommit))
     state.firstCommit = commit.date;
-  if (state.lastCommit === null || commit.date > state.lastCommit) state.lastCommit = commit.date;
+  if (state.lastCommit === null || jsDate > new Date(state.lastCommit))
+    state.lastCommit = commit.date;
 
   const dayEntry = initOrUpdateDayEntry(state.contributionsMap, dateKey, jsDate, commit);
 
@@ -429,14 +471,14 @@ function mergeFrequencyMaps(aFreqMap, bFreqMap) {
 function pickFirstCommit(a, b) {
   if (a === null) return b;
   if (b === null) return a;
-  if (a < b) return a;
+  if (new Date(a) < new Date(b)) return a;
   return b;
 }
 
 function pickLastCommit(a, b) {
   if (a === null) return b;
   if (b === null) return a;
-  if (a > b) return a;
+  if (new Date(a) > new Date(b)) return a;
   return b;
 }
 
@@ -585,6 +627,7 @@ export function createYearSlices(firstYear, lastYear) {
  * @param {Function}    [onTiming]   - Optional callback invoked with each timing entry.
  * @param {object}      [options]    - Options bag (last positional parameter).
  * @param {boolean}     [options.noMerges] - If true, exclude merge commits.
+ * @param {number}      [options.concurrency] - Max parallel workers. Defaults to 8.
  */
 export async function aggregateStreamParallel(
   repoPath,
@@ -635,7 +678,8 @@ export async function aggregateStreamParallel(
     return state;
   });
 
-  const states = await concurrencyPool(tasks, 8);
+  const concurrency = options.concurrency ?? 4;
+  const states = await concurrencyPool(tasks, Math.min(concurrency, 8));
 
   let t = performance.now();
   const processed = mergeAllStates(states);

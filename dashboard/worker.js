@@ -62,7 +62,7 @@ globalThis.onmessage = function (e) {
         result.activity = computeFilteredActivity(filteredContributions);
       }
 
-      self.postMessage({ type: 'result', data: result });
+      self.postMessage({ type: 'result', requestId: msg.requestId, data: result });
       break;
     }
 

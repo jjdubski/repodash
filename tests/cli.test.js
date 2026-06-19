@@ -174,4 +174,35 @@ describe('parseAndValidate', () => {
       (err) => err instanceof ExitError && err.code === 1
     );
   });
+
+  it('should parse --concurrency flag as a number', () => {
+    const result = parseAndValidate(['--concurrency', '4', '/path/to/repo']);
+    assert.strictEqual(result.values.concurrency, 4);
+  });
+
+  it('should not set concurrency when flag is absent', () => {
+    const result = parseAndValidate(['/path/to/repo']);
+    assert.strictEqual(result.values.concurrency, undefined);
+  });
+
+  it('should exit with code 1 when --concurrency is not a positive integer (zero)', () => {
+    assert.throws(
+      () => parseAndValidate(['--concurrency', '0', '/path/to/repo']),
+      (err) => err instanceof ExitError && err.code === 1
+    );
+  });
+
+  it('should exit with code 1 when --concurrency is not a positive integer (negative)', () => {
+    assert.throws(
+      () => parseAndValidate(['--concurrency', '-1', '/path/to/repo']),
+      (err) => err instanceof ExitError && err.code === 1
+    );
+  });
+
+  it('should exit with code 1 when --concurrency is not a positive integer (string)', () => {
+    assert.throws(
+      () => parseAndValidate(['--concurrency', 'abc', '/path/to/repo']),
+      (err) => err instanceof ExitError && err.code === 1
+    );
+  });
 });

@@ -99,22 +99,56 @@ function serveStatic(res, baseDir, urlPath, dataRoute = false) {
   serveFile(res, resolvedPath);
 }
 
+// ── CSP header value ───────────────────────────────────────────────────────
+const CSP_VALUE = [
+  "default-src 'self'",
+  "script-src 'self' https://cdn.jsdelivr.net",
+  "style-src 'self' 'unsafe-inline'",
+  "font-src 'self' data:",
+  "img-src 'self' data:",
+  "connect-src 'self'"
+].join('; ');
+
+// ---------------------------------------------------------------------------
+// Bind server directly (no TOCTOU race)
+// ---------------------------------------------------------------------------
+
 /**
- * Test whether a given port is available for binding.
- * Returns the actual port number (useful when `port` is 0 — the OS picks one).
+ * Bind an http.Server to an available port.
  *
- * @param {number} port
- * @returns {Promise<number>}
+ * When `preferredPort` is 0 the OS assigns a port directly — no probe-close-
+ * rebind cycle, so no race window. When a non-zero port is given, tries up to
+ * 11 positions (port through port+10) if EADDRINUSE is encountered.
+ *
+ * @param {import('node:http').Server} server
+ * @param {number} preferredPort
+ * @returns {Promise<number>} The actual port the server is listening on
  */
-function findAvailablePort(port) {
-  return new Promise((resolve, reject) => {
-    const probe = http.createServer();
-    probe.listen(port, () => {
-      const assigned = probe.address().port;
-      probe.close(() => resolve(assigned));
+function bindServer(server, preferredPort) {
+  if (preferredPort === 0) {
+    return new Promise((resolve, reject) => {
+      server.once('error', reject);
+      server.listen(0, () => resolve(server.address().port));
     });
-    probe.on('error', reject);
-  });
+  }
+
+  let current = preferredPort;
+  function tryBind() {
+    return new Promise((resolve, reject) => {
+      server.once('error', (err) => {
+        if (err.code === 'EADDRINUSE' && current < preferredPort + 10) {
+          current++;
+          server.once('error', () => {});
+          server.close();
+          resolve(tryBind());
+        } else {
+          reject(err);
+        }
+      });
+      server.listen(current, () => resolve(server.address().port));
+    });
+  }
+  return tryBind();
 }
 
 // ---------------------------------------------------------------------------
@@ -152,28 +186,6 @@ async function writeDataFiles(dataDir, data) {
   }
 }
 
-async function resolvePort(port) {
-  if (port === 0) {
-    return await findAvailablePort(0);
-  }
-  let current = port;
-  let found = false;
-  let actualPort;
-  for (let attempt = 0; attempt <= 10 && !found; attempt++) {
-    try {
-      actualPort = await findAvailablePort(current);
-      found = true;
-    } catch (err) {
-      if (err.code !== 'EADDRINUSE') throw err;
-      current++;
-    }
-  }
-  if (!found) {
-    throw new Error(`Could not bind to any port from ${port} to ${port + 10}`);
-  }
-  return actualPort;
-}
-
 /**
  * Write aggregated data to a temp directory and start an HTTP server that
  * serves both the bundled dashboard UI and the generated JSON.
@@ -204,20 +216,15 @@ export async function serveDashboard(data, dashboardDir, port = 0) {
     console.warn(chalk.yellow('The server will serve data endpoints but the UI may not load.'));
   }
 
-  let actualPort;
-  try {
-    actualPort = await resolvePort(port);
-  } catch (err) {
-    rmSync(tmpDir, { recursive: true, force: true });
-    throw new Error(`Port error: ${err.message}`, { cause: err });
-  }
-
   // -----------------------------------------------------------------------
-  // 5. Start HTTP server
+  // 5. Create and bind HTTP server
   // -----------------------------------------------------------------------
   const server = http.createServer((req, res) => {
+    // Set Content-Security-Policy on all responses
+    res.setHeader('Content-Security-Policy', CSP_VALUE);
+
     try {
-      const url = new URL(req.url, `http://localhost:${actualPort}`);
+      const url = new URL(req.url, `http://localhost:${port}`);
       let pathname = url.pathname;
 
       // Route root to index.html
@@ -234,17 +241,13 @@ export async function serveDashboard(data, dashboardDir, port = 0) {
     }
   });
 
-  await new Promise((resolve, reject) => {
-    const onError = (err) => {
-      rmSync(tmpDir, { recursive: true, force: true });
-      reject(new Error(`Failed to start server: ${err.message}`));
-    };
-    server.once('error', onError);
-    server.listen(actualPort, () => {
-      server.off('error', onError);
-      resolve();
-    });
-  });
+  let actualPort;
+  try {
+    actualPort = await bindServer(server, port);
+  } catch (err) {
+    rmSync(tmpDir, { recursive: true, force: true });
+    throw new Error(`Port error: ${err.message}`, { cause: err });
+  }
 
   return { port: actualPort, tmpDir, server };
 }
