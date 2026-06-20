@@ -1438,20 +1438,34 @@ function setupExportPdf() {
   async function loadPdfDependencies() {
     if (globalThis.window.html2canvas && globalThis.window.jspdf) return;
 
-    async function loadScript(src) {
-      return new Promise(function (resolve) {
+    async function loadScript(src, timeout = 10000) {
+      return new Promise(function (resolve, reject) {
         const s = document.createElement('script');
         s.src = src;
-        s.onload = resolve;
+        const timer = setTimeout(function () {
+          reject(new Error('Script loading timeout'));
+        }, timeout);
+        s.onload = function () {
+          clearTimeout(timer);
+          resolve();
+        };
+        s.onerror = function () {
+          clearTimeout(timer);
+          reject(new Error('Script failed to load'));
+        };
         document.head.appendChild(s);
       });
     }
 
-    await loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
-    await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
-    await loadScript(
-      'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js'
-    );
+    try {
+      await loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js');
+      await loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js');
+      await loadScript(
+        'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.3/dist/jspdf.plugin.autotable.min.js'
+      );
+    } catch (error) {
+      throw new Error('Failed to load PDF dependencies: ' + error.message, { cause: error });
+    }
   }
 
   exportBtn.addEventListener('click', async function () {
@@ -1464,9 +1478,17 @@ function setupExportPdf() {
     }
 
     if (!globalThis.window.html2canvas || !globalThis.window.jspdf) {
-      if (overlay) overlay.querySelector('span').textContent = 'Loading PDF dependencies\u2026';
-      await loadPdfDependencies();
-      if (overlay) overlay.querySelector('span').textContent = 'Generating PDF\u2026';
+      if (overlay) overlay.querySelector('span').textContent = 'Loading PDF dependencies…';
+      try {
+        await loadPdfDependencies();
+        if (overlay) overlay.querySelector('span').textContent = 'Generating PDF…';
+      } catch {
+        if (overlay)
+          overlay.querySelector('span').textContent =
+            'PDF export unavailable — check your connection';
+        exportBtn.disabled = false;
+        return;
+      }
     }
 
     let filtered = getFilteredData(true);
