@@ -638,6 +638,9 @@ export async function aggregateStreamParallel(
 ) {
   const { firstYear, lastYear } = await getCommitYearRange(repoPath);
   if (firstYear === null || lastYear === null) {
+    console.warn(
+      `Warning: could not determine commit year range for ${repoPath}. The dashboard will show an empty state.`
+    );
     const bc = await branchCount;
     return createEmptyResult(bc);
   }
