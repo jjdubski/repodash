@@ -224,8 +224,10 @@ describe('Dashboard — setupExportPdf', () => {
       }),
       btoa: (s) => s,
       console: { error: () => {} },
-      // Make setTimeout resolve immediately to avoid real delays in tests
-      setTimeout: (cb, _ms) => {
+      // Make small/zero-delay timeouts fire immediately; long timeouts (>= 1s)
+      // are ignored — tests rely on onload/onerror to resolve script loading
+      setTimeout: (cb, ms) => {
+        if (ms > 1000) return;
         cb();
       }
     };
@@ -418,10 +420,14 @@ describe('Dashboard — setupExportPdf', () => {
     );
     assert.strictEqual(
       renderFlags.overview,
-      true,
-      'renderOverview should be called even when jspdf is missing'
+      false,
+      'renderOverview should not be called when jspdf is missing (error returned early)'
     );
-    assert.ok(renderFlags.current, 'renderCurrentTab should be called when jspdf is missing');
+    assert.strictEqual(
+      renderFlags.current,
+      false,
+      'renderCurrentTab should not be called when jspdf is missing'
+    );
     assert.strictEqual(
       getPrintCalled(),
       false,

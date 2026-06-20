@@ -47,6 +47,8 @@ export function cleanAuthorName(name) {
   result = result.replace(/\\"/g, '"');
   // Strip trailing backslash from names like \"Talpey, Thomas\
   result = result.replace(/\\$/, '');
+  // Handle folded RFC 2047 headers: replace newline between encoded-word boundaries with space
+  result = result.replace(/\?=\s*\n\s*=\?/g, '?= =?');
   // Decode RFC 2047 encoded words
   result = decodeRfc2047(result);
   // Strip leading "? " from truncated encoded words (missing =?charset?q? prefix)

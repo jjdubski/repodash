@@ -1,11 +1,15 @@
 import { parseArgs } from 'node:util';
+import { createRequire } from 'node:module';
 import chalk from 'chalk';
+
+const require = createRequire(import.meta.url);
 
 function printUsage() {
   process.stdout.write(chalk.cyan('Usage: insights [options] <path-to-git-repo>\n'));
   process.stdout.write(`
 Options:
   -h, --help            Show this help message
+  -V, --version         Show version number
   --json                Print datasets as JSON to stdout
   --file [path]         Write datasets as JSON to a file (default: repo dir)
   --timing              Show timing breakdown for each step
@@ -81,6 +85,7 @@ export function parseAndValidate(argv) {
   const { values, positionals } = parseArgs({
     options: {
       help: { type: 'boolean', short: 'h' },
+      version: { type: 'boolean', short: 'V' },
       json: { type: 'boolean' },
       summary: { type: 'boolean' },
       contributions: { type: 'boolean' },
@@ -107,6 +112,12 @@ export function parseAndValidate(argv) {
     process.exit(0);
   }
 
+  if (values.version) {
+    const { version } = require('../package.json');
+    console.log(version);
+    process.exit(0);
+  }
+
   if (values.concurrency !== undefined) {
     const n = Number(values.concurrency);
     if (!Number.isInteger(n) || n < 1) {
@@ -130,6 +141,7 @@ export function parseAndValidate(argv) {
   }
 
   delete values.help;
+  delete values.version;
 
   return { repoPath, values };
 }

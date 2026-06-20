@@ -1481,6 +1481,9 @@ function setupExportPdf() {
       if (overlay) overlay.querySelector('span').textContent = 'Loading PDF dependencies…';
       try {
         await loadPdfDependencies();
+        if (!globalThis.window.html2canvas || !globalThis.window.jspdf) {
+          throw new Error('PDF dependencies did not load');
+        }
         if (overlay) overlay.querySelector('span').textContent = 'Generating PDF…';
       } catch {
         if (overlay)
