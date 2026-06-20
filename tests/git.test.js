@@ -17,6 +17,8 @@ let singleRepoPath;
 /** @type {string} */
 let multiYearRepoPath;
 /** @type {string} */
+let sparseYearRepoPath;
+/** @type {string} */
 let nonGitDir;
 /** @type {string} */
 let tmpDir;
@@ -30,12 +32,15 @@ let getAllCommits;
 let getLocalBranchCount;
 /** @type {import('../src/git.js').getCommitYearRange} */
 let getCommitYearRange;
+/** @type {import('../src/git.js').findActiveYears} */
+let findActiveYears;
 
 before(async () => {
   const mod = await import('../src/git.js');
   getAllCommits = mod.getAllCommits;
   getLocalBranchCount = mod.getLocalBranchCount;
   getCommitYearRange = mod.getCommitYearRange;
+  findActiveYears = mod.findActiveYears;
 });
 
 before(() => {
@@ -138,6 +143,26 @@ before(() => {
   execSync(
     'git add file.txt && GIT_AUTHOR_DATE="2024-11-05T12:00:00" GIT_COMMITTER_DATE="2024-11-05T12:00:00" git commit -m "Commit in 2024"',
     { cwd: multiYearRepoPath, stdio: 'pipe' }
+  );
+
+  // ── Sparse-year repo: commits only in 2022 and 2024 (gap in 2023)
+  sparseYearRepoPath = join(tmpDir, 'sparse-year-repo');
+  execSync(`git init "${sparseYearRepoPath}"`, { stdio: 'pipe' });
+  execSync('git config user.name "Test"', { cwd: sparseYearRepoPath, stdio: 'pipe' });
+  execSync('git config user.email "test@test.com"', { cwd: sparseYearRepoPath, stdio: 'pipe' });
+
+  // Commit in 2022
+  writeFileSync(join(sparseYearRepoPath, 'file.txt'), 'year 2022\n');
+  execSync(
+    'git add file.txt && GIT_AUTHOR_DATE="2022-06-01T12:00:00" GIT_COMMITTER_DATE="2022-06-01T12:00:00" git commit -m "Commit in 2022"',
+    { cwd: sparseYearRepoPath, stdio: 'pipe' }
+  );
+
+  // Commit in 2024 (no commits in 2023)
+  appendFileSync(join(sparseYearRepoPath, 'file.txt'), 'year 2024\n');
+  execSync(
+    'git add file.txt && GIT_AUTHOR_DATE="2024-11-10T12:00:00" GIT_COMMITTER_DATE="2024-11-10T12:00:00" git commit -m "Commit in 2024"',
+    { cwd: sparseYearRepoPath, stdio: 'pipe' }
   );
 
   // ── Regular directory (no .git) — for non-git directory error testing
@@ -398,6 +423,62 @@ describe('getCommitYearRange()', () => {
     const range = await getCommitYearRange(nonGitDir);
 
     assert.deepStrictEqual(range, { firstYear: null, lastYear: null });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Tests for findActiveYears()
+// ---------------------------------------------------------------------------
+describe('findActiveYears()', () => {
+  it('should return all years with commits in a multi-year repo', async () => {
+    const active = await findActiveYears(multiYearRepoPath, 2022, 2024);
+
+    assert.ok(active instanceof Set);
+    assert.strictEqual(active.size, 3);
+    assert.ok(active.has(2022));
+    assert.ok(active.has(2023));
+    assert.ok(active.has(2024));
+  });
+
+  it('should return only years within the specified range', async () => {
+    const active = await findActiveYears(multiYearRepoPath, 2023, 2024);
+
+    assert.strictEqual(active.size, 2);
+    assert.ok(!active.has(2022));
+    assert.ok(active.has(2023));
+    assert.ok(active.has(2024));
+  });
+
+  it('should return empty set for an empty repo', async () => {
+    const active = await findActiveYears(emptyRepoPath, 2022, 2024);
+
+    assert.ok(active instanceof Set);
+    assert.strictEqual(active.size, 0);
+  });
+
+  it('should detect sparse years (2022 and 2024, no 2023)', async () => {
+    const active = await findActiveYears(sparseYearRepoPath, 2022, 2024);
+
+    assert.strictEqual(active.size, 2);
+    assert.ok(active.has(2022));
+    assert.ok(!active.has(2023));
+    assert.ok(active.has(2024));
+  });
+
+  it('should handle range that starts before the first commit year', async () => {
+    const active = await findActiveYears(multiYearRepoPath, 2020, 2024);
+
+    // Should still find only years that actually have commits
+    assert.strictEqual(active.size, 3);
+    assert.ok(active.has(2022));
+    assert.ok(active.has(2023));
+    assert.ok(active.has(2024));
+  });
+
+  it('should reject for a non-existent path', async () => {
+    await assert.rejects(() => findActiveYears('/nonexistent/path/for/testing', 2020, 2025), {
+      name: 'Error'
+    });
   });
 });
 

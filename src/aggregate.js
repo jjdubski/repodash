@@ -642,6 +642,7 @@ export async function aggregateStreamParallel(
     return createEmptyResult(bc);
   }
 
+  // Create slices for all years in the range
   const slices = createYearSlices(firstYear, lastYear);
 
   const yearQuarterCount = new Map();

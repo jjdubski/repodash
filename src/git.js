@@ -180,6 +180,19 @@ export async function* getAllCommits(repoPath, options = {}) {
   let stderr = '';
   let exitCode = null;
   let processError = null;
+  let firstLineReceived = false;
+  let timeoutId = null;
+  let onErrorCalled = false;
+
+  // Handle maxWaitMs option
+  if (options.maxWaitMs != null) {
+    timeoutId = setTimeout(() => {
+      if (!firstLineReceived && options.onError && !onErrorCalled) {
+        onErrorCalled = true;
+        options.onError(new Error(`No output from git within timeout of ${options.maxWaitMs}ms`));
+      }
+    }, options.maxWaitMs);
+  }
 
   child.stderr.on('data', (chunk) => {
     stderr += chunk.toString();
@@ -189,10 +202,20 @@ export async function* getAllCommits(repoPath, options = {}) {
   });
   child.on('error', (err) => {
     processError = err;
+    if (options.onError && !firstLineReceived && !onErrorCalled) {
+      onErrorCalled = true;
+      options.onError(err);
+    }
   });
 
   try {
     for await (const line of rl) {
+      // Clear timeout once first line is received
+      if (!firstLineReceived && timeoutId) {
+        clearTimeout(timeoutId);
+        firstLineReceived = true;
+      }
+
       if (line === DELIMITER_LINE) {
         if (currentLines.length > 0) {
           const commit = parseCommit(currentLines);
@@ -256,4 +279,31 @@ export async function getCommitYearRange(repoPath) {
     console.warn(`Warning: could not determine commit year range: ${err.message}`);
     return { firstYear: null, lastYear: null };
   }
+}
+
+export async function findActiveYears(repoPath, firstYear, lastYear) {
+  validateRepoPath(repoPath);
+
+  // Get all commit dates in the range
+  const sinceFlag = firstYear ? [`--since=${firstYear}-01-01`] : [];
+  const untilFlag = lastYear ? [`--until=${lastYear + 1}-01-01`] : [];
+  const result = await spawnGit(
+    ['log', '--all', '--format=%ai', '--reverse', ...sinceFlag, ...untilFlag],
+    repoPath
+  );
+
+  // Extract unique years from the commit dates
+  const activeYears = new Set();
+  const lines = result.stdout.trim().split('\n');
+
+  for (const line of lines) {
+    if (line) {
+      const year = Number.parseInt(line.slice(0, 4), 10);
+      if (year >= firstYear && year <= lastYear) {
+        activeYears.add(year);
+      }
+    }
+  }
+
+  return activeYears;
 }
