@@ -1,40 +1,76 @@
 import chalk from 'chalk';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { existsSync, rmSync, statSync } from 'node:fs';
+import { existsSync, rmSync, statSync, mkdtempSync, readdirSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import open from 'open';
-import { getLocalBranchCount } from './git.js';
+import { getLocalBranchCount, cloneRemoteRepo } from './git.js';
 import { aggregateStreamParallel } from './aggregate.js';
 import { serveDashboard } from './server.js';
+import { tmpdir } from 'node:os';
 
-/** @type {string|null} */
-let tmpDirCleanup = null;
+/** @type {string[]} */
+const tempDirs = [];
+
+// Clean up stale temp dirs from previous runs that weren't cleaned up
+// (e.g., SIGKILL, power loss, npx killing the child process).
+// Only clean dirs older than 5 minutes to avoid interfering with concurrent runs.
+// Skip test fixtures (insights-test-*) and clone dirs (insights-clone-*).
+const STALE_PREFIX = 'insights-';
+try {
+  const entries = readdirSync(tmpdir());
+  const cutoff = Date.now() - 5 * 60 * 1000;
+  for (const entry of entries) {
+    if (!entry.startsWith(STALE_PREFIX)) continue;
+    const fullPath = join(tmpdir(), entry);
+    try {
+      const stat = statSync(fullPath);
+      if (!stat.isDirectory()) continue;
+      if (stat.mtimeMs > cutoff) continue;
+      rmSync(fullPath, { recursive: true, force: true });
+    } catch {
+      void 0;
+    }
+  }
+} catch {
+  void 0;
+}
 
 function cleanupSync() {
-  if (!tmpDirCleanup) return;
-  try {
-    rmSync(tmpDirCleanup, { recursive: true, force: true });
-  } catch {
-    void 0;
+  for (const dir of tempDirs) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch {
+      void 0;
+    }
   }
-  tmpDirCleanup = null;
+  tempDirs.length = 0;
 }
 
 process.on('exit', cleanupSync);
 
 export async function main(repoPath, options = {}) {
-  console.error(chalk.cyan(`insights: scanning repo at ${repoPath}`));
+  let actualRepoPath = repoPath;
+  let isCloned = false;
+
+  if (repoPath && /^[a-z+]+:\/\//.test(repoPath)) {
+    const tempDir = mkdtempSync(join(tmpdir(), 'insights-clone-'));
+    tempDirs.push(tempDir);
+    await cloneRemoteRepo(repoPath, options.token, tempDir);
+    actualRepoPath = tempDir;
+    isCloned = true;
+  }
+
+  console.error(chalk.cyan(`insights: scanning repo at ${actualRepoPath}`));
 
   const totalStart = performance.now();
 
-  // Print a blank line to visually separate the scan announcement from timing output
   if (options.timing) console.error();
 
   const timings = [];
   const result = await aggregateStreamParallel(
-    repoPath,
-    getLocalBranchCount(repoPath),
+    actualRepoPath,
+    getLocalBranchCount(actualRepoPath),
     timings,
     options.timing
       ? (label, elapsed) => console.error(`  ${label.padEnd(22)} ${elapsed.toFixed(2)}s`)
@@ -42,15 +78,24 @@ export async function main(repoPath, options = {}) {
     { noMerges: options['no-merges'], concurrency: options.concurrency }
   );
 
-  result.summary.repoName = repoPath
-    .replace(/[/\\]$/, '')
-    .split(/[/\\]/)
-    .pop()
-    .replace(/\.git$/, '');
+  let repoName;
+  if (isCloned) {
+    repoName = repoPath
+      .split('/')
+      .pop()
+      .replace(/\.git$/, '')
+      .replace(/[/\\]$/, '');
+  } else {
+    repoName = actualRepoPath
+      .replace(/[/\\]$/, '')
+      .split(/[/\\]/)
+      .pop()
+      .replace(/\.git$/, '');
+  }
+  result.summary.repoName = repoName;
 
   const genStart = performance.now();
 
-  /** @type {string|undefined} */
   let dashboardUrl;
 
   if (options.json) {
@@ -66,15 +111,14 @@ export async function main(repoPath, options = {}) {
         filePath = join(filePath, `insights_${ts}.json`);
       }
     } else {
-      filePath = join(repoPath, `insights_${ts}.json`);
+      filePath = join(actualRepoPath, `insights_${ts}.json`);
     }
     await writeFile(filePath, JSON.stringify(filtered, null, 2));
     console.error(chalk.green(`✓ Written to ${filePath}`));
   } else {
     const dashboardDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
     const { port, tmpDir, server } = await serveDashboard(result, dashboardDir);
-
-    tmpDirCleanup = tmpDir;
+    tempDirs.push(tmpDir);
 
     const addr = `http://localhost:${port}`;
     dashboardUrl = addr;
@@ -87,17 +131,13 @@ export async function main(repoPath, options = {}) {
 
     let shuttingDown = false;
 
-    function cleanup() {
+    const cleanup = () => {
       if (shuttingDown) return;
       shuttingDown = true;
-      console.log(chalk.gray('\nShutting down insights server...'));
-      server.close(() => {
-        process.exit(0);
-      });
-      setTimeout(() => {
-        process.exit(0);
-      }, 5000).unref();
-    }
+      cleanupSync();
+      tempDirs.length = 0;
+      process.exit(0);
+    };
 
     process.once('SIGINT', cleanup);
     process.once('SIGTERM', cleanup);

@@ -88,7 +88,7 @@ describe('main orchestrator (src/index.js)', () => {
   });
 
   it('should reject with a descriptive error when called with no arguments', async () => {
-    await assert.rejects(() => main(), /Not a git repository/);
+    await assert.rejects(() => main(undefined), /Not a git repository/);
   });
 
   // -----------------------------------------------------------------------
@@ -98,11 +98,11 @@ describe('main orchestrator (src/index.js)', () => {
   it('should produce valid JSON output with { json: true }', async () => {
     const logs = [];
     const originalLog = console.log;
-    console.log = (...args) => {
-      logs.push(args.join(' '));
-    };
 
     try {
+      // Replace console.log to capture JSON output
+      console.log = (...args) => logs.push(args.join(' '));
+
       await main(repoPath, { json: true });
 
       assert.strictEqual(logs.length, 1, 'console.log should be called once');

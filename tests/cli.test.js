@@ -205,4 +205,40 @@ describe('parseAndValidate', () => {
       (err) => err instanceof ExitError && err.code === 1
     );
   });
+
+  // -----------------------------------------------------------------------
+  // URL as repo path tests
+  // -----------------------------------------------------------------------
+
+  it('should accept a URL as the repo path', () => {
+    const result = parseAndValidate(['https://github.com/user/repo.git']);
+    assert.strictEqual(result.repoPath, 'https://github.com/user/repo.git');
+  });
+
+  it('should accept a URL with --json flag', () => {
+    const result = parseAndValidate(['--json', 'https://github.com/user/repo.git']);
+    assert.strictEqual(result.repoPath, 'https://github.com/user/repo.git');
+    assert.strictEqual(result.values.json, true);
+  });
+
+  it('should accept a URL with --token', () => {
+    const result = parseAndValidate(['--token', 'ghp_abc123', 'https://github.com/user/repo.git']);
+    assert.strictEqual(result.repoPath, 'https://github.com/user/repo.git');
+    assert.strictEqual(result.values.token, 'ghp_abc123');
+  });
+
+  // -----------------------------------------------------------------------
+  // --token flag parsing (without URL)
+  // -----------------------------------------------------------------------
+
+  it('should parse --token with a file path', () => {
+    const result = parseAndValidate(['--token', 'ghp_abc123', '/path/to/repo']);
+    assert.strictEqual(result.repoPath, '/path/to/repo');
+    assert.strictEqual(result.values.token, 'ghp_abc123');
+  });
+
+  it('should not set token when flag is absent', () => {
+    const result = parseAndValidate(['/path/to/repo']);
+    assert.strictEqual(result.values.token, undefined);
+  });
 });

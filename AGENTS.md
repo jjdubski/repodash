@@ -17,7 +17,7 @@ dashboard/style.css      — light + dark theme via custom properties
 
 - `aggregate()` is the pure core — no I/O, trivially testable.
 - Git parser streams with `split('---COMMIT---')` to handle large repos.
-- Data JSON files generated at runtime in `/tmp/insights-XXXXX/data/`.
+- Data JSON files generated at runtime in `{os.tmpdir()}/insights-XXXXX/data/` (Node's `os.tmpdir()` resolves to `/tmp/` on Linux, `/var/folders/.../T/` on macOS).
 - Path traversal protection in `server.js`.
 
 ## Commands

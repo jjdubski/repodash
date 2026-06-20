@@ -250,6 +250,12 @@ export async function* getAllCommits(repoPath, options = {}) {
   }
 }
 
+export async function cloneRemoteRepo(url, token, targetDir) {
+  const remoteUrl = token ? `https://${token}@${url.replace(/^https?:\/\//, '')}` : url;
+  await spawnGit(['clone', remoteUrl, targetDir]);
+  return targetDir;
+}
+
 export function getLocalBranchCount(repoPath) {
   validateRepoPath(repoPath);
 
