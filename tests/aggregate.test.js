@@ -129,6 +129,61 @@ describe('extracted helpers', () => {
         assert.strictEqual(slices[i].before, slices[i + 1].after);
       }
     });
+
+    it('should skip inactive years when activeYears is provided', () => {
+      const slices = createYearSlices(2020, 2024, new Set([2021, 2023]));
+      assert.strictEqual(slices.length, 8);
+      for (const slice of slices) {
+        const year = slice.after.slice(0, 4);
+        assert.ok(year === '2021' || year === '2023');
+      }
+    });
+
+    it('should produce same output as null when activeYears covers all years', () => {
+      const withActive = createYearSlices(2023, 2025, new Set([2023, 2024, 2025]));
+      const withoutActive = createYearSlices(2023, 2025);
+      assert.strictEqual(withActive.length, 12);
+      assert.deepStrictEqual(withActive, withoutActive);
+    });
+
+    it('should produce all quarters for a year that is in the set', () => {
+      const slices = createYearSlices(2024, 2024, new Set([2024]));
+      assert.strictEqual(slices.length, 4);
+      assert.strictEqual(slices[0].after, '2024-01-01');
+      assert.strictEqual(slices[0].before, '2024-04-01');
+      assert.strictEqual(slices[0].quarterNum, 1);
+      assert.strictEqual(slices[1].after, '2024-04-01');
+      assert.strictEqual(slices[1].before, '2024-07-01');
+      assert.strictEqual(slices[1].quarterNum, 2);
+      assert.strictEqual(slices[2].after, '2024-07-01');
+      assert.strictEqual(slices[2].before, '2024-10-01');
+      assert.strictEqual(slices[2].quarterNum, 3);
+      assert.strictEqual(slices[3].after, '2024-10-01');
+      assert.strictEqual(slices[3].before, '2025-01-01');
+      assert.strictEqual(slices[3].quarterNum, 4);
+    });
+
+    it('should handle empty activeYears set', () => {
+      const slices = createYearSlices(2020, 2024, new Set());
+      assert.strictEqual(slices.length, 0);
+    });
+
+    it('should handle single active year in middle of range', () => {
+      const slices = createYearSlices(2019, 2025, new Set([2022]));
+      assert.strictEqual(slices.length, 4);
+      assert.strictEqual(slices[0].after, '2022-01-01');
+      assert.strictEqual(slices[0].before, '2022-04-01');
+      assert.strictEqual(slices[0].quarterNum, 1);
+      assert.strictEqual(slices[1].after, '2022-04-01');
+      assert.strictEqual(slices[1].before, '2022-07-01');
+      assert.strictEqual(slices[1].quarterNum, 2);
+      assert.strictEqual(slices[2].after, '2022-07-01');
+      assert.strictEqual(slices[2].before, '2022-10-01');
+      assert.strictEqual(slices[2].quarterNum, 3);
+      assert.strictEqual(slices[3].after, '2022-10-01');
+      assert.strictEqual(slices[3].before, '2023-01-01');
+      assert.strictEqual(slices[3].quarterNum, 4);
+    });
   });
 
   describe('concurrencyPool', () => {

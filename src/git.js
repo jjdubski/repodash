@@ -296,7 +296,7 @@ export async function findActiveYears(repoPath, firstYear, lastYear) {
   const sinceFlag = firstYear ? [`--since=${firstYear}-01-01`] : [];
   const untilFlag = lastYear ? [`--until=${lastYear + 1}-01-01`] : [];
   const result = await spawnGit(
-    ['log', '--all', '--format=%ai', '--reverse', ...sinceFlag, ...untilFlag],
+    ['log', '--all', '--format=%ad', '--date=format:%Y', '--reverse', ...sinceFlag, ...untilFlag],
     repoPath
   );
 
@@ -305,8 +305,8 @@ export async function findActiveYears(repoPath, firstYear, lastYear) {
   const lines = result.stdout.trim().split('\n');
 
   for (const line of lines) {
-    if (line) {
-      const year = Number.parseInt(line.slice(0, 4), 10);
+    if (line.trim()) {
+      const year = Number.parseInt(line.trim(), 10);
       if (year >= firstYear && year <= lastYear) {
         activeYears.add(year);
       }

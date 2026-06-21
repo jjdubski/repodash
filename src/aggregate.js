@@ -1,4 +1,5 @@
-import { getAllCommits, getCommitYearRange } from './git.js';
+import { getAllCommits, getCommitYearRange, findActiveYears } from './git.js';
+import { cpus } from 'node:os';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const GITHUB_NOREPLY_RE = /^(?:\d+\+)?([^@+]+)@users\.noreply\.github\.com$/;
@@ -597,10 +598,11 @@ export async function aggregateStream(commitsStream, branchCount, timings, onTim
   return finalizeResults(processed, processed.commitCount, bc, timings, onTiming);
 }
 
-export function createYearSlices(firstYear, lastYear) {
+export function createYearSlices(firstYear, lastYear, activeYears = null) {
   const slices = [];
   const QUARTER_MONTHS = 3;
   for (let year = firstYear; year <= lastYear; year++) {
+    if (activeYears && !activeYears.has(year)) continue;
     for (let quarter = 0; quarter < 12; quarter += QUARTER_MONTHS) {
       const startMonth = quarter;
       const endMonth = quarter + QUARTER_MONTHS;
@@ -627,7 +629,7 @@ export function createYearSlices(firstYear, lastYear) {
  * @param {Function}    [onTiming]   - Optional callback invoked with each timing entry.
  * @param {object}      [options]    - Options bag (last positional parameter).
  * @param {boolean}     [options.noMerges] - If true, exclude merge commits.
- * @param {number}      [options.concurrency] - Max parallel workers. Defaults to 8.
+ * @param {number}      [options.concurrency] - Max parallel workers. Defaults to CPU count (max 8).
  */
 export async function aggregateStreamParallel(
   repoPath,
@@ -645,8 +647,13 @@ export async function aggregateStreamParallel(
     return createEmptyResult(bc);
   }
 
+  let activeYears = null;
+  if (lastYear - firstYear > 2) {
+    activeYears = await findActiveYears(repoPath, firstYear, lastYear);
+  }
+
   // Create slices for all years in the range
-  const slices = createYearSlices(firstYear, lastYear);
+  const slices = createYearSlices(firstYear, lastYear, activeYears);
 
   const yearQuarterCount = new Map();
   const yearWallStart = new Map();
@@ -657,32 +664,39 @@ export async function aggregateStreamParallel(
     if (timings && !yearWallStart.has(year)) {
       yearWallStart.set(year, performance.now());
     }
-    const state = await processCommitsStream(
-      getAllCommits(repoPath, {
-        after: slice.after,
-        before: slice.before,
-        noMerges: options.noMerges
-      })
-    );
-    if (timings) {
-      const qCount = (yearQuarterCount.get(year) ?? 0) + 1;
-      yearQuarterCount.set(year, qCount);
+    try {
+      const state = await processCommitsStream(
+        getAllCommits(repoPath, {
+          after: slice.after,
+          before: slice.before,
+          noMerges: options.noMerges
+        })
+      );
+      if (timings) {
+        const qCount = (yearQuarterCount.get(year) ?? 0) + 1;
+        yearQuarterCount.set(year, qCount);
 
-      if (qCount === 4) {
-        while (nextYear <= lastYear && yearQuarterCount.get(String(nextYear)) === 4) {
-          const start = yearWallStart.get(String(nextYear)) ?? performance.now();
-          const label = `Parse commits (${nextYear})`;
-          const elapsed = (performance.now() - start) / 1000;
-          timings.push({ label, elapsed });
-          if (onTiming) onTiming(label, elapsed);
-          nextYear++;
+        if (qCount === 4) {
+          while (nextYear <= lastYear && yearQuarterCount.get(String(nextYear)) === 4) {
+            const start = yearWallStart.get(String(nextYear)) ?? performance.now();
+            const label = `Parse commits (${nextYear})`;
+            const elapsed = (performance.now() - start) / 1000;
+            timings.push({ label, elapsed });
+            if (onTiming) onTiming(label, elapsed);
+            nextYear++;
+          }
         }
       }
+      return state;
+    } catch (err) {
+      throw new Error(
+        `Failed to process commits for ${year} Q${slice.quarterNum} (${slice.after} to ${slice.before}): ${err.message}`,
+        { cause: err }
+      );
     }
-    return state;
   });
 
-  const concurrency = options.concurrency ?? 4;
+  const concurrency = options.concurrency ?? (cpus().length || 1);
   const states = await concurrencyPool(tasks, Math.min(concurrency, 8));
 
   let t = performance.now();

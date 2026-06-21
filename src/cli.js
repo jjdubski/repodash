@@ -14,7 +14,7 @@ Options:
   --file [path]         Write datasets as JSON to a file (default: repo dir)
   --timing              Show timing breakdown for each step
   --no-merges           Exclude merge commits (faster for large repos)
-  --concurrency <n>     Number of parallel workers (default: 4, max: 8)
+  --concurrency <n>     Number of parallel workers (default: CPU count, max: 8)
   --token <token>       GitHub personal access token for remote repos
   --summary             Include summary dataset
   --contributions       Include contributions dataset
