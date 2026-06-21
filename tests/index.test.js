@@ -431,6 +431,18 @@ describe('main orchestrator (src/index.js)', () => {
   // -----------------------------------------------------------------------
 
   it('should generate a PDF file when { pdf: "path" } is provided', async () => {
+    // Guard: skip if Playwright or its browser binary isn't available
+    let playwright;
+    try {
+      playwright = await import('playwright');
+      const execPath = playwright.chromium.executablePath();
+      if (!existsSync(execPath)) {
+        return; // skip — browser binary not installed
+      }
+    } catch {
+      return; // skip — playwright not installed
+    }
+
     const outputPath = join(tmpDir, 'test-output.pdf');
 
     await main(repoPath, { pdf: outputPath });

@@ -21,6 +21,7 @@ Options:
   --frequency           Include frequency dataset
   --activity            Include activity dataset
   --pdf <path>          Generate a PDF report at the specified path
+                        (requires Playwright — run "npx playwright install chromium")
 
 
 If none of --summary/--contributions/--contributors/--frequency/--activity
@@ -144,10 +145,17 @@ export function parseAndValidate(argv) {
     process.exit(1);
   }
 
-  if (values.pdf && (values.json || values.file)) {
-    console.error(chalk.red('Error: --pdf cannot be combined with --json or --file.\n'));
-    printUsage();
-    process.exit(1);
+  if (values.pdf !== undefined) {
+    if (values.pdf === '') {
+      console.error(chalk.red('Error: --pdf value cannot be empty.\n'));
+      printUsage();
+      process.exit(1);
+    }
+    if (values.json || values.file) {
+      console.error(chalk.red('Error: --pdf cannot be combined with --json or --file.\n'));
+      printUsage();
+      process.exit(1);
+    }
   }
 
   delete values.help;

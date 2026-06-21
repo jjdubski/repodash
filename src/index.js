@@ -116,6 +116,18 @@ export async function main(repoPath, options = {}) {
     await writeFile(filePath, JSON.stringify(filtered, null, 2));
     console.error(chalk.green(`✓ Written to ${filePath}`));
   } else if (options.pdf) {
+    if (dirname(options.pdf) && !existsSync(dirname(options.pdf))) {
+      throw new Error(`Parent directory does not exist: ${dirname(options.pdf)}`);
+    }
+
+    const { chromium } = await import('playwright');
+    const executablePath = chromium.executablePath();
+    if (!existsSync(executablePath)) {
+      throw new Error(
+        `Playwright Chromium binary not found at ${executablePath}. Run "npx playwright install chromium".`
+      );
+    }
+
     const dashboardDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
     const { port, tmpDir, server } = await serveDashboard(result, dashboardDir);
     tempDirs.push(tmpDir);
@@ -124,8 +136,7 @@ export async function main(repoPath, options = {}) {
     console.error(chalk.cyan(`insights: generating PDF from dashboard at ${addr}`));
 
     try {
-      const { chromium } = await import('playwright');
-      const browser = await chromium.launch();
+      const browser = await chromium.launch({ args: ['--no-sandbox'] });
       const page = await browser.newPage();
       await page.goto(addr, { waitUntil: 'networkidle' });
       await page.pdf({ path: options.pdf, format: 'A4' });
@@ -135,10 +146,12 @@ export async function main(repoPath, options = {}) {
       throw new Error(`Failed to generate PDF: ${err.message}`, { cause: err });
     } finally {
       server.close();
+      cleanupSync();
     }
   } else {
     const dashboardDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
     const { port, tmpDir, server } = await serveDashboard(result, dashboardDir);
+    void server;
     tempDirs.push(tmpDir);
 
     const addr = `http://localhost:${port}`;
