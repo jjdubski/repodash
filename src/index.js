@@ -115,6 +115,27 @@ export async function main(repoPath, options = {}) {
     }
     await writeFile(filePath, JSON.stringify(filtered, null, 2));
     console.error(chalk.green(`✓ Written to ${filePath}`));
+  } else if (options.pdf) {
+    const dashboardDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
+    const { port, tmpDir, server } = await serveDashboard(result, dashboardDir);
+    tempDirs.push(tmpDir);
+
+    const addr = `http://localhost:${port}`;
+    console.error(chalk.cyan(`insights: generating PDF from dashboard at ${addr}`));
+
+    try {
+      const { chromium } = await import('playwright');
+      const browser = await chromium.launch();
+      const page = await browser.newPage();
+      await page.goto(addr, { waitUntil: 'networkidle' });
+      await page.pdf({ path: options.pdf, format: 'A4' });
+      await browser.close();
+      console.error(chalk.green(`✓ Written to ${options.pdf}`));
+    } catch (err) {
+      throw new Error(`Failed to generate PDF: ${err.message}`, { cause: err });
+    } finally {
+      server.close();
+    }
   } else {
     const dashboardDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
     const { port, tmpDir, server } = await serveDashboard(result, dashboardDir);

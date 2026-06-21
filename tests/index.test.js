@@ -425,4 +425,20 @@ describe('main orchestrator (src/index.js)', () => {
       }
     }
   });
+
+  // -----------------------------------------------------------------------
+  // PDF output mode
+  // -----------------------------------------------------------------------
+
+  it('should generate a PDF file when { pdf: "path" } is provided', async () => {
+    const outputPath = join(tmpDir, 'test-output.pdf');
+
+    await main(repoPath, { pdf: outputPath });
+
+    assert.ok(existsSync(outputPath), `PDF file should exist at ${outputPath}`);
+
+    // Check PDF magic bytes
+    const header = readFileSync(outputPath).slice(0, 5).toString();
+    assert.strictEqual(header, '%PDF-', 'File should have PDF magic bytes');
+  });
 });

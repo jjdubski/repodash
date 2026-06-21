@@ -260,4 +260,24 @@ describe('parseAndValidate', () => {
     const result = parseAndValidate(['/path/to/repo']);
     assert.strictEqual(result.values.token, undefined);
   });
+
+  it('should parse --pdf flag as a string', () => {
+    const result = parseAndValidate(['--pdf', 'report.pdf', '/path/to/repo']);
+    assert.strictEqual(result.repoPath, '/path/to/repo');
+    assert.strictEqual(result.values.pdf, 'report.pdf');
+  });
+
+  it('should exit with code 1 when --pdf is combined with --json', () => {
+    assert.throws(
+      () => parseAndValidate(['--pdf', 'report.pdf', '--json', '/path/to/repo']),
+      (err) => err instanceof ExitError && err.code === 1
+    );
+  });
+
+  it('should exit with code 1 when --pdf is combined with --file', () => {
+    assert.throws(
+      () => parseAndValidate(['--pdf', 'report.pdf', '--file', 'out.json', '/path/to/repo']),
+      (err) => err instanceof ExitError && err.code === 1
+    );
+  });
 });

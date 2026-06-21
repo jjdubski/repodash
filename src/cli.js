@@ -17,10 +17,11 @@ Options:
   --concurrency <n>     Number of parallel workers (default: CPU count, max: 8)
   --token <token>       GitHub personal access token for remote repos
   --summary             Include summary dataset
-  --contributions       Include contributions dataset
   --contributors        Include contributors dataset
   --frequency           Include frequency dataset
   --activity            Include activity dataset
+  --pdf <path>          Generate a PDF report at the specified path
+
 
 If none of --summary/--contributions/--contributors/--frequency/--activity
 are specified, all datasets are included.
@@ -93,6 +94,7 @@ export function parseAndValidate(argv) {
       contributors: { type: 'boolean' },
       frequency: { type: 'boolean' },
       activity: { type: 'boolean' },
+      pdf: { type: 'string' },
       timing: { type: 'boolean' },
       'no-merges': { type: 'boolean' },
       concurrency: { type: 'string' },
@@ -138,6 +140,12 @@ export function parseAndValidate(argv) {
 
   if (values.json && values.file) {
     console.error(chalk.red('Error: --json and --file are mutually exclusive.\n'));
+    printUsage();
+    process.exit(1);
+  }
+
+  if (values.pdf && (values.json || values.file)) {
+    console.error(chalk.red('Error: --pdf cannot be combined with --json or --file.\n'));
     printUsage();
     process.exit(1);
   }
