@@ -69,14 +69,14 @@ const DELIMITER_LINE = COMMIT_DELIMITER + COMMIT_DELIMITER;
 
 function validateRepoPath(repoPath) {
   if (typeof repoPath !== 'string' || repoPath.length === 0) {
-    throw new Error(`Not a git repository: ${repoPath}`);
+    throw new Error(`not a git repository: ${repoPath}`);
   }
   try {
     if (!statSync(repoPath).isDirectory()) {
-      throw new Error(`Not a git repository: ${repoPath}`);
+      throw new Error(`not a git repository: ${repoPath}`);
     }
   } catch (e) {
-    if (e.code === 'ENOENT') throw new Error(`Not a git repository: ${repoPath}`, { cause: e });
+    if (e.code === 'ENOENT') throw new Error(`not a git repository: ${repoPath}`, { cause: e });
     throw e;
   }
 }
@@ -191,7 +191,7 @@ export async function* getAllCommits(repoPath, options = {}) {
     timeoutId = setTimeout(() => {
       if (!firstLineReceived && options.onError && !onErrorCalled) {
         onErrorCalled = true;
-        options.onError(new Error(`No output from git within timeout of ${options.maxWaitMs}ms`));
+        options.onError(new Error(`no output from git within timeout of ${options.maxWaitMs}ms`));
       }
     }, options.maxWaitMs);
   }

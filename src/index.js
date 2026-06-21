@@ -117,14 +117,14 @@ export async function main(repoPath, options = {}) {
     console.error(chalk.green(`✓ Written to ${filePath}`));
   } else if (options.pdf) {
     if (dirname(options.pdf) && !existsSync(dirname(options.pdf))) {
-      throw new Error(`Parent directory does not exist: ${dirname(options.pdf)}`);
+      throw new Error(`parent directory does not exist: ${dirname(options.pdf)}`);
     }
 
     const { chromium } = await import('playwright');
     const executablePath = chromium.executablePath();
     if (!existsSync(executablePath)) {
       throw new Error(
-        `Playwright Chromium binary not found at ${executablePath}. Run "npx playwright install chromium".`
+        `playwright chromium binary not found at ${executablePath}. Run "npx playwright install chromium".`
       );
     }
 
@@ -143,7 +143,7 @@ export async function main(repoPath, options = {}) {
       await browser.close();
       console.error(chalk.green(`✓ Written to ${options.pdf}`));
     } catch (err) {
-      throw new Error(`Failed to generate PDF: ${err.message}`, { cause: err });
+      throw new Error(`failed to generate pdf: ${err.message}`, { cause: err });
     } finally {
       server.close();
       cleanupSync();

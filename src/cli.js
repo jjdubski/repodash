@@ -39,7 +39,7 @@ function parseFileFlag(argv) {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--file') {
       if (fileValue !== undefined || fileIsBool) {
-        console.error(chalk.red('Error: duplicate --file flag.\n'));
+        console.error(chalk.red('duplicate --file flag.\n'));
         printUsage();
         process.exit(1);
       }
@@ -62,20 +62,20 @@ function determineRepoPath(values, positionals) {
   let repoPath;
   if (typeof values.file === 'string' && positionals.length === 0) {
     if (values.file === '') {
-      console.error(chalk.red('Error: --file value cannot be empty.\n'));
+      console.error(chalk.red('--file value cannot be empty.\n'));
       printUsage();
       process.exit(1);
     }
     repoPath = values.file;
     values.file = true;
   } else if (positionals.length > 1) {
-    console.error(chalk.red('Error: multiple repository paths provided.\n'));
+    console.error(chalk.red('multiple repository paths provided.\n'));
     printUsage();
     process.exit(1);
   } else if (positionals.length > 0) {
     repoPath = positionals[0];
   } else {
-    console.error(chalk.red('Error: no repository path provided.\n'));
+    console.error(chalk.red('no repository path provided.\n'));
     printUsage();
     process.exit(1);
   }
@@ -126,7 +126,7 @@ export function parseAndValidate(argv) {
   if (values.concurrency !== undefined) {
     const n = Number(values.concurrency);
     if (!Number.isInteger(n) || n < 1) {
-      console.error(chalk.red('Error: --concurrency must be a positive integer.\n'));
+      console.error(chalk.red('--concurrency must be a positive integer.\n'));
       printUsage();
       process.exit(1);
     }
@@ -140,19 +140,19 @@ export function parseAndValidate(argv) {
   const repoPath = determineRepoPath(values, positionals);
 
   if (values.json && values.file) {
-    console.error(chalk.red('Error: --json and --file are mutually exclusive.\n'));
+    console.error(chalk.red('--json and --file are mutually exclusive.\n'));
     printUsage();
     process.exit(1);
   }
 
   if (values.pdf !== undefined) {
     if (values.pdf === '') {
-      console.error(chalk.red('Error: --pdf value cannot be empty.\n'));
+      console.error(chalk.red('--pdf value cannot be empty.\n'));
       printUsage();
       process.exit(1);
     }
     if (values.json || values.file) {
-      console.error(chalk.red('Error: --pdf cannot be combined with --json or --file.\n'));
+      console.error(chalk.red('--pdf cannot be combined with --json or --file.\n'));
       printUsage();
       process.exit(1);
     }

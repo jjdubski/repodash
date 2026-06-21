@@ -83,12 +83,12 @@ describe('main orchestrator (src/index.js)', () => {
   it('should reject with a descriptive error for a non-existent repo path', async () => {
     await assert.rejects(
       () => main('/tmp/nonexistent-repo-path-for-testing'),
-      /Not a git repository/
+      /not a git repository/
     );
   });
 
   it('should reject with a descriptive error when called with no arguments', async () => {
-    await assert.rejects(() => main(undefined), /Not a git repository/);
+    await assert.rejects(() => main(undefined), /not a git repository/);
   });
 
   // -----------------------------------------------------------------------
@@ -133,7 +133,7 @@ describe('main orchestrator (src/index.js)', () => {
   });
 
   it('should reject with missing path even with { json: true }', async () => {
-    await assert.rejects(() => main(undefined, { json: true }), /Not a git repository/);
+    await assert.rejects(() => main(undefined, { json: true }), /not a git repository/);
   });
 
   // -----------------------------------------------------------------------

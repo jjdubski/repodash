@@ -151,3 +151,4 @@ docs/superpowers
 # Project templates (reference only — not part of the codebase)
 templates
 .fallow
+test-results/

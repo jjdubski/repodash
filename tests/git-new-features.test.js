@@ -95,7 +95,7 @@ describe('getAllCommits() — maxWaitMs timeout', () => {
       assert.strictEqual(errors.length, 1, 'onError should be called exactly once');
       assert.ok(errors[0] instanceof Error);
       assert.ok(
-        errors[0].message.includes('No output from git within timeout'),
+        errors[0].message.toLowerCase().includes('no output from git within timeout'),
         `got: ${errors[0].message}`
       );
     }

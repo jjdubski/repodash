@@ -1,5 +1,6 @@
 import { getAllCommits, getCommitYearRange, findActiveYears } from './git.js';
 import { cpus } from 'node:os';
+import chalk from 'chalk';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const GITHUB_NOREPLY_RE = /^(?:\d+\+)?([^@+]+)@users\.noreply\.github\.com$/;
@@ -641,7 +642,9 @@ export async function aggregateStreamParallel(
   const { firstYear, lastYear } = await getCommitYearRange(repoPath);
   if (firstYear === null || lastYear === null) {
     console.warn(
-      `Warning: could not determine commit year range for ${repoPath}. The dashboard will show an empty state.`
+      chalk.yellow(
+        `could not determine commit year range for ${repoPath}. the dashboard will show an empty state.`
+      )
     );
     const bc = await branchCount;
     return createEmptyResult(bc);
@@ -690,7 +693,7 @@ export async function aggregateStreamParallel(
       return state;
     } catch (err) {
       throw new Error(
-        `Failed to process commits for ${year} Q${slice.quarterNum} (${slice.after} to ${slice.before}): ${err.message}`,
+        `failed to process commits for ${year} Q${slice.quarterNum} (${slice.after} to ${slice.before}): ${err.message}`,
         { cause: err }
       );
     }

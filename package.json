@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node bin/insights.js",
-    "test": "node --test tests/*.test.js",
+    "test": "node --test tests/**/*.test.js tests/**/*.e2e.js",
     "lint": "eslint .",
     "lint:md": "markdownlint --ignore node_modules --ignore docs/superpowers --ignore .husky --ignore AGENTS.md .",
     "lint:css": "stylelint '**/*.css'",

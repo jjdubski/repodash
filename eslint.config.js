@@ -39,6 +39,19 @@ export default defineConfig([
     }
   },
   {
+    files: ['tests/e2e/**/*.js'],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node
+      },
+      sourceType: 'module'
+    },
+    rules: {
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }]
+    }
+  },
+  {
     files: ['tests/**/*.js'],
     languageOptions: {
       globals: { ...globals.node },

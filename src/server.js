@@ -160,7 +160,7 @@ function createTempDir() {
   try {
     tmpDir = mkdtempSync(join(tmpdir(), 'insights-'));
   } catch (err) {
-    throw new Error(`Failed to create temp directory: ${err.message}`, { cause: err });
+    throw new Error(`failed to create temp directory: ${err.message}`, { cause: err });
   }
   let dataDir;
   try {
@@ -168,7 +168,7 @@ function createTempDir() {
     mkdirSync(dataDir);
   } catch (err) {
     rmSync(tmpDir, { recursive: true, force: true });
-    throw new Error(`Failed to create data directory: ${err.message}`, { cause: err });
+    throw new Error(`failed to create data directory: ${err.message}`, { cause: err });
   }
   return { tmpDir, dataDir };
 }
@@ -182,7 +182,7 @@ async function writeDataFiles(dataDir, data) {
     );
     await Promise.all(writes);
   } catch (err) {
-    throw new Error(`Failed to write data files: ${err.message}`, { cause: err });
+    throw new Error(`failed to write data files: ${err.message}`, { cause: err });
   }
 }
 
@@ -246,7 +246,7 @@ export async function serveDashboard(data, dashboardDir, port = 0) {
     actualPort = await bindServer(server, port);
   } catch (err) {
     rmSync(tmpDir, { recursive: true, force: true });
-    throw new Error(`Port error: ${err.message}`, { cause: err });
+    throw new Error(`port error: ${err.message}`, { cause: err });
   }
 
   return { port: actualPort, tmpDir, server };
