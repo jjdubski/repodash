@@ -102,12 +102,12 @@
     </header>
 
     <!-- ── Time filter ── -->
-    <nav class="time-filter" aria-label="Time filter">
-      <button class="pill" data-filter="allTime" type="button">All Time</button>
-      <button class="pill" data-filter="pastYear" type="button">Past Year</button>
-      <button class="pill active" data-filter="last3months" type="button">Last 3 Months</button>
-      <button class="pill" data-filter="thisWeek" type="button">This Week</button>
-      <button class="pill" data-filter="custom" type="button">Custom</button>
+    <nav class="time-filter" aria-label="Time filter" role="radiogroup">
+      <button class="pill" data-filter="allTime" type="button" role="radio" aria-checked="false">All Time</button>
+      <button class="pill" data-filter="pastYear" type="button" role="radio" aria-checked="false">Past Year</button>
+      <button class="pill active" data-filter="last3months" type="button" role="radio" aria-checked="true">Last 3 Months</button>
+      <button class="pill" data-filter="thisWeek" type="button" role="radio" aria-checked="false">This Week</button>
+      <button class="pill" data-filter="custom" type="button" role="radio" aria-checked="false">Custom</button>
     </nav>
     <div class="custom-date-range hidden" id="custom-date-range">
       <label for="date-start">From:</label>
@@ -123,6 +123,7 @@
         class="tab active"
         role="tab"
         aria-selected="true"
+        aria-controls="tab-overview"
         data-tab="overview"
         type="button"
       >
@@ -133,6 +134,7 @@
         class="tab"
         role="tab"
         aria-selected="false"
+        aria-controls="tab-contributors"
         data-tab="contributors"
         type="button"
       >
@@ -143,6 +145,7 @@
         class="tab"
         role="tab"
         aria-selected="false"
+        aria-controls="tab-activity"
         data-tab="activity"
         type="button"
       >
@@ -167,19 +170,19 @@
 
         <!-- Metric cards -->
         <div class="metric-grid" id="metric-cards">
-          <article class="metric-card">
+          <article class="metric-card" aria-label="Total Commits">
             <h3 class="metric-label">Total Commits</h3>
             <p class="metric-value" id="metric-commits">—</p>
           </article>
-          <article class="metric-card">
+          <article class="metric-card" aria-label="Contributors">
             <h3 class="metric-label">Contributors</h3>
             <p class="metric-value" id="metric-contributors">—</p>
           </article>
-          <article class="metric-card">
+          <article class="metric-card" aria-label="Lines Added">
             <h3 class="metric-label">Lines Added</h3>
             <p class="metric-value metric-positive" id="metric-additions">—</p>
           </article>
-          <article class="metric-card">
+          <article class="metric-card" aria-label="Lines Deleted">
             <h3 class="metric-label">Lines Deleted</h3>
             <p class="metric-value metric-negative" id="metric-deletions">—</p>
           </article>
@@ -199,7 +202,7 @@
             </select>
           </div>
           <div class="chart-wrap">
-            <canvas id="chart-contribution"></canvas>
+            <canvas id="chart-contribution" role="img" aria-label="Contribution graph showing commit activity over time"></canvas>
           </div>
         </div>
 
@@ -218,7 +221,7 @@
             </select>
           </div>
           <div class="chart-wrap">
-            <canvas id="chart-top-contributors"></canvas>
+            <canvas id="chart-top-contributors" role="img" aria-label="Top contributors chart showing commit distribution"></canvas>
           </div>
         </div>
 
@@ -226,7 +229,7 @@
         <div class="chart-card">
           <h2 class="chart-title">Additions &amp; Deletions Over Time</h2>
           <div class="chart-wrap chart-wrap-lg">
-            <canvas id="chart-frequency-overview"></canvas>
+            <canvas id="chart-frequency-overview" role="img" aria-label="Additions and deletions over time chart"></canvas>
           </div>
         </div>
       </section>
@@ -248,7 +251,7 @@
           <table class="data-table" id="contributors-table">
             <thead>
               <tr>
-                <th data-sort-by="name" tabindex="0" role="button" class="sortable-th">
+                <th data-sort-by="name" tabindex="0" class="sortable-th" aria-label="Sort by Name">
                   Name
                   <svg
                     class="sort-indicator"
@@ -260,7 +263,7 @@
                     <polygon points="5,9 9,2 1,2" fill="currentColor" />
                   </svg>
                 </th>
-                <th class="num-col sortable-th" data-sort-by="commits" tabindex="0" role="button">
+                <th class="num-col sortable-th" data-sort-by="commits" tabindex="0" aria-label="Sort by Commits">
                   Commits
                   <svg
                     class="sort-indicator"
@@ -272,7 +275,7 @@
                     <polygon points="5,9 9,2 1,2" fill="currentColor" />
                   </svg>
                 </th>
-                <th class="num-col sortable-th" data-sort-by="additions" tabindex="0" role="button">
+                <th class="num-col sortable-th" data-sort-by="additions" tabindex="0" aria-label="Sort by Additions">
                   Additions
                   <svg
                     class="sort-indicator"
@@ -284,7 +287,7 @@
                     <polygon points="5,9 9,2 1,2" fill="currentColor" />
                   </svg>
                 </th>
-                <th class="num-col sortable-th" data-sort-by="deletions" tabindex="0" role="button">
+                <th class="num-col sortable-th" data-sort-by="deletions" tabindex="0" aria-label="Sort by Deletions">
                   Deletions
                   <svg
                     class="sort-indicator"
@@ -296,7 +299,7 @@
                     <polygon points="5,9 9,2 1,2" fill="currentColor" />
                   </svg>
                 </th>
-                <th data-sort-by="firstCommit" tabindex="0" role="button" class="sortable-th">
+                <th data-sort-by="firstCommit" tabindex="0" class="sortable-th" aria-label="Sort by First Commit">
                   First Commit
                   <svg
                     class="sort-indicator"
@@ -308,7 +311,7 @@
                     <polygon points="5,9 9,2 1,2" fill="currentColor" />
                   </svg>
                 </th>
-                <th data-sort-by="lastCommit" tabindex="0" role="button" class="sortable-th">
+                <th data-sort-by="lastCommit" tabindex="0" class="sortable-th" aria-label="Sort by Last Commit">
                   Last Commit
                   <svg
                     class="sort-indicator"
@@ -328,22 +331,22 @@
 
         <!-- Pagination controls for contributors table -->
         <div class="pagination" id="contributors-pagination">
-          <button id="prev-page" class="pill" type="button" disabled>Previous</button>
-          <span id="page-info" class="page-info">Page 1 of 1</span>
+          <button id="prev-page" class="pill" type="button" disabled aria-label="Previous page">Previous</button>
+          <span id="page-info" class="page-info" aria-live="polite">Page 1 of 1</span>
           <select id="page-size" class="chart-select" aria-label="Rows per page">
             <option value="50">50 per page</option>
             <option value="100">100 per page</option>
             <option value="500" selected>500 per page</option>
             <option value="1000">1000 per page</option>
           </select>
-          <button id="next-page" class="pill" type="button" disabled>Next</button>
+          <button id="next-page" class="pill" type="button" disabled aria-label="Next page">Next</button>
         </div>
 
         <!-- Per-contributor bar chart -->
         <div class="chart-card">
           <h2 class="chart-title">Commit Distribution</h2>
           <div class="chart-wrap">
-            <canvas id="chart-contributor-distribution"></canvas>
+            <canvas id="chart-contributor-distribution" role="img" aria-label="Commit distribution chart by contributor"></canvas>
           </div>
         </div>
       </section>
@@ -361,18 +364,18 @@
         </div>
 
         <div class="chart-row">
-          <div class="chart-card">
-            <h2 class="chart-title">Commits by Day of Week</h2>
-            <div class="chart-wrap">
-              <canvas id="chart-dayofweek"></canvas>
-            </div>
+        <div class="chart-card">
+          <h2 class="chart-title">Commits by Day of Week</h2>
+          <div class="chart-wrap">
+            <canvas id="chart-dayofweek" role="img" aria-label="Commits by day of week chart"></canvas>
           </div>
-          <div class="chart-card">
-            <h2 class="chart-title">Commits by Hour of Day</h2>
-            <div class="chart-wrap">
-              <canvas id="chart-hour"></canvas>
-            </div>
+        </div>
+        <div class="chart-card">
+          <h2 class="chart-title">Commits by Hour of Day</h2>
+          <div class="chart-wrap">
+            <canvas id="chart-hour" role="img" aria-label="Commits by hour of day chart"></canvas>
           </div>
+        </div>
         </div>
 
         <div class="chart-card">
@@ -398,7 +401,7 @@
     </footer>
 
     <!-- ── PDF export overlay ── -->
-    <div id="export-overlay" class="export-overlay hidden" aria-live="polite">
+    <div id="export-overlay" class="export-overlay hidden" role="alertdialog" aria-label="PDF Export" aria-describedby="export-message" tabindex="-1">
       <svg class="spinner" viewBox="0 0 24 24" width="32" height="32" aria-hidden="true">
         <circle
           cx="12"
@@ -411,7 +414,7 @@
           stroke-linecap="round"
         />
       </svg>
-      <span>Generating PDF…</span>
+      <span id="export-message">Generating PDF…</span>
     </div>
   </body>
 </html>

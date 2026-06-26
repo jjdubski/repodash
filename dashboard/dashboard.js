@@ -544,7 +544,9 @@ function setTimeFilter(filter) {
   }
 
   document.querySelectorAll('.pill').forEach(function (btn) {
-    btn.classList.toggle('active', btn.dataset.filter === filter);
+    const isActive = btn.dataset.filter === filter;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-checked', String(isActive));
   });
 
   const customRange = document.getElementById('custom-date-range');
@@ -652,35 +654,45 @@ function getFilteredData(allTabs) {
 }
 
 async function renderCurrentTab() {
-  if (!state.data?.contributions) return;
-
-  let d = getFilteredData();
-  if (d && typeof d.then === 'function') {
-    d = await Promise.race([
-      d,
-      new Promise(function (_, reject) {
-        setTimeout(function () {
-          reject(new Error('Worker filter timed out'));
-        }, 15000);
-      })
-    ]).catch(function (err) {
-      console.error('Filter failed, falling back to main thread:', err);
-      state.workerReady = false;
-      return getFilteredData();
-    });
+  const mainContent = document.getElementById('main-content');
+  if (mainContent) {
+    mainContent.setAttribute('aria-busy', 'true');
   }
-  if (!d) return;
+  try {
+    if (!state.data?.contributions) return;
 
-  switch (state.activeTab) {
-    case 'overview':
-      renderOverview(d);
-      break;
-    case 'contributors':
-      renderContributors(d);
-      break;
-    case 'activity':
-      renderActivity(d);
-      break;
+    let d = getFilteredData();
+    if (d && typeof d.then === 'function') {
+      d = await Promise.race([
+        d,
+        new Promise(function (_, reject) {
+          setTimeout(function () {
+            reject(new Error('Worker filter timed out'));
+          }, 15000);
+        })
+      ]).catch(function (err) {
+        console.error('Filter failed, falling back to main thread:', err);
+        state.workerReady = false;
+        return getFilteredData();
+      });
+    }
+    if (!d) return;
+
+    switch (state.activeTab) {
+      case 'overview':
+        renderOverview(d);
+        break;
+      case 'contributors':
+        renderContributors(d);
+        break;
+      case 'activity':
+        renderActivity(d);
+        break;
+    }
+  } finally {
+    if (mainContent) {
+      mainContent.setAttribute('aria-busy', 'false');
+    }
   }
 }
 
@@ -1001,6 +1013,14 @@ function updateContributorsThead() {
         'aria-sort',
         state.contributorsSortOrder === 'asc' ? 'ascending' : 'descending'
       );
+      // Update aria-label to indicate sort direction
+      const label = th.getAttribute('aria-label');
+      if (label) {
+        const newLabel =
+          label.replace(/\s\(.*\)/, '') +
+          ` (${state.contributorsSortOrder === 'asc' ? 'ascending' : 'descending'})`;
+        th.setAttribute('aria-label', newLabel);
+      }
       if (svg) {
         svg.classList.toggle('asc', state.contributorsSortOrder === 'asc');
       }
@@ -1068,8 +1088,14 @@ function renderContributorsPagination(total, totalPages) {
 
   const prevBtn = document.getElementById('prev-page');
   const nextBtn = document.getElementById('next-page');
-  if (prevBtn) prevBtn.disabled = page <= 1;
-  if (nextBtn) nextBtn.disabled = page >= totalPages;
+  if (prevBtn) {
+    prevBtn.disabled = page <= 1;
+    prevBtn.setAttribute('aria-label', `Previous page (page ${page - 1} of ${totalPages})`);
+  }
+  if (nextBtn) {
+    nextBtn.disabled = page >= totalPages;
+    nextBtn.setAttribute('aria-label', `Next page (page ${page + 1} of ${totalPages})`);
+  }
 
   const sizeSelect = document.getElementById('page-size');
   if (sizeSelect) sizeSelect.value = String(pageSize);
@@ -1375,6 +1401,46 @@ function setupKeyboardNav() {
   }
 }
 
+function setupTimeFilterKeyboardNav() {
+  const container = document.querySelector('.time-filter');
+  if (!container) return;
+
+  container.addEventListener('keydown', function (e) {
+    const pills = Array.prototype.slice.call(container.querySelectorAll('.pill'));
+    const idx = pills.indexOf(document.activeElement);
+    if (idx === -1) return;
+
+    let nextIdx = -1;
+
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      nextIdx = (idx - 1 + pills.length) % pills.length;
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      nextIdx = (idx + 1) % pills.length;
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      nextIdx = 0;
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      nextIdx = pills.length - 1;
+    }
+
+    if (nextIdx >= 0) {
+      const target = pills[nextIdx];
+      pills.forEach(function (p) {
+        p.setAttribute('tabindex', '-1');
+      });
+      target.setAttribute('tabindex', '0');
+      target.focus();
+
+      if (!target.classList.contains('active')) {
+        setTimeFilter(target.dataset.filter);
+      }
+    }
+  });
+}
+
 function setupDateRangeListeners() {
   const dateStart = document.getElementById('date-start');
   const dateEnd = document.getElementById('date-end');
@@ -1475,6 +1541,7 @@ function setupExportPdf() {
       overlay.style.background = style.getPropertyValue('--bg').trim() || '#ffffff';
       overlay.style.color = style.getPropertyValue('--text').trim() || '#000000';
       overlay.classList.remove('hidden');
+      overlay.focus();
     }
 
     if (!globalThis.window.html2canvas || !globalThis.window.jspdf) {
@@ -1730,6 +1797,7 @@ function setupExportPdf() {
         overlay.classList.add('hidden');
         overlay.style.background = '';
         overlay.style.color = '';
+        exportBtn.focus();
       }
       document.body.style.overflow = '';
       if (titleEl) titleEl.textContent = originalTitle;
@@ -1788,6 +1856,7 @@ function setupEvents() {
   setupDateRangeListeners();
 
   setupKeyboardNav();
+  setupTimeFilterKeyboardNav();
 
   setupContributorsSort();
   setupContributorsPagination();
@@ -1824,7 +1893,9 @@ async function init() {
   setupEvents();
 
   document.querySelectorAll('.pill').forEach(function (btn) {
-    btn.classList.toggle('active', btn.dataset.filter === state.timeFilter);
+    const isActive = btn.dataset.filter === state.timeFilter;
+    btn.classList.toggle('active', isActive);
+    btn.setAttribute('aria-checked', String(isActive));
   });
 
   const customRange = document.getElementById('custom-date-range');

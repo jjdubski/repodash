@@ -60,7 +60,8 @@ describe('Dashboard — setupExportPdf', () => {
       addEventListener: function (event, handler) {
         // store handler for manual invocation
         this._handler = handler;
-      }
+      },
+      focus: () => {}
     };
 
     const headerTitleEl = { textContent: 'Original Header' };
@@ -83,7 +84,8 @@ describe('Dashboard — setupExportPdf', () => {
         remove: (c) => overlayClassSet.delete(c),
         contains: (c) => overlayClassSet.has(c)
       },
-      querySelector: () => ({ textContent: '' })
+      querySelector: () => ({ textContent: '' }),
+      focus: () => {}
     };
 
     function chartCardEl() {

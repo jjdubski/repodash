@@ -30,6 +30,8 @@
     Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 
   color-scheme: light;
+
+  --scroll-gradient: linear-gradient(to left, rgba(255, 255, 255, 0.8), transparent);
 }
 
 /* ── Custom font for universal script support ──────────────────────────── */
@@ -52,6 +54,8 @@
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 
   color-scheme: dark;
+
+  --scroll-gradient: linear-gradient(to left, rgba(13, 17, 23, 0.9), transparent);
 }
 
 /* ── Reset & Base ───────────────────────────────────────────────────── */
@@ -518,6 +522,43 @@ body {
 /* ── Data tables ────────────────────────────────────────────────────── */
 .table-wrap {
   overflow-x: auto;
+  position: relative;
+}
+
+/* Add scroll hint for tables */
+.table-wrap:hover::after,
+.table-wrap:focus-within::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 30px;
+  background: var(--scroll-gradient);
+  pointer-events: none;
+  z-index: 1;
+}
+
+@media (hover: none) {
+  .table-wrap::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 30px;
+    background: var(--scroll-gradient);
+    pointer-events: none;
+    z-index: 1;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .table-wrap:hover::after,
+  .table-wrap:focus-within::after {
+    display: none;
+  }
 }
 
 .data-table {
@@ -740,6 +781,36 @@ th.active .sort-indicator {
 
   .chart-wrap-lg {
     height: 300px;
+  }
+}
+
+/* Narrow mobile (< 400px) */
+@media (max-width: 399px) {
+  .header {
+    padding: 10px 12px;
+  }
+
+  .header-controls {
+    gap: 8px;
+  }
+
+  .time-filter {
+    padding: 10px 12px;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .pill {
+    padding: 4px 10px;
+    font-size: 11px;
+  }
+
+  .data-table td {
+    max-width: 150px;
+  }
+
+  .chart-select {
+    max-width: 100%;
   }
 }
 
