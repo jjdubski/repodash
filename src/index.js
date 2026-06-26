@@ -49,6 +49,26 @@ function cleanupSync() {
 
 process.on('exit', cleanupSync);
 
+/**
+ * Set up shutdown handlers to clean up resources
+ * @param {() => void} cleanupFn - Function to call on shutdown
+ */
+export function setupShutdownHandlers(cleanupFn) {
+  let shuttingDown = false;
+
+  const cleanup = () => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    cleanupFn();
+    process.exit(0);
+  };
+
+  process.once('SIGINT', cleanup);
+  process.once('SIGTERM', cleanup);
+  process.once('SIGHUP', cleanup);
+  process.stdin.on('close', cleanup);
+}
+
 export async function main(repoPath, options = {}) {
   let actualRepoPath = repoPath;
   let isCloned = false;
@@ -135,6 +155,16 @@ export async function main(repoPath, options = {}) {
     const addr = `http://localhost:${port}`;
     console.error(chalk.cyan(`insights: generating PDF from dashboard at ${addr}`));
 
+    const pdfCleanup = () => {
+      try {
+        server.close();
+      } catch {
+        void 0;
+      }
+      cleanupSync();
+    };
+    setupShutdownHandlers(pdfCleanup);
+
     try {
       const browser = await chromium.launch({ args: ['--no-sandbox'] });
       const page = await browser.newPage();
@@ -151,7 +181,6 @@ export async function main(repoPath, options = {}) {
   } else {
     const dashboardDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dashboard');
     const { port, tmpDir, server } = await serveDashboard(result, dashboardDir);
-    void server;
     tempDirs.push(tmpDir);
 
     const addr = `http://localhost:${port}`;
@@ -163,20 +192,15 @@ export async function main(repoPath, options = {}) {
       console.warn(chalk.yellow(`Open ${addr} manually.`));
     });
 
-    let shuttingDown = false;
-
-    const cleanup = () => {
-      if (shuttingDown) return;
-      shuttingDown = true;
+    const dashboardCleanup = () => {
+      try {
+        server.close();
+      } catch {
+        void 0;
+      }
       cleanupSync();
-      tempDirs.length = 0;
-      process.exit(0);
     };
-
-    process.once('SIGINT', cleanup);
-    process.once('SIGTERM', cleanup);
-    process.once('SIGHUP', cleanup);
-    process.stdin.on('close', cleanup);
+    setupShutdownHandlers(dashboardCleanup);
   }
 
   if (options.timing) {
