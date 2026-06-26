@@ -43,14 +43,32 @@ const GITHUB_NOREPLY_RE = /^(?:\d+\+)?([^@+]+)@users\.noreply\.github\.com$/;
  * @property {Map<string, number>} names - Keyed by name, value is occurrence count
  */
 
+/**
+ * Extracts the date part (YYYY-MM-DD) from an ISO date string.
+ *
+ * @param {string} isoString - Full ISO date string (e.g., "2023-01-01T12:00:00.000Z")
+ * @returns {string} The date part (e.g., "2023-01-01")
+ */
 function extractDate(isoString) {
   return isoString.slice(0, 10);
 }
 
+/**
+ * Maps JavaScript day of week (0=Sunday) to our day of week (0=Monday).
+ *
+ * @param {number} jsDay - JavaScript day of week (0-6, where 0 = Sunday)
+ * @returns {number} Our day of week (0-6, where 0 = Monday)
+ */
 function mapDayOfWeek(jsDay) {
   return (jsDay + 6) % 7;
 }
 
+/**
+ * Merges contributor statistics from one object into another.
+ *
+ * @param {ContributorEntry} target - The target contributor entry to merge into
+ * @param {ContributorEntry} source - The source contributor entry to merge from
+ */
 function mergeContributorStats(target, source) {
   target.totalCommits += source.totalCommits;
   target.additions += source.additions;
@@ -62,6 +80,12 @@ function mergeContributorStats(target, source) {
   }
 }
 
+/**
+ * Creates a copy of a contributor entry.
+ *
+ * @param {ContributorEntry} c - The contributor entry to copy
+ * @returns {ContributorEntry} A new copy of the contributor entry
+ */
 function makeContributorEntry(c) {
   return {
     name: c.name,
@@ -75,6 +99,14 @@ function makeContributorEntry(c) {
   };
 }
 
+/**
+ * Records timing information for performance monitoring.
+ *
+ * @param {string} label - Label for the timing measurement
+ * @param {number} t - Start time in milliseconds
+ * @param {Array} timings - Array to store timing measurements
+ * @param {Function|null} onTiming - Optional callback function for timing events
+ */
 function recordTiming(label, t, timings, onTiming) {
   if (!timings) return;
   const elapsed = (performance.now() - t) / 1000;
@@ -82,6 +114,12 @@ function recordTiming(label, t, timings, onTiming) {
   if (onTiming) onTiming(label, elapsed);
 }
 
+/**
+ * Picks the best name for a contributor based on frequency.
+ *
+ * @param {ContributorEntry} contributor - The contributor entry to analyze
+ * @returns {string} The best name for the contributor
+ */
 function pickBestName(contributor) {
   let bestName = contributor.name;
   let bestCount = 0;
@@ -94,6 +132,12 @@ function pickBestName(contributor) {
   return bestName;
 }
 
+/**
+ * Creates an empty result object with default values.
+ *
+ * @param {number} branchCount - Number of local branches in the repository
+ * @returns {object} An empty result object with default values
+ */
 function createEmptyResult(branchCount) {
   return {
     summary: {
@@ -116,6 +160,15 @@ function createEmptyResult(branchCount) {
   };
 }
 
+/**
+ * Initializes or updates a day entry in the contributions map.
+ *
+ * @param {Map<string, DayEntry>} contributionsMap - Map of day entries by date
+ * @param {string} dateKey - Date key in YYYY-MM-DD format
+ * @param {Date} jsDate - JavaScript date object
+ * @param {object} commit - The parsed commit object
+ * @returns {DayEntry} The updated day entry
+ */
 function initOrUpdateDayEntry(contributionsMap, dateKey, jsDate, commit) {
   const { name, email } = commit.author;
 
@@ -143,6 +196,13 @@ function initOrUpdateDayEntry(contributionsMap, dateKey, jsDate, commit) {
   return dayEntry;
 }
 
+/**
+ * Initializes or updates a contributor entry in the contributors map.
+ *
+ * @param {Map<string, ContributorEntry>} contributorsMap - Map of contributor entries by email
+ * @param {object} commit - The parsed commit object
+ * @returns {ContributorEntry} The updated contributor entry
+ */
 function initOrUpdateContributor(contributorsMap, commit) {
   const { name, email } = commit.author;
 
@@ -219,6 +279,11 @@ function processSingleCommit(commit, state) {
   }
 }
 
+/**
+ * Creates a new processing state object with default values.
+ *
+ * @returns {ProcessingState} A new processing state object
+ */
 function createProcessingState() {
   return {
     totalAdditions: 0,
@@ -235,6 +300,12 @@ function createProcessingState() {
   };
 }
 
+/**
+ * Processes an array of commits synchronously.
+ *
+ * @param {object[]} commits - Array of parsed commit objects
+ * @returns {ProcessingState} The processing state after processing all commits
+ */
 function processCommits(commits) {
   const state = createProcessingState();
 
@@ -245,6 +316,12 @@ function processCommits(commits) {
   return state;
 }
 
+/**
+ * Processes a stream of commits asynchronously.
+ *
+ * @param {AsyncIterable<object>} commitsStream - Async iterable of parsed commit objects
+ * @returns {Promise<ProcessingState>} Promise resolving to the processing state after processing all commits
+ */
 async function processCommitsStream(commitsStream) {
   const state = createProcessingState();
 
@@ -255,6 +332,13 @@ async function processCommitsStream(commitsStream) {
   return state;
 }
 
+/**
+ * Finds GitHub noreply email merges in the contributors map.
+ *
+ * @param {Map<string, ContributorEntry>} contributorsMap - Map of contributor entries by email
+ * @param {Map<string, string>} ghUsernameToEmail - Map of GitHub usernames to email addresses
+ * @returns {Array} Array of merge operations to perform
+ */
 function findGhNoreplyMerges(contributorsMap, ghUsernameToEmail) {
   const merges = [];
   for (const [email, c] of contributorsMap) {
@@ -286,6 +370,13 @@ function findGhNoreplyMerges(contributorsMap, ghUsernameToEmail) {
   return merges;
 }
 
+/**
+ * Applies GitHub noreply email merges to the contributors and contributions maps.
+ *
+ * @param {Map<string, ContributorEntry>} contributorsMap - Map of contributor entries by email
+ * @param {Map<string, DayEntry>} contributionsMap - Map of day entries by date
+ * @param {Array} merges - Array of merge operations to perform
+ */
 function applyGhNoreplyMerges(contributorsMap, contributionsMap, merges) {
   for (const { sourceEmail, targetEmail } of merges) {
     const target = contributorsMap.get(targetEmail);
@@ -323,6 +414,12 @@ function applyGhNoreplyMerges(contributorsMap, contributionsMap, merges) {
   }
 }
 
+/**
+ * Merges GitHub noreply contributors into their corresponding non-noreply entries.
+ *
+ * @param {Map<string, ContributorEntry>} contributorsMap - Map of contributor entries by email
+ * @param {Map<string, DayEntry>} contributionsMap - Map of day entries by date
+ */
 function mergeNoreplyContributors(contributorsMap, contributionsMap) {
   const ghUsernameToEmail = new Map();
   for (const [email] of contributorsMap) {
@@ -336,6 +433,14 @@ function mergeNoreplyContributors(contributorsMap, contributionsMap) {
   applyGhNoreplyMerges(contributorsMap, contributionsMap, merges);
 }
 
+/**
+ * Formats the processed data into the final result structure.
+ *
+ * @param {ProcessingState} processed - The processed state object
+ * @param {number} commitCount - Total number of commits processed
+ * @param {number} branchCount - Number of local branches in the repository
+ * @returns {object} The formatted result object
+ */
 function formatResults(processed, commitCount, branchCount) {
   const {
     contributionsMap,
@@ -418,6 +523,12 @@ function formatResults(processed, commitCount, branchCount) {
   };
 }
 
+/**
+ * Creates a clone of a day entry.
+ *
+ * @param {DayEntry} entry - The day entry to clone
+ * @returns {DayEntry} A cloned copy of the day entry
+ */
 function cloneDayEntry(entry) {
   const authors = new Map();
   for (const [email, author] of entry.authors) {
@@ -433,6 +544,12 @@ function cloneDayEntry(entry) {
   };
 }
 
+/**
+ * Merges two day entries together.
+ *
+ * @param {DayEntry} aEntry - First day entry to merge
+ * @param {DayEntry} bEntry - Second day entry to merge
+ */
 function mergeDayEntries(aEntry, bEntry) {
   for (const [email, bAuthor] of bEntry.authors) {
     const existing = aEntry.authors.get(email);
@@ -453,6 +570,13 @@ function mergeDayEntries(aEntry, bEntry) {
   aEntry.byHour = aEntry.byHour.map((v, i) => v + bEntry.byHour[i]);
 }
 
+/**
+ * Merges two frequency maps together.
+ *
+ * @param {Map<string, {additions: number, deletions: number}>} aFreqMap - First frequency map
+ * @param {Map<string, {additions: number, deletions: number}>} bFreqMap - Second frequency map
+ * @returns {Map<string, {additions: number, deletions: number}>} Merged frequency map
+ */
 function mergeFrequencyMaps(aFreqMap, bFreqMap) {
   const frequencyMap = new Map();
   for (const [date, freq] of aFreqMap) {
@@ -470,6 +594,13 @@ function mergeFrequencyMaps(aFreqMap, bFreqMap) {
   return frequencyMap;
 }
 
+/**
+ * Picks the first commit date from two values.
+ *
+ * @param {string|null} a - First commit date or null
+ * @param {string|null} b - Second commit date or null
+ * @returns {string|null} The earlier commit date or null if both are null
+ */
 function pickFirstCommit(a, b) {
   if (a === null) return b;
   if (b === null) return a;
@@ -477,6 +608,13 @@ function pickFirstCommit(a, b) {
   return b;
 }
 
+/**
+ * Picks the last commit date from two values.
+ *
+ * @param {string|null} a - First commit date or null
+ * @param {string|null} b - Second commit date or null
+ * @returns {string|null} The later commit date or null if both are null
+ */
 function pickLastCommit(a, b) {
   if (a === null) return b;
   if (b === null) return a;
@@ -484,6 +622,15 @@ function pickLastCommit(a, b) {
   return b;
 }
 
+/**
+ * Merges two maps using provided initialization and merge functions.
+ *
+ * @param {Map} sourceA - First map to merge
+ * @param {Map} sourceB - Second map to merge
+ * @param {Function} init - Function to initialize new entries
+ * @param {Function} merge - Function to merge existing entries
+ * @returns {Map} Merged map
+ */
 function mergeMap(sourceA, sourceB, init, merge) {
   const map = new Map();
   for (const [key, val] of sourceA) map.set(key, init(val));
@@ -498,6 +645,13 @@ function mergeMap(sourceA, sourceB, init, merge) {
   return map;
 }
 
+/**
+ * Merges two processing state objects together.
+ *
+ * @param {ProcessingState} a - First processing state object
+ * @param {ProcessingState} b - Second processing state object
+ * @returns {ProcessingState} Merged processing state object
+ */
 function mergeProcessingState(a, b) {
   const contributionsMap = mergeMap(
     a.contributionsMap,
@@ -541,12 +695,28 @@ function mergeProcessingState(a, b) {
   };
 }
 
+/**
+ * Merges multiple processing state objects into one.
+ *
+ * @param {ProcessingState[]} states - Array of processing state objects to merge
+ * @returns {ProcessingState} Merged processing state object
+ */
 function mergeAllStates(states) {
   if (states.length === 0) return createProcessingState();
   if (states.length === 1) return states[0];
   return states.reduce(mergeProcessingState);
 }
 
+/**
+ * Finalizes the results by applying post-processing steps.
+ *
+ * @param {ProcessingState} processed - The processed state object
+ * @param {number} commitCount - Total number of commits processed
+ * @param {number} bc - Number of local branches in the repository
+ * @param {Array} timings - Optional array to receive timing entries
+ * @param {(label: string, elapsed: number) => void} onTiming - Optional callback invoked with each timing entry
+ * @returns {object} The finalized result object
+ */
 function finalizeResults(processed, commitCount, bc, timings, onTiming) {
   if (commitCount === 0) return createEmptyResult(bc);
 
@@ -562,6 +732,13 @@ function finalizeResults(processed, commitCount, bc, timings, onTiming) {
   return result;
 }
 
+/**
+ * Executes tasks in a concurrency pool.
+ *
+ * @param {(() => Promise<any>)[]} tasks - Array of task functions to execute
+ * @param {number} limit - Maximum number of concurrent tasks
+ * @returns {Promise<Array>} Promise resolving to array of task results
+ */
 export async function concurrencyPool(tasks, limit) {
   const results = new Array(tasks.length);
   let index = 0;
@@ -579,6 +756,13 @@ export async function concurrencyPool(tasks, limit) {
   return results;
 }
 
+/**
+ * Aggregates commit data from an array of commits.
+ *
+ * @param {object[]} commits - Array of parsed commit objects
+ * @param {number} branchCount - Number of local branches in the repository
+ * @returns {object} Aggregated result object with summary, contributions, contributors, and frequency data
+ */
 export function aggregate(commits, branchCount) {
   if (commits.length === 0) return createEmptyResult(branchCount);
   const processed = processCommits(commits);
@@ -588,6 +772,15 @@ export function aggregate(commits, branchCount) {
   return formatResults(processed, processed.commitCount, branchCount);
 }
 
+/**
+ * Aggregates commit data from a stream of commits asynchronously.
+ *
+ * @param {AsyncIterable<object>} commitsStream - Async iterable of parsed commit objects
+ * @param {number|Promise<number>} branchCount - Number of local branches (or a promise resolving to one)
+ * @param {Array} [timings] - Optional array to receive timing entries
+ * @param {(label: string, elapsed: number) => void} [onTiming] - Optional callback invoked with each timing entry
+ * @returns {Promise<object>} Promise resolving to aggregated result object with summary, contributions, contributors, and frequency data
+ */
 export async function aggregateStream(commitsStream, branchCount, timings, onTiming) {
   let t = performance.now();
   const [processed, bc] = await Promise.all([
@@ -599,6 +792,14 @@ export async function aggregateStream(commitsStream, branchCount, timings, onTim
   return finalizeResults(processed, processed.commitCount, bc, timings, onTiming);
 }
 
+/**
+ * Creates year slices for time-based processing.
+ *
+ * @param {number} firstYear - First year to process
+ * @param {number} lastYear - Last year to process
+ * @param {Set<number>|null} [activeYears=null] - Optional set of years with active commits
+ * @returns {Array<{after: string, before: string, quarterNum: number}>} Array of slice objects with after and before dates and quarter numbers
+ */
 export function createYearSlices(firstYear, lastYear, activeYears = null) {
   const slices = [];
   const QUARTER_MONTHS = 3;
@@ -627,10 +828,11 @@ export function createYearSlices(firstYear, lastYear, activeYears = null) {
  * @param {string}      repoPath     - Path to the git repository.
  * @param {number|Promise<number>} branchCount - Number of local branches (or a promise resolving to one).
  * @param {Array}       [timings]    - Optional array to receive timing entries.
- * @param {Function}    [onTiming]   - Optional callback invoked with each timing entry.
+ * @param {(label: string, elapsed: number) => void}    [onTiming]   - Optional callback invoked with each timing entry.
  * @param {object}      [options]    - Options bag (last positional parameter).
  * @param {boolean}     [options.noMerges] - If true, exclude merge commits.
  * @param {number}      [options.concurrency] - Max parallel workers. Defaults to CPU count (max 8).
+ * @returns {Promise<object>} Promise resolving to aggregated result object with summary, contributions, contributors, and frequency data
  */
 export async function aggregateStreamParallel(
   repoPath,

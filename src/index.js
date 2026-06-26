@@ -69,6 +69,21 @@ export function setupShutdownHandlers(cleanupFn) {
   process.stdin.on('close', cleanup);
 }
 
+/**
+ * Main function that orchestrates the insights generation process.
+ *
+ * @param {string} repoPath - Path to the git repository or URL of a remote repository
+ * @param {object} [options={}] - Configuration options
+ * @param {string} [options.token] - Authentication token for private repositories
+ * @param {boolean} [options['no-merges']] - If true, exclude merge commits
+ * @param {number} [options.concurrency] - Max parallel workers for processing
+ * @param {boolean} [options.timing] - If true, show timing information
+ * @param {boolean} [options.json] - If true, output JSON to stdout instead of starting server
+ * @param {string|boolean} [options.file] - If provided, write JSON to file (or current directory if true)
+ * @param {string} [options.pdf] - If provided, generate PDF report to this file path
+ * @param {Function|false} [options.openBrowser] - Custom browser-open function (defaults to the 'open' package). Pass false to suppress automatic browser opening.
+ * @returns {Promise<void>} Promise that resolves when the process completes
+ */
 export async function main(repoPath, options = {}) {
   let actualRepoPath = repoPath;
   let isCloned = false;
@@ -218,6 +233,13 @@ export async function main(repoPath, options = {}) {
   }
 }
 
+/**
+ * Filters datasets based on provided options.
+ *
+ * @param {object} result - The full result object from aggregation
+ * @param {object} options - Configuration options for filtering
+ * @returns {object} Filtered result object containing only requested datasets
+ */
 function filterDatasets(result, options) {
   const filterFlags = ['summary', 'contributions', 'contributors', 'frequency', 'activity'];
   const hasAnyFilter = filterFlags.some((f) => options[f]);

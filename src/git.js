@@ -5,6 +5,12 @@ import { statSync } from 'node:fs';
 // RFC 2047 encoded-word: =?charset?encoding?encoded_text?=
 const RFC2047_RE = /=\?([^?]+)\?([qQbB])\?([^?]*)\?=/g;
 
+/**
+ * Decodes a single RFC 2047 encoded word.
+ *
+ * @param {string} word - The RFC 2047 encoded word to decode
+ * @returns {string|null} The decoded string or null if decoding fails
+ */
 function decodeRfc2047Word(word) {
   const m = word.match(/^=\?([^?]+)\?([qQbB])\?([^?]*)\?=$/);
   if (!m) return null;
@@ -37,10 +43,22 @@ function decodeRfc2047Word(word) {
   }
 }
 
+/**
+ * Decodes all RFC 2047 encoded words in a text string.
+ *
+ * @param {string} text - The text containing RFC 2047 encoded words to decode
+ * @returns {string} The decoded text with all RFC 2047 encoded words replaced
+ */
 function decodeRfc2047(text) {
   return text.replace(RFC2047_RE, (match) => decodeRfc2047Word(match) ?? match);
 }
 
+/**
+ * Cleans and normalizes author names from git commits.
+ *
+ * @param {string} name - The raw author name from git
+ * @returns {string} The cleaned and normalized author name
+ */
 export function cleanAuthorName(name) {
   let result = name;
   // Unescape backslash-escaped quotes: \" -> "
@@ -67,6 +85,12 @@ const COMMIT_DELIMITER = '---COMMIT---';
 // parser to decide when to flush accumulated lines.
 const DELIMITER_LINE = COMMIT_DELIMITER + COMMIT_DELIMITER;
 
+/**
+ * Validates that a path is a valid git repository.
+ *
+ * @param {string} repoPath - The path to validate as a git repository
+ * @throws {Error} If the path is not a valid git repository
+ */
 function validateRepoPath(repoPath) {
   if (typeof repoPath !== 'string' || repoPath.length === 0) {
     throw new Error(`not a git repository: ${repoPath}`);
@@ -81,6 +105,13 @@ function validateRepoPath(repoPath) {
   }
 }
 
+/**
+ * Spawns a git command and returns its stdout and stderr.
+ *
+ * @param {string[]} args - Git command arguments
+ * @param {string} cwd - Working directory for the git command
+ * @returns {Promise<{stdout: string, stderr: string}>} Promise resolving to the command output
+ */
 function spawnGit(args, cwd) {
   return new Promise((resolve, reject) => {
     const child = spawn('git', args, { cwd });
@@ -109,6 +140,16 @@ function spawnGit(args, cwd) {
   });
 }
 
+/**
+ * Spawns a git log command with the specified options.
+ *
+ * @param {string} repoPath - Path to the git repository
+ * @param {object} [options={}] - Git log options
+ * @param {boolean} [options.noMerges] - If true, exclude merge commits
+ * @param {string} [options.after] - Only show commits after this date
+ * @param {string} [options.before] - Only show commits before this date
+ * @returns {{child: import('node:child_process').ChildProcess, ac: AbortController}} Object containing the child process and abort controller
+ */
 function spawnGitLog(repoPath, options = {}) {
   const ac = new AbortController();
   const noMergesFlag = options.noMerges ? ['--no-merges'] : [];
@@ -130,6 +171,12 @@ function spawnGitLog(repoPath, options = {}) {
   return { child, ac };
 }
 
+/**
+ * Parses a git commit from its raw lines.
+ *
+ * @param {string[]} lines - Lines of the git commit output
+ * @returns {object|null} Parsed commit object or null if parsing fails
+ */
 function parseCommit(lines) {
   if (!lines || lines.length === 0) return null;
 
@@ -172,6 +219,18 @@ function parseCommit(lines) {
   };
 }
 
+/**
+ * Asynchronously iterates over all commits in a git repository.
+ *
+ * @param {string} repoPath - Path to the git repository
+ * @param {object} [options={}] - Git log options
+ * @param {boolean} [options.noMerges] - If true, exclude merge commits
+ * @param {string} [options.after] - Only show commits after this date
+ * @param {string} [options.before] - Only show commits before this date
+ * @param {number} [options.maxWaitMs] - Maximum time to wait for git output (ms)
+ * @param {(err: Error) => void} [options.onError] - Callback function to handle errors
+ * @yields {{hash: string, author: {name: string, email: string}, date: string, message: string, stats: {additions: number, deletions: number, files: number}, files: string[]}} Parsed commit object with author, date, message, and stats
+ */
 export async function* getAllCommits(repoPath, options = {}) {
   validateRepoPath(repoPath);
 
@@ -250,12 +309,26 @@ export async function* getAllCommits(repoPath, options = {}) {
   }
 }
 
+/**
+ * Clones a remote git repository to a local directory.
+ *
+ * @param {string} url - The URL of the remote git repository
+ * @param {string|undefined} token - Optional authentication token for private repositories
+ * @param {string} targetDir - The local directory path where the repository should be cloned
+ * @returns {Promise<string>} Promise resolving to the target directory path
+ */
 export async function cloneRemoteRepo(url, token, targetDir) {
   const remoteUrl = token ? `https://${token}@${url.replace(/^https?:\/\//, '')}` : url;
   await spawnGit(['clone', remoteUrl, targetDir]);
   return targetDir;
 }
 
+/**
+ * Gets the count of local branches in a git repository.
+ *
+ * @param {string} repoPath - Path to the git repository
+ * @returns {Promise<number>} Promise resolving to the number of local branches
+ */
 export function getLocalBranchCount(repoPath) {
   validateRepoPath(repoPath);
 
@@ -264,6 +337,12 @@ export function getLocalBranchCount(repoPath) {
   );
 }
 
+/**
+ * Gets the first and last commit years in a git repository.
+ *
+ * @param {string} repoPath - Path to the git repository
+ * @returns {Promise<{firstYear: number|null, lastYear: number|null}>} Promise resolving to an object with first and last commit years
+ */
 export async function getCommitYearRange(repoPath) {
   validateRepoPath(repoPath);
 
@@ -289,6 +368,14 @@ export async function getCommitYearRange(repoPath) {
   }
 }
 
+/**
+ * Finds all years with active commits in a git repository.
+ *
+ * @param {string} repoPath - Path to the git repository
+ * @param {number|null} firstYear - First year to consider (inclusive)
+ * @param {number|null} lastYear - Last year to consider (inclusive)
+ * @returns {Promise<Set<number>>} Promise resolving to a set of years with active commits
+ */
 export async function findActiveYears(repoPath, firstYear, lastYear) {
   validateRepoPath(repoPath);
 
