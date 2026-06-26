@@ -1090,11 +1090,21 @@ function renderContributorsPagination(total, totalPages) {
   const nextBtn = document.getElementById('next-page');
   if (prevBtn) {
     prevBtn.disabled = page <= 1;
-    prevBtn.setAttribute('aria-label', `Previous page (page ${page - 1} of ${totalPages})`);
+    // Fix: Show proper page number or no label when disabled
+    if (page <= 1) {
+      prevBtn.setAttribute('aria-label', 'Previous page');
+    } else {
+      prevBtn.setAttribute('aria-label', `Previous page (page ${page - 1} of ${totalPages})`);
+    }
   }
   if (nextBtn) {
     nextBtn.disabled = page >= totalPages;
-    nextBtn.setAttribute('aria-label', `Next page (page ${page + 1} of ${totalPages})`);
+    // Fix: Show proper page number or no label when disabled
+    if (page >= totalPages) {
+      nextBtn.setAttribute('aria-label', 'Next page');
+    } else {
+      nextBtn.setAttribute('aria-label', `Next page (page ${page + 1} of ${totalPages})`);
+    }
   }
 
   const sizeSelect = document.getElementById('page-size');
@@ -1552,6 +1562,13 @@ function setupExportPdf() {
           throw new Error('PDF dependencies did not load');
         }
         if (overlay) overlay.querySelector('span').textContent = 'Generating PDF…';
+        // Ensure screen readers announce the update
+        if (overlay) {
+          const liveRegion = overlay.querySelector('[aria-live]');
+          if (liveRegion) {
+            liveRegion.textContent = 'Generating PDF…';
+          }
+        }
       } catch {
         if (overlay)
           overlay.querySelector('span').textContent =
