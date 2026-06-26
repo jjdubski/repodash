@@ -152,3 +152,4 @@ docs/superpowers
 templates
 .fallow
 test-results/
+playwright-report/
