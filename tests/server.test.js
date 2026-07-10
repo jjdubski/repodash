@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import { mkdtempSync, writeFileSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import http from 'node:http';
 import { serveDashboard } from '../src/server.js';
 
 // ---------------------------------------------------------------------------
@@ -91,7 +92,17 @@ describe('serveDashboard', () => {
     assert.strictEqual(typeof handle.server.close, 'function');
   });
 
-  // ----- 2. Data JSON files are written ------------------------------------
+  // ----- 2. No dangling error listener after port-0 bind -------------------
+
+  it('should leave no dangling error listener after binding on OS-assigned port', () => {
+    assert.strictEqual(
+      handle.server.listenerCount('error'),
+      0,
+      'bindServer must clean up its error listener after a successful port-0 bind'
+    );
+  });
+
+  // ----- 3. Data JSON files are written ------------------------------------
 
   it('should write all 4 JSON data files to tmpDir/data/', () => {
     const dataDir = join(handle.tmpDir, 'data');
@@ -228,6 +239,50 @@ describe('serveDashboard', () => {
     } finally {
       await new Promise((resolve) => h.server.close(resolve));
       rmSync(h.tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  // ----- 7. Regression: EADDRINUSE retry path (no listener leak) -----------
+
+  it('should retry on EADDRINUSE and leave zero error listeners', async () => {
+    const occupiedPort = 20789;
+
+    // Occupy the port with a throwaway server so serveDashboard hits EADDRINUSE
+    const occupyingServer = http.createServer();
+    await new Promise((resolve, reject) => {
+      occupyingServer.on('error', reject);
+      occupyingServer.listen(occupiedPort, resolve);
+    });
+    occupyingServer.removeAllListeners('error');
+
+    /** @type {{ port: number, tmpDir: string, server: import('node:http').Server }|null} */
+    let h = null;
+
+    try {
+      h = await serveDashboard(testData, testDashboardDir, occupiedPort);
+
+      // Must have retried to a port in the retry range
+      assert.ok(
+        h.port > occupiedPort && h.port <= occupiedPort + 10,
+        `Expected EADDRINUSE retry to bind to a port between ${occupiedPort + 1} and ${occupiedPort + 10}, got ${h.port}`
+      );
+
+      // No dangling error listener after the retry path resolves
+      assert.strictEqual(
+        h.server.listenerCount('error'),
+        0,
+        'bindServer must clean up error listener after EADDRINUSE retry'
+      );
+
+      // Sanity: the retried server is actually listening
+      const res = await fetch(`http://localhost:${h.port}/index.html`);
+      assert.strictEqual(res.status, 200);
+    } finally {
+      if (h) {
+        await new Promise((resolve) => h.server.close(resolve));
+        rmSync(h.tmpDir, { recursive: true, force: true });
+      }
+      await new Promise((resolve) => occupyingServer.close(resolve));
     }
   });
 });

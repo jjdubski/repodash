@@ -125,27 +125,39 @@ const CSP_VALUE = [
  * @returns {Promise<number>} The actual port the server is listening on
  */
 function bindServer(server, preferredPort) {
+  const maxPort = preferredPort + 10;
+
   if (preferredPort === 0) {
     return new Promise((resolve, reject) => {
-      server.once('error', reject);
-      server.listen(0, () => resolve(server.address().port));
+      function onError(err) {
+        server.removeListener('error', onError);
+        reject(err);
+      }
+      server.on('error', onError);
+      server.listen(0, () => {
+        server.removeListener('error', onError);
+        resolve(server.address().port);
+      });
     });
   }
 
   let current = preferredPort;
   function tryBind() {
     return new Promise((resolve, reject) => {
-      server.once('error', (err) => {
-        if (err.code === 'EADDRINUSE' && current < preferredPort + 10) {
+      function onError(err) {
+        server.removeListener('error', onError);
+        if (err.code === 'EADDRINUSE' && current < maxPort) {
           current++;
-          server.once('error', () => {});
-          server.close();
-          resolve(tryBind());
+          server.close(() => resolve(tryBind()));
         } else {
           reject(err);
         }
+      }
+      server.on('error', onError);
+      server.listen(current, () => {
+        server.removeListener('error', onError);
+        resolve(server.address().port);
       });
-      server.listen(current, () => resolve(server.address().port));
     });
   }
   return tryBind();
