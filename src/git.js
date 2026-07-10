@@ -348,7 +348,7 @@ export async function getCommitYearRange(repoPath) {
 
   try {
     const first = await spawnGit(
-      ['log', '--all', '--format=%aI', '--reverse', '--max-parents=0', 'HEAD'],
+      ['log', '--all', '--format=%aI', '--reverse', '--max-parents=0'],
       repoPath
     );
     const last = await spawnGit(['log', '--all', '--format=%aI', '-1'], repoPath);
