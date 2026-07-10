@@ -1,7 +1,6 @@
 /* ═════════════════════════════════════════════════════════════════════
    Insights Dashboard — End-to-End Tests
    ═════════════════════════════════════════════════════════════════════ */
-/* global document */
 
 import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -140,7 +139,8 @@ before(async () => {
   // Start the insights CLI with --timing to verify timeline output
   serverProcess = spawn('node', [CLI_ENTRY, REPO_PATH, '--timing'], {
     cwd: PROJECT_ROOT,
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, INSIGHTS_DISABLE_OPEN: '1' }
   });
 
   serverProcess.stderr?.on('data', (chunk) => {

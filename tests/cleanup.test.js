@@ -37,7 +37,7 @@ describe('cleanup on SIGINT', () => {
     const cliPath = join(__dirname, '..', 'bin', 'insights.js');
     const child = spawn(process.execPath, [cliPath, repoPath], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, TMPDIR: privateTmpDir }
+      env: { ...process.env, TMPDIR: privateTmpDir, INSIGHTS_DISABLE_OPEN: '1' }
     });
 
     let stdout = '';

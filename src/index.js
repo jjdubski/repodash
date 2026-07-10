@@ -201,11 +201,13 @@ export async function main(repoPath, options = {}) {
     const addr = `http://localhost:${port}`;
     dashboardUrl = addr;
 
-    const openBrowser = options.openBrowser ?? open;
-    openBrowser(addr).catch((err) => {
-      console.warn(chalk.yellow(`Could not open browser: ${err.message}`));
-      console.warn(chalk.yellow(`Open ${addr} manually.`));
-    });
+    const openBrowser = process.env.INSIGHTS_DISABLE_OPEN ? false : (options.openBrowser ?? open);
+    if (openBrowser) {
+      openBrowser(addr).catch((err) => {
+        console.warn(chalk.yellow(`Could not open browser: ${err.message}`));
+        console.warn(chalk.yellow(`Open ${addr} manually.`));
+      });
+    }
 
     const dashboardCleanup = () => {
       try {
