@@ -350,6 +350,77 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
     });
   });
 
+  describe('restoreUrlState', () => {
+    it('should accept valid filter from URL search params', () => {
+      const sandbox = {
+        TABS: ['overview', 'contributors', 'activity'],
+        state: {
+          timeFilter: 'last3months',
+          activeTab: 'overview',
+          customStartDate: null,
+          customEndDate: null
+        },
+        window: {
+          location: {
+            hash: '',
+            href: 'http://localhost:3000/?filter=pastYear'
+          }
+        },
+        getCutoffDate,
+        URL: globalThis.URL
+      };
+      const fn = loadFn('restoreUrlState', sandbox);
+      fn();
+      assert.strictEqual(sandbox.state.timeFilter, 'pastYear');
+    });
+
+    it('should reject unrecognized filter from URL search params', () => {
+      const sandbox = {
+        TABS: ['overview', 'contributors', 'activity'],
+        state: {
+          timeFilter: 'last3months',
+          activeTab: 'overview',
+          customStartDate: null,
+          customEndDate: null
+        },
+        window: {
+          location: {
+            hash: '',
+            href: 'http://localhost:3000/?filter=garbage'
+          }
+        },
+        getCutoffDate,
+        URL: globalThis.URL
+      };
+      const fn = loadFn('restoreUrlState', sandbox);
+      fn();
+      assert.strictEqual(sandbox.state.timeFilter, 'last3months');
+    });
+
+    it('should accept allTime filter from URL search params (regression)', () => {
+      const sandbox = {
+        TABS: ['overview', 'contributors', 'activity'],
+        state: {
+          timeFilter: 'last3months',
+          activeTab: 'overview',
+          customStartDate: null,
+          customEndDate: null
+        },
+        window: {
+          location: {
+            hash: '',
+            href: 'http://localhost:3000/?filter=allTime'
+          }
+        },
+        getCutoffDate,
+        URL: globalThis.URL
+      };
+      const fn = loadFn('restoreUrlState', sandbox);
+      fn();
+      assert.strictEqual(sandbox.state.timeFilter, 'allTime');
+    });
+  });
+
   describe('getFilteredData', () => {
     it('should use computeFilteredActivity result as activity', () => {
       const markerActivity = { byDayOfWeek: [], byHour: [], topFiles: [], marker: true };

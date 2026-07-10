@@ -1891,7 +1891,8 @@ function restoreUrlState() {
   try {
     const params = new URL(globalThis.window.location.href).searchParams;
     const filterParam = params.get('filter');
-    if (filterParam && getCutoffDate(filterParam) !== undefined) {
+    const VALID_FILTERS = ['allTime', 'pastYear', 'last3months', 'thisWeek', 'custom'];
+    if (filterParam && VALID_FILTERS.includes(filterParam)) {
       state.timeFilter = filterParam;
     }
     const startParam = params.get('start');
