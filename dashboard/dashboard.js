@@ -47,8 +47,7 @@ const state = {
   _filterCacheKey: null,
   _filterCache: null,
   worker: null,
-  workerReady: false,
-  loadingPhase: 'init'
+  workerReady: false
 };
 
 let _requestId = 0;
@@ -342,7 +341,6 @@ function showEmpty(tab) {
 }
 
 function clearStates(tab) {
-  hideElem(tab + '-loading');
   hideElem(tab + '-error');
   hideElem(tab + '-empty');
   showContent(tab);
@@ -359,7 +357,6 @@ function initWorker() {
       const msg = e.data;
       if (msg.type === 'ready') {
         state.workerReady = true;
-        state.loadingPhase = 'complete';
         renderCurrentTab();
       }
     });
@@ -396,7 +393,6 @@ function initWorker() {
   } catch (err) {
     console.error('Failed to create worker:', err);
     state.workerReady = false;
-    state.loadingPhase = 'complete';
     renderCurrentTab();
   }
 }
@@ -408,7 +404,6 @@ async function loadData() {
     const summary = await res.json();
 
     state.data = { summary };
-    state.loadingPhase = 'summary';
 
     document.getElementById('metric-commits').textContent = formatNumber(summary.totalCommits);
     document.getElementById('metric-contributors').textContent = formatNumber(
@@ -432,7 +427,6 @@ async function loadData() {
     state.data.contributions = contributions;
     state.data.contributors = contributors;
     state.data.frequency = frequency;
-    state.loadingPhase = 'charts';
 
     TABS.forEach(function (t) {
       clearStates(t);
@@ -1957,7 +1951,6 @@ async function init() {
     }
 
     if (!state.workerReady) {
-      state.loadingPhase = 'complete';
       renderCurrentTab();
     }
   } catch {
