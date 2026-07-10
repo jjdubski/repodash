@@ -30,7 +30,7 @@ globalThis.onmessage = function (e) {
 
     case 'filter': {
       if (!rawData) {
-        self.postMessage({ type: 'error', message: 'Not initialized' });
+        self.postMessage({ type: 'error', requestId: msg.requestId, message: 'Not initialized' });
         return;
       }
 

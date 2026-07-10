@@ -584,7 +584,9 @@ function getFilteredData(allTabs) {
       }
 
       const id = ++_requestId;
-      const promise = new Promise(function (resolve) {
+      let rejectFn;
+      const promise = new Promise(function (resolve, reject) {
+        rejectFn = reject;
         const handler = function (e) {
           if (e.data.type === 'result' && e.data.requestId === id) {
             state.worker.removeEventListener('message', handler);
@@ -592,6 +594,10 @@ function getFilteredData(allTabs) {
             state._filterCacheKey = key;
             state._filterCache = e.data.data;
             resolve(e.data.data);
+          } else if (e.data.type === 'error' && e.data.requestId === id) {
+            state.worker.removeEventListener('message', handler);
+            state._filterPromise = null;
+            reject(new Error(e.data.message || 'Worker error'));
           }
         };
 
@@ -609,6 +615,7 @@ function getFilteredData(allTabs) {
         });
       });
       promise._key = key;
+      promise._reject = rejectFn;
       state._filterPromise = promise;
       return promise;
     }

@@ -509,6 +509,121 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
 
       assert.strictEqual(result, null);
     });
+
+    it('should reject when worker sends error message', async () => {
+      const messageHandlers = [];
+      const sandbox = {
+        // `getFilteredData` captures the executor's `reject` into `rejectFn`
+        // (in-scope) and attaches it as `promise._reject`, so the worker
+        // error path rejects for real — no sandbox global needed here.
+        state: {
+          data: {
+            contributions: [{ date: '2024-01-01', count: 1, authorDetails: [] }]
+          },
+          timeFilter: 'last3months',
+          customStartDate: null,
+          customEndDate: null,
+          activeTab: 'overview',
+          contributorsSortBy: 'commits',
+          contributorsSortOrder: 'desc',
+          worker: {
+            addEventListener(type, handler) {
+              if (type === 'message') messageHandlers.push(handler);
+            },
+            removeEventListener() {},
+            postMessage(msg) {
+              sandbox._postedMsg = msg;
+            }
+          },
+          workerReady: true,
+          _filterPromise: null,
+          _filterCacheKey: null,
+          _filterCache: null
+        },
+        _requestId: 0,
+        getCutoffDate: () => null,
+        filterByDate: (arr) => arr,
+        downsampleData: (arr) => arr,
+        MAX_CHART_POINTS: 500,
+        computeFilteredSummary: () => ({}),
+        computeFilteredContributors: () => [],
+        sortContributors: (arr) => arr,
+        computeFilteredActivity: () => ({})
+      };
+      const fn = loadFn('getFilteredData', sandbox);
+      const promise = fn();
+
+      assert.ok(promise, 'getFilteredData should return a thenable');
+      assert.strictEqual(typeof promise.then, 'function', 'should return a promise');
+
+      const requestId = sandbox._postedMsg.requestId;
+      messageHandlers[0]({
+        data: { type: 'error', requestId, message: 'Worker crashed' }
+      });
+
+      await assert.rejects(promise, (err) => {
+        assert.ok(
+          err.message.includes('Worker crashed'),
+          `Expected 'Worker crashed' in error message, got: ${err.message}`
+        );
+        return true;
+      });
+
+      assert.strictEqual(
+        sandbox.state._filterPromise,
+        null,
+        '_filterPromise should be cleared after error'
+      );
+    });
+
+    it('should attach _reject to the pending filter promise and reject the promise', async () => {
+      const messageHandlers = [];
+      const sandbox = {
+        state: {
+          data: {
+            contributions: [{ date: '2024-01-01', count: 1, authorDetails: [] }]
+          },
+          timeFilter: 'last3months',
+          customStartDate: null,
+          customEndDate: null,
+          activeTab: 'overview',
+          contributorsSortBy: 'commits',
+          contributorsSortOrder: 'desc',
+          worker: {
+            addEventListener(type, handler) {
+              if (type === 'message') messageHandlers.push(handler);
+            },
+            removeEventListener() {},
+            postMessage() {}
+          },
+          workerReady: true,
+          _filterPromise: null,
+          _filterCacheKey: null,
+          _filterCache: null
+        },
+        _requestId: 0,
+        getCutoffDate: () => null,
+        filterByDate: (arr) => arr,
+        downsampleData: (arr) => arr,
+        MAX_CHART_POINTS: 500,
+        computeFilteredSummary: () => ({}),
+        computeFilteredContributors: () => [],
+        sortContributors: (arr) => arr,
+        computeFilteredActivity: () => ({})
+      };
+      const fn = loadFn('getFilteredData', sandbox);
+      const promise = fn();
+
+      assert.ok(sandbox.state._filterPromise, '_filterPromise should be set');
+      assert.strictEqual(
+        typeof sandbox.state._filterPromise._reject,
+        'function',
+        '_reject should be a function'
+      );
+
+      sandbox.state._filterPromise._reject(new Error('x'));
+      await assert.rejects(promise, { message: 'x' });
+    });
   });
 
   describe('buildOptions', () => {
