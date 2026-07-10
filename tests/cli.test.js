@@ -72,6 +72,28 @@ describe('parseAndValidate', () => {
     }
   });
 
+  it('should mention --contributions flag in help text', () => {
+    let stdout = '';
+    const origWrite = process.stdout.write;
+    try {
+      process.stdout.write = /** @type {any} */ (
+        (chunk) => {
+          stdout += String(chunk);
+        }
+      );
+      assert.throws(
+        () => parseAndValidate(['--help', '/path/to/repo']),
+        (err) => err instanceof ExitError && err.code === 0
+      );
+      assert.ok(
+        stdout.includes('--contributions'),
+        'Help text should mention --contributions flag'
+      );
+    } finally {
+      process.stdout.write = origWrite;
+    }
+  });
+
   it('should exit with code 1 when no repo path is provided', () => {
     assert.throws(
       () => parseAndValidate(['--json']),

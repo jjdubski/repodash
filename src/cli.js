@@ -17,6 +17,7 @@ Options:
   --concurrency <n>     Number of parallel workers (default: CPU count, max: 8)
   --token <token>       GitHub personal access token for remote repos
   --summary             Include summary dataset
+  --contributions       Include contributions dataset
   --contributors        Include contributors dataset
   --frequency           Include frequency dataset
   --activity            Include activity dataset
