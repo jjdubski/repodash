@@ -249,7 +249,10 @@ function createOrUpdateChart(id, type, data, options) {
   const newAxis = options?.indexAxis || 'x';
   const indexAxisChanged = prevAxis !== newAxis;
 
+  const isEmpty = existing.data.labels?.length === 1 && existing.data.labels[0] === '';
+
   if (
+    !isEmpty &&
     !indexAxisChanged &&
     existing.config.type === type &&
     existing.data.datasets.length === data.datasets.length
