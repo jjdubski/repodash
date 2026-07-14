@@ -1,6 +1,6 @@
 # repodash
 
-Generate a GitHub-style interactive insights dashboard for **any** local git repository — no server, no sign-up, no uploads. Runs entirely on your machine.
+Generate a GitHub-style interactive insights dashboard for **any** git repository (local or remote) — no server, no sign-up, no uploads. Runs entirely on your machine.
 
 <!-- ![screenshot](https://github.com/user-attachments/assets/placeholder) -->
 
