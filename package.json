@@ -1,6 +1,6 @@
 {
   "name": "repodash",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Generate an interactive GitHub-style insights dashboard for any local git repository",
   "type": "module",
   "license": "GPL-3.0",
