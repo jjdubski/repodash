@@ -44,7 +44,7 @@ before(async () => {
 });
 
 before(() => {
-  tmpDir = mkdtempSync(join(tmpdir(), 'insights-test-'));
+  tmpDir = mkdtempSync(join(tmpdir(), 'repodash-test-'));
 
   // ── Main repo: 5 commits + 2 extra branches ──────────────────────────
   mainRepoPath = join(tmpDir, 'main-repo');

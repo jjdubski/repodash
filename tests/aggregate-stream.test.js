@@ -670,7 +670,7 @@ describe('aggregateStreamParallel (parallel repo processing)', () => {
   let tmpDir;
 
   before(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'insights-test-parallel-'));
+    tmpDir = mkdtempSync(join(tmpdir(), 'repodash-test-parallel-'));
 
     // ── Empty repo ──────────────────────────────────────────────────────
     emptyRepoPath = join(tmpDir, 'empty-repo');

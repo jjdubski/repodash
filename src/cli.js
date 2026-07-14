@@ -5,7 +5,7 @@ import chalk from 'chalk';
 const require = createRequire(import.meta.url);
 
 function printUsage() {
-  process.stdout.write(chalk.cyan('Usage: insights [options] <path-to-git-repo>\n'));
+  process.stdout.write(chalk.cyan('Usage: repodash [options] <path-to-git-repo>\n'));
   process.stdout.write(`
 Options:
   -h, --help            Show this help message
@@ -22,7 +22,7 @@ Options:
   --frequency           Include frequency dataset
   --activity            Include activity dataset
   --pdf <path>          Generate a PDF report at the specified path
-                        (requires Playwright — run "npx playwright install chromium")
+                        Requires Playwright — run "npx playwright install chromium"
 
 
 If none of --summary/--contributions/--contributors/--frequency/--activity

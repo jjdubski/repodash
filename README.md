@@ -1,4 +1,4 @@
-# insights
+# repodash
 
 Generate a GitHub-style interactive insights dashboard for **any** local git repository — no server, no sign-up, no uploads. Runs entirely on your machine.
 
@@ -11,10 +11,10 @@ Generate a GitHub-style interactive insights dashboard for **any** local git rep
 ## Quick start
 
 ```bash
-npx insights /path/to/your/repo
+npx repodash /path/to/your/repo
 # or install globally:
-npm install -g insights
-insights /path/to/your/repo
+npm install -g repodash
+repodash /path/to/your/repo
 ```
 
 A browser tab opens showing the dashboard with three tabbed panels: Overview, Contributors, and Activity.
@@ -22,9 +22,9 @@ A browser tab opens showing the dashboard with three tabbed panels: Overview, Co
 You can also point the tool at a **remote repository URL**:
 
 ```bash
-insights https://github.com/owner/repo.git
+repodash https://github.com/owner/repo.git
 # with a token for private repos:
-insights https://github.com/owner/private-repo.git --token ghp_xxx
+repodash https://github.com/owner/private-repo.git --token ghp_xxx
 ```
 
 ---
@@ -41,7 +41,7 @@ No build tools, compilers, or bundlers required.
 ## Usage
 
 ```bash
-insights [options] <path-to-git-repo>
+repodash [options] <path-to-git-repo>
 ```
 
 ### Options
@@ -91,8 +91,8 @@ If none of `--summary`/`--contributions`/`--contributors`/`--frequency`/`--activ
 ## Development
 
 ```bash
-git clone https://github.com/lsi-digital/insights.git
-cd insights
+git clone https://github.com/jjdubski/repodash.git
+cd repodash
 npm install
 ```
 
@@ -100,8 +100,8 @@ npm install
 
 | Command                              | What it does                                       |
 | ------------------------------------ | -------------------------------------------------- |
-| `npm start`                          | Run insights (shows usage without a path argument) |
-| `node bin/insights.js /path/to/repo` | Generate dashboard for a specific repo             |
+| `npm start`                          | Run repodash (shows usage without a path argument) |
+| `node bin/repodash.js /path/to/repo` | Generate dashboard for a specific repo             |
 | `npm test`                           | Runs **all** 13 test suites + 1 E2E suite          |
 | `npm run test:e2e`                   | Runs only the Playwright E2E test suite            |
 | `npm run lint`                       | ESLint                                             |
@@ -134,7 +134,7 @@ repo path ──→ git log --all --numstat ──→ aggregate() ──→ 5 JS
 - **CLI** (`src/cli.js`) — argument parsing with `node:util.parseArgs`, handles all flags and validation.
 - **Git parser** (`src/git.js`) — spawns `git log --all --numstat`, streams output through a custom delimiter (`---COMMIT---`) to handle large repositories without loading everything into memory. Supports RFC 2047 encoded author names. Can also clone remote repos.
 - **Aggregate** (`src/aggregate.js`) — pure function with no I/O. Takes raw commits in, returns structured datasets out. Processes commits in parallel by splitting history into quarter-year slices, farming each slice to a concurrency pool, then merging results. Trivially testable.
-- **Server** (`src/server.js`) — writes JSON data files to `{os.tmpdir()}/insights-XXXXX/data/`, serves them alongside the static `dashboard/` files. Path-traversal protected. CSP headers included.
+- **Server** (`src/server.js`) — writes JSON data files to `{os.tmpdir()}/repodash-XXXXX/data/`, serves them alongside the static `dashboard/` files. Path-traversal protected. CSP headers included.
 - **Dashboard** — vanilla HTML/CSS/JS with Chart.js 4 loaded from CDN. No framework, no build step. Uses a Web Worker for background data filtering. Client-side PDF export via html2canvas + jsPDF.
 - **Timezone note** — all time-based aggregation (hour of day, day of week) uses **UTC** via `jsDate.getUTCHours()` / `jsDate.getUTCDay()` in `src/aggregate.js`.
 
@@ -147,7 +147,7 @@ Contributors are keyed by **email**. A special pass merges entries detected as t
 ## Project structure
 
 ```text
-bin/insights.js             CLI entrypoint (shebang)
+bin/repodash.js             CLI entrypoint (shebang)
 src/
   cli.js                    Argument parsing & validation
   index.js                  Orchestrator (main function)

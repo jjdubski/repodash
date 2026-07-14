@@ -34,7 +34,7 @@ before(async () => {
 });
 
 before(() => {
-  tmpDir = mkdtempSync(join(tmpdir(), 'insights-test-index-'));
+  tmpDir = mkdtempSync(join(tmpdir(), 'repodash-test-index-'));
   repoPath = join(tmpDir, 'test-repo');
 
   execSync(`git init "${repoPath}"`, { stdio: 'pipe' });
@@ -144,12 +144,12 @@ describe('main orchestrator (src/index.js)', () => {
     await main(repoPath, { file: true });
 
     const dirEntries = readdirSync(repoPath);
-    const jsonFiles = dirEntries.filter((f) => f.startsWith('insights_') && f.endsWith('.json'));
+    const jsonFiles = dirEntries.filter((f) => f.startsWith('repodash_') && f.endsWith('.json'));
 
     assert.strictEqual(
       jsonFiles.length,
       1,
-      `expected exactly one insights_*.json file, found ${JSON.stringify(jsonFiles)}`
+      `expected exactly one repodash_*.json file, found ${JSON.stringify(jsonFiles)}`
     );
 
     const content = readFileSync(join(repoPath, jsonFiles[0]), 'utf-8');
@@ -192,22 +192,22 @@ describe('main orchestrator (src/index.js)', () => {
 
   it('should write JSON file to a specified existing directory with { file: directory }', async () => {
     // Create a temporary subdirectory (outside of the repo directory)
-    const outputDir = mkdtempSync(join(tmpDir, 'insights-dir-'));
+    const outputDir = mkdtempSync(join(tmpDir, 'repodash-dir-'));
 
     await main(repoPath, { file: outputDir });
 
     const dirEntries = readdirSync(outputDir);
-    const jsonFiles = dirEntries.filter((f) => f.startsWith('insights_') && f.endsWith('.json'));
+    const jsonFiles = dirEntries.filter((f) => f.startsWith('repodash_') && f.endsWith('.json'));
     assert.strictEqual(
       jsonFiles.length,
       1,
-      `expected exactly one insights_*.json file in the directory, found ${JSON.stringify(jsonFiles)}`
+      `expected exactly one repodash_*.json file in the directory, found ${JSON.stringify(jsonFiles)}`
     );
 
     const filename = jsonFiles[0];
     assert.match(
       filename,
-      /^insights_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.json$/,
+      /^repodash_\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.json$/,
       `filename "${filename}" does not match the expected timestamp format`
     );
 
@@ -370,7 +370,7 @@ describe('main orchestrator (src/index.js)', () => {
       await main(repoPath, { openBrowser: () => Promise.resolve() });
 
       const hasDashboardUrl = logs.some(
-        (l) => l.includes('localhost:') || l.includes('insights dashboard')
+        (l) => l.includes('localhost:') || l.includes('repodash dashboard')
       );
       assert.ok(
         hasDashboardUrl,

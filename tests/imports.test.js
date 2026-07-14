@@ -35,24 +35,24 @@ describe('module imports', () => {
     assert.ok(mod);
   });
 
-  it('should import bin/insights.js as an ES module without syntax errors', async () => {
+  it('should import bin/repodash.js as an ES module without syntax errors', async () => {
     // Arrange — the CLI module reads process.argv and calls process.exit
     // if no path is given. We provide a dummy path and stub process.exit
     // so the import succeeds without killing the test runner.
     const originalExit = process.exit;
     const originalArgv = process.argv;
 
-    process.argv = ['node', 'insights.js', '/tmp/test-repo'];
+    process.argv = ['node', 'repodash.js', '/tmp/test-repo'];
     process.exit = /** @type {any} */ (() => {});
 
     try {
       // Act
-      const mod = await import('../bin/insights.js');
+      const mod = await import('../bin/repodash.js');
 
       // Assert
       assert.ok(mod);
     } catch (err) {
-      assert.fail(`bin/insights.js failed to import as ES module: ${err.message}`);
+      assert.fail(`bin/repodash.js failed to import as ES module: ${err.message}`);
     } finally {
       // Cleanup
       process.exit = originalExit;

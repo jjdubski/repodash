@@ -30,7 +30,7 @@ before(async () => {
 });
 
 before(() => {
-  tmpDir = mkdtempSync(join(tmpdir(), 'insights-test-'));
+  tmpDir = mkdtempSync(join(tmpdir(), 'repodash-test-'));
 
   // Repo with 2 commits
   repoWithCommits = join(tmpDir, 'has-commits');

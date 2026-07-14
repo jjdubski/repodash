@@ -170,7 +170,7 @@ function bindServer(server, preferredPort) {
 function createTempDir() {
   let tmpDir;
   try {
-    tmpDir = mkdtempSync(join(tmpdir(), 'insights-'));
+    tmpDir = mkdtempSync(join(tmpdir(), 'repodash-'));
   } catch (err) {
     throw new Error(`failed to create temp directory: ${err.message}`, { cause: err });
   }

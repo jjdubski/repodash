@@ -15,7 +15,7 @@ describe('cleanup on SIGINT', () => {
   let privateTmpDir;
 
   before(() => {
-    fixtureDir = mkdtempSync(join(tmpdir(), 'insights-test-cleanup-'));
+    fixtureDir = mkdtempSync(join(tmpdir(), 'repodash-test-cleanup-'));
     privateTmpDir = mkdtempSync(join(fixtureDir, 'tmp-'));
     repoPath = join(fixtureDir, 'test-repo');
     execSync(`git init "${repoPath}"`, { stdio: 'pipe' });
@@ -31,13 +31,13 @@ describe('cleanup on SIGINT', () => {
 
   it('should delete the temp directory on SIGINT', async () => {
     const beforeSnapshot = new Set(
-      readdirSync(privateTmpDir).filter((d) => /^insights-[a-z0-9]{6}$/i.test(d))
+      readdirSync(privateTmpDir).filter((d) => /^repodash-[a-z0-9]{6}$/i.test(d))
     );
 
-    const cliPath = join(__dirname, '..', 'bin', 'insights.js');
+    const cliPath = join(__dirname, '..', 'bin', 'repodash.js');
     const child = spawn(process.execPath, [cliPath, repoPath], {
       stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, TMPDIR: privateTmpDir, INSIGHTS_DISABLE_OPEN: '1' }
+      env: { ...process.env, TMPDIR: privateTmpDir, REPODASH_DISABLE_OPEN: '1' }
     });
 
     let stdout = '';
@@ -73,7 +73,7 @@ describe('cleanup on SIGINT', () => {
     await new Promise((r) => setTimeout(r, 500));
 
     const afterSnapshot = readdirSync(privateTmpDir).filter((d) =>
-      /^insights-[a-z0-9]{6}$/i.test(d)
+      /^repodash-[a-z0-9]{6}$/i.test(d)
     );
     const stale = afterSnapshot.filter((d) => !beforeSnapshot.has(d));
     assert.strictEqual(stale.length, 0, `temp directory was not deleted: ${stale.join(', ')}`);

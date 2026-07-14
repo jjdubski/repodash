@@ -15,11 +15,11 @@ import { chromium } from 'playwright';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = join(__dirname, '..', '..');
-const CLI_ENTRY = join(PROJECT_ROOT, 'bin', 'insights.js');
+const CLI_ENTRY = join(PROJECT_ROOT, 'bin', 'repodash.js');
 
 // ── Fixture state ────────────────────────────────────────────────────────
 
-const FIXTURE_DIR = mkdtempSync(join(tmpdir(), 'insights-e2e-'));
+const FIXTURE_DIR = mkdtempSync(join(tmpdir(), 'repodash-e2e-'));
 const REPO_PATH = join(FIXTURE_DIR, 'test-repo');
 const SCREENSHOT_DIR = join(FIXTURE_DIR, 'screenshots');
 
@@ -136,11 +136,11 @@ before(async () => {
   // Prepare screenshot directory
   mkdirSync(SCREENSHOT_DIR, { recursive: true });
 
-  // Start the insights CLI with --timing to verify timeline output
+  // Start the repodash CLI with --timing to verify timeline output
   serverProcess = spawn('node', [CLI_ENTRY, REPO_PATH, '--timing'], {
     cwd: PROJECT_ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, INSIGHTS_DISABLE_OPEN: '1' }
+    env: { ...process.env, REPODASH_DISABLE_OPEN: '1' }
   });
 
   serverProcess.stderr?.on('data', (chunk) => {

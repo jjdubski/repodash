@@ -15,8 +15,8 @@ const tempDirs = [];
 // Clean up stale temp dirs from previous runs that weren't cleaned up
 // (e.g., SIGKILL, power loss, npx killing the child process).
 // Only clean dirs older than 5 minutes to avoid interfering with concurrent runs.
-// Skip test fixtures (insights-test-*) and clone dirs (insights-clone-*).
-const STALE_PREFIX = 'insights-';
+// Skip test fixtures (repodash-test-*) and clone dirs (repodash-clone-*).
+const STALE_PREFIX = 'repodash-';
 try {
   const entries = readdirSync(tmpdir());
   const cutoff = Date.now() - 5 * 60 * 1000;
@@ -89,14 +89,14 @@ export async function main(repoPath, options = {}) {
   let isCloned = false;
 
   if (repoPath && /^[a-z+]+:\/\//.test(repoPath)) {
-    const tempDir = mkdtempSync(join(tmpdir(), 'insights-clone-'));
+    const tempDir = mkdtempSync(join(tmpdir(), 'repodash-clone-'));
     tempDirs.push(tempDir);
     await cloneRemoteRepo(repoPath, options.token, tempDir);
     actualRepoPath = tempDir;
     isCloned = true;
   }
 
-  console.error(chalk.cyan(`insights: scanning repo at ${actualRepoPath}`));
+  console.error(chalk.cyan(`repodash: scanning repo at ${actualRepoPath}`));
 
   const totalStart = performance.now();
 
@@ -143,10 +143,10 @@ export async function main(repoPath, options = {}) {
     if (typeof options.file === 'string') {
       filePath = options.file.replace(/[/\\]+$/, '');
       if (existsSync(filePath) && statSync(filePath).isDirectory()) {
-        filePath = join(filePath, `insights_${ts}.json`);
+        filePath = join(filePath, `repodash_${ts}.json`);
       }
     } else {
-      filePath = join(actualRepoPath, `insights_${ts}.json`);
+      filePath = join(actualRepoPath, `repodash_${ts}.json`);
     }
     await writeFile(filePath, JSON.stringify(filtered, null, 2));
     console.error(chalk.green(`✓ Written to ${filePath}`));
@@ -155,7 +155,14 @@ export async function main(repoPath, options = {}) {
       throw new Error(`parent directory does not exist: ${dirname(options.pdf)}`);
     }
 
-    const { chromium } = await import('playwright');
+    let chromium;
+    try {
+      chromium = (await import('playwright')).chromium;
+    } catch {
+      throw new Error(
+        'Playwright is not installed. Run "npx playwright install chromium" to use the --pdf flag.'
+      );
+    }
     const executablePath = chromium.executablePath();
     if (!existsSync(executablePath)) {
       throw new Error(
@@ -168,7 +175,7 @@ export async function main(repoPath, options = {}) {
     tempDirs.push(tmpDir);
 
     const addr = `http://localhost:${port}`;
-    console.error(chalk.cyan(`insights: generating PDF from dashboard at ${addr}`));
+    console.error(chalk.cyan(`repodash: generating PDF from dashboard at ${addr}`));
 
     const pdfCleanup = () => {
       try {
@@ -201,7 +208,7 @@ export async function main(repoPath, options = {}) {
     const addr = `http://localhost:${port}`;
     dashboardUrl = addr;
 
-    const openBrowser = process.env.INSIGHTS_DISABLE_OPEN ? false : (options.openBrowser ?? open);
+    const openBrowser = process.env.REPODASH_DISABLE_OPEN ? false : (options.openBrowser ?? open);
     if (openBrowser) {
       openBrowser(addr).catch((err) => {
         console.warn(chalk.yellow(`Could not open browser: ${err.message}`));
@@ -231,7 +238,7 @@ export async function main(repoPath, options = {}) {
 
   if (dashboardUrl) {
     console.log();
-    console.log(chalk.cyan('📊 insights dashboard:'), chalk.underline(dashboardUrl));
+    console.log(chalk.cyan('📊 repodash dashboard:'), chalk.underline(dashboardUrl));
   }
 }
 

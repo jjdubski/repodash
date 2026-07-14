@@ -1,11 +1,11 @@
-# Insights
+# repodash
 
 Pure Node.js ESM CLI tool that generates a GitHub-style insights dashboard for any local git repo. Vanilla HTML/CSS/JS frontend, no build step, no TypeScript, no bundler.
 
 ## Architecture
 
 ```text
-bin/insights.js             — CLI entrypoint (#!/usr/bin/env node)
+bin/repodash.js             — CLI entrypoint (#!/usr/bin/env node)
 src/
   cli.js                    — argument parsing & validation
   index.js                  — orchestrator (main function)
@@ -29,9 +29,9 @@ dashboard/
 - CLI parsing in `src/cli.js` uses `node:util.parseArgs` — handles all flags (`--json`, `--file`, `--pdf`, `--timing`, `--no-merges`, `--concurrency`, `--token`, dataset filters).
 - Output modes: dashboard (HTTP server + browser open), JSON to stdout (`--json`), JSON to file (`--file`), PDF report (`--pdf`, requires Playwright).
 - Supports remote repository URLs (clones to temp dir, auto-cleans on exit). Can use `--token ghp_xxx` for private repos.
-- Data JSON files generated at runtime in `{os.tmpdir()}/insights-XXXXX/data/`. Stale temp dirs from crashed runs cleaned up on next startup (older than 5 minutes).
-- Path traversal protection in `server.js` with CSP headers. Browser auto-open suppressible via `INSIGHTS_DISABLE_OPEN` env var or `openBrowser: false` option.
-- No native dependencies — zero npm install is needed for `npx insights` usage.
+- Data JSON files generated at runtime in `{os.tmpdir()}/repodash-XXXXX/data/`. Stale temp dirs from crashed runs cleaned up on next startup (older than 5 minutes).
+- Path traversal protection in `server.js` with CSP headers. Browser auto-open suppressible via `REPODASH_DISABLE_OPEN` env var or `openBrowser: false` option.
+- No native dependencies — zero npm install is needed for `npx repodash` usage.
 
 ## Dashboard
 
@@ -85,14 +85,14 @@ Output (chosen by flags):
 
 | Command                               | Notes                                                                                    |
 | ------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `npm start`                           | Runs `node bin/insights.js` (no args → shows usage)                                      |
+| `npm start`                           | Runs `node bin/repodash.js` (no args → shows usage)                                      |
 | `npm test`                            | Runs all tests matching `tests/**/*.test.js` and `tests/**/*.e2e.js` (13 suites + 1 E2E) |
 | `npm run test:e2e`                    | Runs only the Playwright E2E test suite                                                  |
 | `node --test tests/aggregate.test.js` | Single test file                                                                         |
 | `npm run format`                      | Prettier auto-format                                                                     |
 | `npm run format:check`                | Prettier check only                                                                      |
-| `node bin/insights.js /path/to/repo`  | Generate dashboard for a specific repo                                                   |
-| `node bin/insights.js --help`         | Show all available flags                                                                 |
+| `node bin/repodash.js /path/to/repo`  | Generate dashboard for a specific repo                                                   |
+| `node bin/repodash.js --help`         | Show all available flags                                                                 |
 
 ## Linting & reviewdog
 

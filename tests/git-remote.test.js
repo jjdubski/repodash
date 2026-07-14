@@ -24,7 +24,7 @@ describe('cloneRemoteRepo()', () => {
   let sourceBareRepo;
 
   before(() => {
-    tmpDir = mkdtempSync(join(tmpdir(), 'insights-test-clone-'));
+    tmpDir = mkdtempSync(join(tmpdir(), 'repodash-test-clone-'));
 
     // Create a bare source repo that we can clone locally
     sourceBareRepo = join(tmpDir, 'source.git');
@@ -112,7 +112,7 @@ describe('cloneRemoteRepo()', () => {
     const targetDir = join(tmpDir, 'cloned-nonexistent');
 
     await assert.rejects(
-      () => cloneRemoteRepo('file:///tmp/nonexistent-insights-test-repo.git', null, targetDir),
+      () => cloneRemoteRepo('file:///tmp/nonexistent-repodash-test-repo.git', null, targetDir),
       /not found|does not exist|repository/
     );
   });

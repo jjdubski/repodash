@@ -245,7 +245,15 @@ function createOrUpdateChart(id, type, data, options) {
     return createChart(id, type, data, options);
   }
 
-  if (existing.config.type === type && existing.data.datasets.length === data.datasets.length) {
+  const prevAxis = existing.options?.indexAxis || 'x';
+  const newAxis = options?.indexAxis || 'x';
+  const indexAxisChanged = prevAxis !== newAxis;
+
+  if (
+    !indexAxisChanged &&
+    existing.config.type === type &&
+    existing.data.datasets.length === data.datasets.length
+  ) {
     existing.data.labels = data.labels;
     data.datasets.forEach(function (ds, i) {
       const target = existing.data.datasets[i];
@@ -452,7 +460,7 @@ async function loadData() {
 function detectTheme() {
   let saved;
   try {
-    saved = localStorage.getItem('insights-theme');
+    saved = localStorage.getItem('repodash-theme');
   } catch {
     /* localStorage unavailable */
   }
@@ -467,7 +475,7 @@ function applyTheme(theme) {
   state.theme = theme;
   document.documentElement.dataset.theme = theme;
   try {
-    localStorage.setItem('insights-theme', theme);
+    localStorage.setItem('repodash-theme', theme);
   } catch {
     /* localStorage unavailable */
   }
@@ -1803,7 +1811,7 @@ function setupExportPdf() {
         .replace(/[^a-zA-Z0-9]/g, '-')
         .replace(/-+/g, '-')
         .replace(/^-|-$/g, '');
-      pdf.save((repoName || 'insights') + '-' + fileSafeName + '.pdf');
+      pdf.save((repoName || 'repodash') + '-' + fileSafeName + '.pdf');
     } catch (err) {
       console.error('PDF generation failed:', err);
       exportBtn.classList.add('export-error');
@@ -1840,7 +1848,7 @@ function setupEvents() {
       .addEventListener('change', function (e) {
         let saved;
         try {
-          saved = localStorage.getItem('insights-theme');
+          saved = localStorage.getItem('repodash-theme');
         } catch {
           /* localStorage unavailable */
         }

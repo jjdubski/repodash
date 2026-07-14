@@ -15,7 +15,7 @@ let testData;
 
 before(() => {
   // Create a minimal dashboard directory to simulate the bundled UI
-  testDashboardDir = mkdtempSync(join(tmpdir(), 'insights-test-dashboard-'));
+  testDashboardDir = mkdtempSync(join(tmpdir(), 'repodash-test-dashboard-'));
   writeFileSync(join(testDashboardDir, 'index.html'), '<h1>Test Dashboard</h1>');
   writeFileSync(join(testDashboardDir, 'style.css'), 'body { color: red; }');
   writeFileSync(join(testDashboardDir, 'dashboard.js'), 'console.log("test");');
