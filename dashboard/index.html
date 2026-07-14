@@ -378,6 +378,25 @@
         </div>
         </div>
 
+        <div class="chart-card" id="contribgraph-card">
+          <div class="chart-header">
+            <h2 class="chart-title">Contribution Graph</h2>
+            <div class="contribgraph-controls">
+              <select id="contribgraph-author" class="chart-select" aria-label="Contributor filter"></select>
+            </div>
+          </div>
+          <div class="contribgraph-summary" id="contribgraph-summary"></div>
+          <div class="contribgraph-wrapper">
+            <div class="contribgraph-grid" id="contribgraph-grid"></div>
+          </div>
+          <div class="contribgraph-legend">
+            <span>Less</span>
+            <span data-level="0" aria-label="No commits"></span><span data-level="1" aria-label="Low commits"></span><span data-level="2" aria-label="Medium commits"></span>
+            <span data-level="3" aria-label="High commits"></span><span data-level="4" aria-label="Most commits"></span>
+            <span>More</span>
+          </div>
+        </div>
+
         <div class="chart-card">
           <h2 class="chart-title">Top Changed Files</h2>
           <div class="table-wrap">

@@ -26,7 +26,10 @@ import {
   filterByDate,
   computeFilteredContributors,
   computeFilteredActivity,
-  clampDate
+  clampDate,
+  getAvailableYears,
+  getAuthorCommitCounts,
+  computeAuthorTotals
 } from '../dashboard/dashboard.js';
 
 // ── Paths ──────────────────────────────────────────────────────────────────
@@ -495,6 +498,90 @@ describe('Dashboard — dashboard.js (stateful functions)', () => {
         callArgs.contributions,
         sandbox.state.data.contributions,
         'computeFilteredActivity should receive filtered contributions'
+      );
+    });
+
+    it('should include fullContributions in activity tab result', () => {
+      const contributionData = [
+        { date: '2024-01-01', count: 1, authorDetails: [] },
+        { date: '2024-01-02', count: 2, authorDetails: [] }
+      ];
+      const sandbox = {
+        state: {
+          data: {
+            contributions: contributionData,
+            frequency: [],
+            contributors: []
+          },
+          timeFilter: 'last3months',
+          activeTab: 'activity'
+        },
+        getCutoffDate: () => ({ start: '2024-01-01', end: null }),
+        filterByDate: (arr) => arr,
+        downsampleData: (arr) => arr,
+        MAX_CHART_POINTS: 500,
+        computeFilteredSummary: () => ({}),
+        computeFilteredContributors: () => [],
+        computeFilteredActivity: () => ({ byDayOfWeek: [], byHour: [], topFiles: [] })
+      };
+      const fn = loadFn('getFilteredData', sandbox);
+
+      const result = fn();
+
+      assert.ok(result, 'getFilteredData should return an object');
+      assert.ok(
+        Array.isArray(result.fullContributions),
+        'result.fullContributions should be an array'
+      );
+      assert.strictEqual(
+        result.fullContributions.length,
+        2,
+        'fullContributions should have all filtered contributions'
+      );
+      assert.strictEqual(
+        result.fullContributions[0].date,
+        '2024-01-01',
+        'fullContributions should contain the original contributions'
+      );
+      assert.strictEqual(
+        result.fullContributions[1].date,
+        '2024-01-02',
+        'fullContributions should contain all filtered contributions'
+      );
+    });
+
+    it('should not include fullContributions in non-activity tab result', () => {
+      const sandbox = {
+        state: {
+          data: {
+            contributions: [{ date: '2024-01-01', count: 1, authorDetails: [] }],
+            frequency: [],
+            contributors: []
+          },
+          timeFilter: 'last3months',
+          activeTab: 'overview'
+        },
+        getCutoffDate: () => ({ start: '2024-01-01', end: null }),
+        filterByDate: (arr) => arr,
+        downsampleData: (arr) => arr,
+        MAX_CHART_POINTS: 500,
+        computeFilteredSummary: () => ({
+          totalCommits: 1,
+          totalContributors: 1,
+          totalAdditions: 0,
+          totalDeletions: 0
+        }),
+        computeFilteredContributors: () => [],
+        computeFilteredActivity: () => ({})
+      };
+      const fn = loadFn('getFilteredData', sandbox);
+
+      const result = fn();
+
+      assert.strictEqual(
+        result.fullContributions,
+        undefined,
+        'fullContributions should not be present in overview tab'
       );
     });
 
@@ -1571,6 +1658,326 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       assert.strictEqual(result.topFiles.length, 1);
       assert.strictEqual(result.topFiles[0].path, 'src/a.js');
       assert.strictEqual(result.topFiles[0].changes, 5);
+    });
+  });
+
+  // ── getAvailableYears ──────────────────────────────────────────────────────
+
+  describe('getAvailableYears', () => {
+    it('should return ["pastYear"] for empty contributions', () => {
+      const result = getAvailableYears([]);
+      assert.deepStrictEqual(result, ['pastYear']);
+    });
+
+    it('should return ["pastYear"] for single entry', () => {
+      const contributions = [{ date: '2024-06-15', count: 1 }];
+      const result = getAvailableYears(contributions);
+      assert.deepStrictEqual(result, ['pastYear', '2024']);
+    });
+
+    it('should return years sorted descending with pastYear first', () => {
+      const contributions = [
+        { date: '2024-03-01', count: 1 },
+        { date: '2026-01-15', count: 2 },
+        { date: '2025-07-20', count: 3 }
+      ];
+      const result = getAvailableYears(contributions);
+      assert.deepStrictEqual(result, ['pastYear', '2026', '2025', '2024']);
+    });
+
+    it('should deduplicate duplicate years', () => {
+      const contributions = [
+        { date: '2024-01-01', count: 1 },
+        { date: '2024-06-15', count: 2 },
+        { date: '2025-03-10', count: 3 },
+        { date: '2024-12-31', count: 4 }
+      ];
+      const result = getAvailableYears(contributions);
+      assert.deepStrictEqual(result, ['pastYear', '2025', '2024']);
+    });
+
+    it('should handle single year with multiple entries', () => {
+      const contributions = [
+        { date: '2024-01-01', count: 1 },
+        { date: '2024-06-15', count: 2 },
+        { date: '2024-12-31', count: 3 }
+      ];
+      const result = getAvailableYears(contributions);
+      assert.deepStrictEqual(result, ['pastYear', '2024']);
+    });
+
+    it('should reject non-digit 4-char strings from malformed dates', () => {
+      const contributions = [
+        { date: 'invalid', count: 1 },
+        { date: '2024-01-01', count: 2 },
+        { date: '', count: 3 }
+      ];
+      const result = getAvailableYears(contributions);
+      // The function validates with /^\d{4}$/ so 'inva' is rejected
+      // '' → '' (length 0, skipped)
+      assert.deepStrictEqual(result, ['pastYear', '2024']);
+    });
+
+    it('should handle empty string dates by skipping them', () => {
+      const contributions = [
+        { date: '', count: 1 },
+        { date: '2025-06-15', count: 2 }
+      ];
+      const result = getAvailableYears(contributions);
+      assert.deepStrictEqual(result, ['pastYear', '2025']);
+    });
+
+    it('should throw when contributions have no date field', () => {
+      const contributions = [{ count: 1 }, { date: '2025-06-15', count: 2 }];
+      assert.throws(function () {
+        getAvailableYears(contributions);
+      }, /Cannot read properties of undefined/);
+    });
+  });
+
+  // ── getAuthorCommitCounts ──────────────────────────────────────────────────
+
+  describe('getAuthorCommitCounts', () => {
+    const contributions = [
+      {
+        date: '2024-01-01',
+        count: 5,
+        authorDetails: [
+          { author: 'Alice', email: 'alice@test.com', count: 3 },
+          { author: 'Bob', email: 'bob@test.com', count: 2 }
+        ]
+      },
+      {
+        date: '2024-01-02',
+        count: 2,
+        authorDetails: [{ author: 'Alice', email: 'alice@test.com', count: 2 }]
+      },
+      {
+        date: '2024-01-03',
+        count: 4,
+        authorDetails: [
+          { author: 'Bob', email: 'bob@test.com', count: 3 },
+          { author: 'Charlie', email: 'charlie@test.com', count: 1 }
+        ]
+      },
+      {
+        date: '2024-01-04',
+        count: 0,
+        authorDetails: []
+      }
+    ];
+
+    it('should return empty array for unknown email', () => {
+      const result = getAuthorCommitCounts(contributions, 'unknown@test.com');
+      assert.deepStrictEqual(result, []);
+    });
+
+    it('should return commit counts per day for a known author', () => {
+      const result = getAuthorCommitCounts(contributions, 'alice@test.com');
+      assert.strictEqual(result.length, 2);
+      assert.strictEqual(result[0].date, '2024-01-01');
+      assert.strictEqual(result[0].count, 3);
+      assert.strictEqual(result[1].date, '2024-01-02');
+      assert.strictEqual(result[1].count, 2);
+    });
+
+    it('should only return days with count > 0', () => {
+      const result = getAuthorCommitCounts(contributions, 'bob@test.com');
+      assert.strictEqual(result.length, 2);
+      assert.strictEqual(result[0].date, '2024-01-01');
+      assert.strictEqual(result[0].count, 2);
+      assert.strictEqual(result[1].date, '2024-01-03');
+      assert.strictEqual(result[1].count, 3);
+    });
+
+    it('should handle author with a single contribution', () => {
+      const result = getAuthorCommitCounts(contributions, 'charlie@test.com');
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].date, '2024-01-03');
+      assert.strictEqual(result[0].count, 1);
+    });
+
+    it('should sum multiple contributions on same day for same author', () => {
+      const multiContrib = [
+        {
+          date: '2024-01-01',
+          count: 4,
+          authorDetails: [
+            { author: 'Dana', email: 'dana@test.com', count: 2 },
+            { author: 'Dana', email: 'dana@test.com', count: 3 }
+          ]
+        }
+      ];
+      const result = getAuthorCommitCounts(multiContrib, 'dana@test.com');
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].date, '2024-01-01');
+      assert.strictEqual(result[0].count, 5);
+    });
+
+    it('should handle contributions without authorDetails field', () => {
+      const noDetails = [
+        { date: '2024-01-01', count: 3 },
+        {
+          date: '2024-01-02',
+          count: 1,
+          authorDetails: [{ author: 'Eve', email: 'eve@test.com', count: 1 }]
+        }
+      ];
+      const result = getAuthorCommitCounts(noDetails, 'eve@test.com');
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].date, '2024-01-02');
+      assert.strictEqual(result[0].count, 1);
+    });
+
+    it('should return empty array for empty contributions', () => {
+      const result = getAuthorCommitCounts([], 'alice@test.com');
+      assert.deepStrictEqual(result, []);
+    });
+  });
+
+  // ── computeAuthorTotals ────────────────────────────────────────────────────
+
+  describe('computeAuthorTotals', () => {
+    const contributions = [
+      {
+        date: '2024-01-01',
+        count: 5,
+        authorDetails: [
+          { author: 'Alice', email: 'alice@test.com', count: 3 },
+          { author: 'Bob', email: 'bob@test.com', count: 2 }
+        ]
+      },
+      {
+        date: '2024-01-02',
+        count: 6,
+        authorDetails: [
+          { author: 'Alice', email: 'alice@test.com', count: 4 },
+          { author: 'Charlie', email: 'charlie@test.com', count: 2 }
+        ]
+      },
+      {
+        date: '2024-01-03',
+        count: 1,
+        authorDetails: [{ author: 'Bob', email: 'bob@test.com', count: 1 }]
+      }
+    ];
+
+    const contributors = [
+      { name: 'Alice A.', email: 'alice@test.com', totalCommits: 7 },
+      { name: 'Bob B.', email: 'bob@test.com', totalCommits: 3 },
+      { name: 'Charlie C.', email: 'charlie@test.com', totalCommits: 2 }
+    ];
+
+    it('should return empty array for empty contributions', () => {
+      const result = computeAuthorTotals([], contributors);
+      assert.deepStrictEqual(result, []);
+    });
+
+    it('should return empty array when contributions are empty and contributors are empty', () => {
+      const result = computeAuthorTotals([], []);
+      assert.deepStrictEqual(result, []);
+    });
+
+    it('should correctly aggregate total commits per email', () => {
+      const result = computeAuthorTotals(contributions, contributors);
+      assert.strictEqual(result.length, 3);
+
+      const alice = result.find(function (r) {
+        return r.email === 'alice@test.com';
+      });
+      assert.ok(alice, 'Alice should be in results');
+      assert.strictEqual(alice.totalCommits, 7);
+      assert.strictEqual(alice.name, 'Alice A.');
+
+      const bob = result.find(function (r) {
+        return r.email === 'bob@test.com';
+      });
+      assert.ok(bob, 'Bob should be in results');
+      assert.strictEqual(bob.totalCommits, 3);
+      assert.strictEqual(bob.name, 'Bob B.');
+
+      const charlie = result.find(function (r) {
+        return r.email === 'charlie@test.com';
+      });
+      assert.ok(charlie, 'Charlie should be in results');
+      assert.strictEqual(charlie.totalCommits, 2);
+      assert.strictEqual(charlie.name, 'Charlie C.');
+    });
+
+    it('should sort results descending by totalCommits', () => {
+      const result = computeAuthorTotals(contributions, contributors);
+      assert.strictEqual(result.length, 3);
+      assert.strictEqual(result[0].email, 'alice@test.com');
+      assert.strictEqual(result[0].totalCommits, 7);
+      assert.strictEqual(result[1].email, 'bob@test.com');
+      assert.strictEqual(result[1].totalCommits, 3);
+      assert.strictEqual(result[2].email, 'charlie@test.com');
+      assert.strictEqual(result[2].totalCommits, 2);
+    });
+
+    it('should fall back to email as name when contributor not found in list', () => {
+      const extraContributions = [
+        {
+          date: '2024-01-04',
+          count: 5,
+          authorDetails: [{ author: 'Unknown', email: 'unknown@test.com', count: 5 }]
+        }
+      ];
+      const allContribs = contributions.concat(extraContributions);
+      const result = computeAuthorTotals(allContribs, contributors);
+
+      const unknown = result.find(function (r) {
+        return r.email === 'unknown@test.com';
+      });
+      assert.ok(unknown, 'Unknown contributor should be in results');
+      assert.strictEqual(unknown.name, 'unknown@test.com', 'Name should fall back to email');
+      assert.strictEqual(unknown.totalCommits, 5);
+    });
+
+    it('should handle contributions with no authorDetails gracefully', () => {
+      const noDetails = [
+        { date: '2024-01-01', count: 1 },
+        {
+          date: '2024-01-02',
+          count: 2,
+          authorDetails: [{ author: 'Alice', email: 'alice@test.com', count: 2 }]
+        }
+      ];
+      const result = computeAuthorTotals(noDetails, contributors);
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].email, 'alice@test.com');
+      assert.strictEqual(result[0].totalCommits, 2);
+    });
+
+    it('should work without a contributors list (null)', () => {
+      const result = computeAuthorTotals(contributions, null);
+      assert.strictEqual(result.length, 3);
+      // All names should fall back to email
+      assert.strictEqual(result[0].name, 'alice@test.com');
+      assert.strictEqual(result[1].name, 'bob@test.com');
+      assert.strictEqual(result[2].name, 'charlie@test.com');
+    });
+
+    it('should work without a contributors list (undefined)', () => {
+      const result = computeAuthorTotals(contributions, undefined);
+      assert.strictEqual(result.length, 3);
+    });
+
+    it('should sum multiple entries for the same email within the same day', () => {
+      const dupContrib = [
+        {
+          date: '2024-01-01',
+          count: 5,
+          authorDetails: [
+            { author: 'Dana', email: 'dana@test.com', count: 2 },
+            { author: 'Dana', email: 'dana@test.com', count: 3 }
+          ]
+        }
+      ];
+      const result = computeAuthorTotals(dupContrib, []);
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0].email, 'dana@test.com');
+      assert.strictEqual(result[0].totalCommits, 5);
     });
   });
 

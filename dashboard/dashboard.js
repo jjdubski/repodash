@@ -15,6 +15,9 @@ import {
   computeFilteredContributors,
   computeFilteredActivity,
   sortContributors,
+  getAvailableYears,
+  getAuthorCommitCounts,
+  computeAuthorTotals,
   MAX_CHART_POINTS
 } from './filter.js';
 
@@ -26,7 +29,10 @@ export {
   getCutoffDate,
   filterByDate,
   computeFilteredContributors,
-  computeFilteredActivity
+  computeFilteredActivity,
+  getAvailableYears,
+  getAuthorCommitCounts,
+  computeAuthorTotals
 };
 
 // ── State ───────────────────────────────────────────────────────────
@@ -44,6 +50,8 @@ const state = {
   contributorsSortOrder: 'desc',
   contributorsPage: 1,
   contributorsPageSize: 500,
+  contribGraphAuthor: null,
+  contribGraphCache: null,
   _filterCacheKey: null,
   _filterCache: null,
   worker: null,
@@ -641,6 +649,7 @@ function getFilteredData(allTabs) {
       state.data.contributors
     );
     result.activity = computeFilteredActivity(filteredContributions);
+    result.fullContributions = filteredContributions;
   } else if (state.activeTab === 'overview') {
     result.summary = computeFilteredSummary(filteredContributions, filteredFrequency);
     result.contributors = computeFilteredContributors(
@@ -656,6 +665,11 @@ function getFilteredData(allTabs) {
     );
   } else if (state.activeTab === 'activity') {
     result.activity = computeFilteredActivity(filteredContributions);
+    result.contributors = computeFilteredContributors(
+      filteredContributions,
+      state.data.contributors
+    );
+    result.fullContributions = filteredContributions;
   }
 
   if (!allTabs) {
@@ -1341,6 +1355,226 @@ function renderActivityBarChart(chartId, items, color, labelMapper) {
   );
 }
 
+function renderContributionGraph(d) {
+  var grid = document.getElementById('contribgraph-grid');
+  var summary = document.getElementById('contribgraph-summary');
+  if (!grid || !summary) return;
+  grid.innerHTML = '';
+  summary.textContent = '';
+
+  var allContributions = d && d.fullContributions;
+  if (!allContributions || !allContributions.length) return;
+
+  var contributors = d.contributors || [];
+
+  var authorTotals = computeAuthorTotals(allContributions, contributors);
+  var authorSelect = document.getElementById('contribgraph-author');
+  if (authorSelect) {
+    authorSelect.innerHTML = '';
+    for (var ai = 0; ai < authorTotals.length; ai++) {
+      var a = authorTotals[ai];
+      var opt = document.createElement('option');
+      opt.value = a.email;
+      opt.textContent = a.name + ' (' + a.totalCommits + ')';
+      authorSelect.appendChild(opt);
+    }
+    var found = false;
+    if (state.contribGraphAuthor) {
+      for (var ai2 = 0; ai2 < authorTotals.length; ai2++) {
+        if (authorTotals[ai2].email === state.contribGraphAuthor) {
+          found = true;
+          break;
+        }
+      }
+    }
+    if (found) {
+      authorSelect.value = state.contribGraphAuthor;
+    } else if (authorTotals.length > 0) {
+      state.contribGraphAuthor = authorTotals[0].email;
+      authorSelect.value = state.contribGraphAuthor;
+    }
+  }
+
+  if (!state.contribGraphAuthor) return;
+
+  // Use the page-level date range (same as all other charts)
+  var bounds = getCutoffDate(state.timeFilter, state.customStartDate, state.customEndDate);
+  var today = getTodayLocal();
+  var startDate, endDate;
+  if (bounds) {
+    startDate = bounds.start;
+    if (!startDate) {
+      // fallback to first contribution date
+      startDate = allContributions[0].date;
+    }
+    endDate = bounds.end || today;
+  } else {
+    // allTime — use data range
+    startDate = allContributions[0].date;
+    endDate = allContributions[allContributions.length - 1].date;
+  }
+
+  var authorCounts = getAuthorCommitCounts(allContributions, state.contribGraphAuthor);
+
+  var dayIndex = {};
+  for (var di = 0; di < authorCounts.length; di++) {
+    dayIndex[authorCounts[di].date] = authorCounts[di].count;
+  }
+
+  var start = new Date(startDate + 'T00:00:00Z');
+  var end = new Date(endDate + 'T00:00:00Z');
+
+  var gridStart = new Date(start);
+  gridStart.setUTCDate(gridStart.getUTCDate() - gridStart.getUTCDay());
+  var gridEnd = new Date(end);
+  gridEnd.setUTCDate(gridEnd.getUTCDate() + (6 - gridEnd.getUTCDay()));
+
+  var weeks = [];
+  var current = new Date(gridStart);
+  while (current <= gridEnd) {
+    if (current.getUTCDay() === 0) weeks.push([]);
+    var dateStr = current.toISOString().slice(0, 10);
+    weeks[weeks.length - 1].push({
+      date: dateStr,
+      count: dayIndex[dateStr] || 0
+    });
+    current.setUTCDate(current.getUTCDate() + 1);
+  }
+
+  var nonZero = [];
+  for (var wi = 0; wi < weeks.length; wi++) {
+    for (var wdi = 0; wdi < weeks[wi].length; wdi++) {
+      if (weeks[wi][wdi].count > 0) {
+        nonZero.push(weeks[wi][wdi].count);
+      }
+    }
+  }
+  nonZero.sort(function (a, b) {
+    return a - b;
+  });
+
+  var thresholds = [];
+  if (nonZero.length > 0) {
+    thresholds.push(nonZero[Math.floor(nonZero.length * 0.25)]);
+    thresholds.push(nonZero[Math.floor(nonZero.length * 0.5)]);
+    thresholds.push(nonZero[Math.floor(nonZero.length * 0.75)]);
+  }
+
+  function getLevel(count) {
+    if (count === 0) return 0;
+    if (count <= thresholds[0]) return 1;
+    if (count <= thresholds[1]) return 2;
+    if (count <= thresholds[2]) return 3;
+    return 4;
+  }
+
+  var totalCommitsInRange = 0;
+
+  // Compute wrapper width without day label column
+  var wrapper = document.querySelector('#contribgraph-card .contribgraph-wrapper');
+  var wrapperWidth = wrapper ? wrapper.clientWidth : 580;
+  var gapSize = 2;
+  var numWeeks = weeks.length;
+  var cellSize = 15;
+  var gap = window.innerWidth > 560 ? '2px' : '1px';
+
+  const monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec'
+  ];
+
+  var monthsHtml =
+    '<div class="contribgraph-months" style="grid-template-columns: repeat(' +
+    numWeeks +
+    ', ' +
+    cellSize +
+    'px); gap: ' +
+    gap +
+    ';">';
+  for (var mb_wi = 0; mb_wi < weeks.length; mb_wi++) {
+    var mb_week = weeks[mb_wi];
+    if (mb_week.length === 0) continue;
+    var foundMonth = null;
+    for (var mb_wdi = 0; mb_wdi < mb_week.length; mb_wdi++) {
+      var mb_date = new Date(mb_week[mb_wdi].date + 'T00:00:00Z');
+      if (mb_date.getUTCDate() === 1) {
+        foundMonth = mb_date.getUTCMonth();
+        break;
+      }
+    }
+    if (foundMonth !== null) {
+      monthsHtml +=
+        '<span style="grid-column: ' + (mb_wi + 1) + ';">' + monthNames[foundMonth] + '</span>';
+    }
+  }
+  monthsHtml += '</div>';
+
+  var rowSize = cellSize + 'px';
+  var cellsHtml =
+    '<div class="contribgraph-body" style="grid-template-columns: repeat(' +
+    numWeeks +
+    ', ' +
+    cellSize +
+    'px); grid-template-rows: repeat(7, ' +
+    rowSize +
+    '); gap: ' +
+    gap +
+    ';">';
+
+  for (var wi2 = 0; wi2 < weeks.length; wi2++) {
+    var week = weeks[wi2];
+    for (var di2 = 0; di2 < week.length; di2++) {
+      var cell = week[di2];
+      var level = getLevel(cell.count);
+      if (cell.count > 0) totalCommitsInRange += cell.count;
+      var parts = cell.date.split('-');
+      var t =
+        cell.count +
+        ' commit' +
+        (cell.count !== 1 ? 's' : '') +
+        ' on ' +
+        (parts[1] || '') +
+        '/' +
+        (parts[2] || '') +
+        '/' +
+        (parts[0] || '');
+      cellsHtml +=
+        '<span class="contribgraph-cell" data-level="' +
+        level +
+        '" style="grid-column: ' +
+        (wi2 + 1) +
+        '; grid-row: ' +
+        (di2 + 1) +
+        '; width:' +
+        cellSize +
+        'px; height:' +
+        cellSize +
+        'px;" title="' +
+        escapeHtml(t) +
+        '"></span>';
+    }
+  }
+  cellsHtml += '</div>';
+
+  grid.innerHTML = monthsHtml + cellsHtml;
+
+  var rangeLabel = getDateRangeLabel({ summary: { firstCommit: startDate, lastCommit: endDate } });
+  summary.textContent =
+    totalCommitsInRange + ' commit' + (totalCommitsInRange !== 1 ? 's' : '') + ' in ' + rangeLabel;
+
+  state.contribGraphCache = allContributions;
+}
+
 function renderActivity(d) {
   clearStates('activity');
   const a = d.activity;
@@ -1377,6 +1611,8 @@ function renderActivity(d) {
   });
 
   renderTopFilesTable(a);
+
+  renderContributionGraph(d);
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -1840,6 +2076,26 @@ function setupExportPdf() {
   });
 }
 
+function setupContributionGraph() {
+  var authorSelect = document.getElementById('contribgraph-author');
+
+  function redraw() {
+    var cache = state.contribGraphCache;
+    if (!cache || !cache.length) return;
+    renderContributionGraph({
+      fullContributions: cache,
+      contributors: state.data && state.data.contributors
+    });
+  }
+
+  if (authorSelect) {
+    authorSelect.addEventListener('change', function () {
+      state.contribGraphAuthor = authorSelect.value;
+      redraw();
+    });
+  }
+}
+
 function setupEvents() {
   document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
 
@@ -1889,6 +2145,7 @@ function setupEvents() {
 
   setupContributorsSort();
   setupContributorsPagination();
+  setupContributionGraph();
 }
 
 // ═════════════════════════════════════════════════════════════════════

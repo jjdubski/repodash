@@ -217,3 +217,75 @@ export function sortContributors(contributors, sortBy, sortOrder) {
     return sortOrder === 'asc' ? cmp : -cmp;
   });
 }
+
+export function getAvailableYears(contributions) {
+  const yearSet = {};
+  const yearList = [];
+  for (let i = 0; i < contributions.length; i++) {
+    const y = contributions[i].date.slice(0, 4);
+    if (/^\d{4}$/.test(y) && !yearSet[y]) {
+      yearSet[y] = true;
+      yearList.push(y);
+    }
+  }
+  yearList.sort(function (a, b) {
+    return b - a;
+  });
+  return ['pastYear'].concat(yearList);
+}
+
+export function getAuthorCommitCounts(contributions, email) {
+  const result = [];
+  for (let i = 0; i < contributions.length; i++) {
+    const c = contributions[i];
+    let total = 0;
+    if (c.authorDetails) {
+      for (let j = 0; j < c.authorDetails.length; j++) {
+        if (c.authorDetails[j].email === email) {
+          total += c.authorDetails[j].count;
+        }
+      }
+    }
+    if (total > 0) {
+      result.push({ date: c.date, count: total });
+    }
+  }
+  return result;
+}
+
+export function computeAuthorTotals(contributions, contributors) {
+  const emailTotals = {};
+  for (let i = 0; i < contributions.length; i++) {
+    const c = contributions[i];
+    if (c.authorDetails) {
+      for (let j = 0; j < c.authorDetails.length; j++) {
+        const a = c.authorDetails[j];
+        const key = a.email;
+        if (!emailTotals[key]) {
+          emailTotals[key] = 0;
+        }
+        emailTotals[key] += a.count;
+      }
+    }
+  }
+  const nameMap = {};
+  if (contributors) {
+    for (let i = 0; i < contributors.length; i++) {
+      nameMap[contributors[i].email] = contributors[i].name;
+    }
+  }
+  const result = [];
+  const emails = Object.keys(emailTotals);
+  for (let i = 0; i < emails.length; i++) {
+    const email = emails[i];
+    result.push({
+      email: email,
+      name: nameMap[email] || email,
+      totalCommits: emailTotals[email]
+    });
+  }
+  result.sort(function (a, b) {
+    return b.totalCommits - a.totalCommits || a.email.localeCompare(b.email);
+  });
+  return result;
+}

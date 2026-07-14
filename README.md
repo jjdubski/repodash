@@ -4,8 +4,6 @@ Generate a GitHub-style interactive insights dashboard for **any** local git rep
 
 <!-- ![screenshot](https://github.com/user-attachments/assets/placeholder) -->
 
-> **Status:** v1.0
-
 ---
 
 ## Quick start

@@ -60,6 +60,11 @@ globalThis.onmessage = function (e) {
         }
       } else if (msg.activeTab === 'activity') {
         result.activity = computeFilteredActivity(filteredContributions);
+        result.fullContributions = filteredContributions;
+        result.contributors = computeFilteredContributors(
+          filteredContributions,
+          rawData.contributors
+        );
       }
 
       self.postMessage({ type: 'result', requestId: msg.requestId, data: result });

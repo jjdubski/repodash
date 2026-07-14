@@ -701,6 +701,143 @@ th.active .sort-indicator {
   outline-offset: 2px;
 }
 
+/* ── Contribution Graph (Activity Tab) ──────────────────────────────── */
+
+:root {
+  --contrib-0: #ebedf0;
+  --contrib-1: #cce5ff;
+  --contrib-2: #96c8f0;
+  --contrib-3: #5794d4;
+  --contrib-4: #2868a7;
+}
+
+[data-theme="dark"] {
+  --contrib-0: #161b22;
+  --contrib-1: #0e4468;
+  --contrib-2: #006bb3;
+  --contrib-3: #26a1ff;
+  --contrib-4: #58b6ff;
+}
+
+.contribgraph-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.contribgraph-summary {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  font-family: var(--font-sans);
+}
+
+.contribgraph-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.contribgraph-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.contribgraph-months {
+  display: grid;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  margin-bottom: 2px;
+}
+
+.contribgraph-months span {
+  text-align: left;
+  overflow: visible;
+}
+
+.contribgraph-body {
+  display: grid;
+  grid-template-rows: repeat(7, 11px);
+  gap: 2px;
+}
+
+.contribgraph-cell {
+  border-radius: 2px;
+  background-color: var(--contrib-0);
+  outline: 1px solid rgba(27, 31, 35, 0.06);
+  outline-offset: -1px;
+}
+
+.contribgraph-cell[data-level="0"] {
+  background-color: var(--contrib-0);
+}
+.contribgraph-cell[data-level="1"] {
+  background-color: var(--contrib-1);
+}
+.contribgraph-cell[data-level="2"] {
+  background-color: var(--contrib-2);
+}
+.contribgraph-cell[data-level="3"] {
+  background-color: var(--contrib-3);
+}
+.contribgraph-cell[data-level="4"] {
+  background-color: var(--contrib-4);
+}
+
+.contribgraph-cell:hover {
+  outline: 1px solid rgba(27, 31, 35, 0.4);
+}
+
+[data-theme="dark"] .contribgraph-cell {
+  outline-color: rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .contribgraph-cell:hover {
+  outline-color: rgba(255, 255, 255, 0.3);
+}
+
+.contribgraph-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+}
+
+.contribgraph-legend span[data-level] {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.contribgraph-legend span[data-level="0"] {
+  background-color: var(--contrib-0);
+}
+.contribgraph-legend span[data-level="1"] {
+  background-color: var(--contrib-1);
+}
+.contribgraph-legend span[data-level="2"] {
+  background-color: var(--contrib-2);
+}
+.contribgraph-legend span[data-level="3"] {
+  background-color: var(--contrib-3);
+}
+.contribgraph-legend span[data-level="4"] {
+  background-color: var(--contrib-4);
+}
+
+@media (max-width: 560px) {
+  .contribgraph-months {
+    font-size: 9px;
+  }
+}
+
 /* ═════════════════════════════════════════════════════════════════════
    Responsive breakpoints
    ═════════════════════════════════════════════════════════════════════ */
@@ -856,8 +993,13 @@ body.printing .chart-card {
   .footer,
   .chart-select,
   .chart-header .chart-select,
-  .state-message {
+  .state-message,
+  #contribgraph-card {
     display: none !important;
+  }
+
+  .contribgraph-wrapper {
+    overflow-x: visible;
   }
 
   .header {
