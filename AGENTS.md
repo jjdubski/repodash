@@ -5,30 +5,94 @@ Pure Node.js ESM CLI tool that generates a GitHub-style insights dashboard for a
 ## Architecture
 
 ```text
-bin/insights.js          — CLI entrypoint (#!/usr/bin/env node)
-src/index.js             — orchestrator
-src/git.js               — spawns git log --all --numstat (streaming parser)
-src/aggregate.js         — pure function: raw commits -> 5 datasets
-src/server.js            — HTTP server, writes JSON to temp dir, opens browser
-dashboard/index.html     — SPA shell
-dashboard/dashboard.js   — Chart.js 4 (CDN) rendering + tab/filter logic
-dashboard/style.css      — light + dark theme via custom properties
+bin/insights.js             — CLI entrypoint (#!/usr/bin/env node)
+src/
+  cli.js                    — argument parsing & validation
+  index.js                  — orchestrator (main function)
+  git.js                    — git command runner + streaming parser + remote clone
+  aggregate.js              — pure function: raw commits → 5 datasets (parallel)
+  server.js                 — HTTP server, writes JSON to temp dir, opens browser
+dashboard/
+  index.html                — SPA shell
+  dashboard.js              — Chart.js 4 rendering + tab/filter/PDF logic
+  filter.js                 — pure filter/utility functions (shared with worker)
+  worker.js                 — Web Worker for background filtering
+  chart-config.js           — Chart.js registration & defaults & color palette
+  style.css                 — light + dark theme via CSS custom properties
+  favicon.svg               — bar-chart favicon
+  fonts/
+    NotoSansMultilanguage-Regular.ttf  — Unicode/CJK font for PDF export
 ```
 
-- `aggregate()` is the pure core — no I/O, trivially testable.
-- Git parser streams with `split('---COMMIT---')` to handle large repos.
-- Data JSON files generated at runtime in `{os.tmpdir()}/insights-XXXXX/data/` (Node's `os.tmpdir()` resolves to `/tmp/` on Linux, `/var/folders/.../T/` on macOS).
-- Path traversal protection in `server.js`.
+- `aggregate.js` is the pure core — no I/O, trivially testable. The primary entry point is `aggregateStreamParallel()` which splits history into quarter-year slices and farms them to a concurrency pool.
+- Git parser streams `git log --all --numstat` line-by-line, flushing on a `---COMMIT---` delimiter to handle large repos without loading everything into memory.
+- CLI parsing in `src/cli.js` uses `node:util.parseArgs` — handles all flags (`--json`, `--file`, `--pdf`, `--timing`, `--no-merges`, `--concurrency`, `--token`, dataset filters).
+- Output modes: dashboard (HTTP server + browser open), JSON to stdout (`--json`), JSON to file (`--file`), PDF report (`--pdf`, requires Playwright).
+- Supports remote repository URLs (clones to temp dir, auto-cleans on exit). Can use `--token ghp_xxx` for private repos.
+- Data JSON files generated at runtime in `{os.tmpdir()}/insights-XXXXX/data/`. Stale temp dirs from crashed runs cleaned up on next startup (older than 5 minutes).
+- Path traversal protection in `server.js` with CSP headers. Browser auto-open suppressible via `INSIGHTS_DISABLE_OPEN` env var or `openBrowser: false` option.
+- No native dependencies — zero npm install is needed for `npx insights` usage.
+
+## Dashboard
+
+Three tabbed panels rendered client-side with Chart.js 4 (CDN-loaded):
+
+| Tab              | Charts & content                                                                                                                                                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Overview**     | Metric cards (commits, contributors, additions, deletions), contribution graph (by author/commits with mode toggle), top contributors bar (by commits/additions/deletions), additions & deletions line chart |
+| **Contributors** | Sortable + paginated table (name, commits, additions, deletions, first/last commit), commit distribution bar chart, pagination (50–1000 per page)                                                            |
+| **Activity**     | Commits by day-of-week bar, commits by hour-of-day bar, top changed files table                                                                                                                              |
+
+Filtering/downsampling offloaded to a **Web Worker** (`worker.js`) for smooth UI. Data filtering recomputes summary stats per time range. Time filter pills: All Time / Past Year / Last 3 Months / This Week / Custom date range. Dark/light theme persisted to localStorage.
+
+## Data flow
+
+```
+repo path
+  │
+  ▼
+src/cli.js (parse flags)
+  │
+  ▼
+src/git.js (spawn git log --all --numstat, stream commits)
+  │
+  ▼
+src/aggregate.js::aggregateStreamParallel()
+  ├─ getCommitYearRange() → createYearSlices() → quarter slices
+  ├─ concurrencyPool(): each slice calls getAllCommits() + processCommitsStream()
+  ├─ mergeAllStates() → finalizeResults() → mergeNoreplyContributors() → formatResults()
+  │
+  ▼
+Output (chosen by flags):
+  ├─ src/server.js → HTTP + browser open (dashboard mode)
+  ├─ --json → stdout JSON
+  ├─ --file [path] → file dump
+  └─ --pdf [path] → Headless Playwright → PDF export
+```
+
+## Key exported APIs
+
+| Module                | Key exports                                                                                                                       | Purpose                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `src/cli.js`          | `parseAndValidate(argv)`                                                                                                          | Returns `{ repoPath, values }` with parsed flags               |
+| `src/index.js`        | `main(repoPath, options)`, `setupShutdownHandlers(fn)`                                                                            | Orchestrator, signal/cleanup registration                      |
+| `src/git.js`          | `getAllCommits()`, `cloneRemoteRepo()`, `getLocalBranchCount()`, `getCommitYearRange()`, `findActiveYears()`, `cleanAuthorName()` | Git interaction                                                |
+| `src/aggregate.js`    | `aggregate()`, `aggregateStream()`, `aggregateStreamParallel()`, `createYearSlices()`, `concurrencyPool()`                        | Data processing                                                |
+| `src/server.js`       | `serveDashboard(data, dashboardDir, port)`                                                                                        | HTTP server                                                    |
+| `dashboard/filter.js` | `formatNumber`, `formatDate`, `filterByDate`, `downsampleData`, `computeFiltered*`, `sortContributors`                            | Shared pure functions (imported by dashboard.js and worker.js) |
 
 ## Commands
 
-| Command                               | Notes                                                                         |
-| ------------------------------------- | ----------------------------------------------------------------------------- |
-| `npm start`                           | Runs `node bin/insights.js` (no args → shows usage)                           |
-| `npm test`                            | Runs **all 6** test files (imports, aggregate, server, git, dashboard, index) |
-| `node --test tests/*.test.js`         | Runs **all 6** test files                                                     |
-| `node --test tests/aggregate.test.js` | Single test file                                                              |
-| `node bin/insights.js /path/to/repo`  | Generate dashboard                                                            |
+| Command                               | Notes                                                                                    |
+| ------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `npm start`                           | Runs `node bin/insights.js` (no args → shows usage)                                      |
+| `npm test`                            | Runs all tests matching `tests/**/*.test.js` and `tests/**/*.e2e.js` (13 suites + 1 E2E) |
+| `npm run test:e2e`                    | Runs only the Playwright E2E test suite                                                  |
+| `node --test tests/aggregate.test.js` | Single test file                                                                         |
+| `npm run format`                      | Prettier auto-format                                                                     |
+| `npm run format:check`                | Prettier check only                                                                      |
+| `node bin/insights.js /path/to/repo`  | Generate dashboard for a specific repo                                                   |
+| `node bin/insights.js --help`         | Show all available flags                                                                 |
 
 ## Linting & reviewdog
 
@@ -69,7 +133,8 @@ reviewdog -reporter=local -conf=.reviewdog.yml  # all runners
 ## Testing quirks
 
 - Framework: built-in `node:test` + `node:assert` (no Jest, no Vitest).
-- `npm test` runs all 6 test files.
+- `npm test` runs all test files matching `tests/**/*.test.js` and `tests/**/*.e2e.js` (13 test suites + 1 E2E).
+- `npm run test:e2e` runs only the Playwright E2E test suite.
 - `git.test.js` creates real temp git repos (needs actual git on PATH).
 - `aggregate.test.js` has performance assertions (<500ms for 5000 commits).
 - CI via GitHub Actions (test.yml, fallow.yml, reviewdog.yml, trigger.yml).
@@ -106,4 +171,4 @@ Per-day contributions (`contributionsMap`) track authors by **email**, not by di
 
 ## Timezone note
 
-The "commit by hour of day" chart uses **UTC** (`jsDate.getUTCHours()` in `src/aggregate.js:170`). No conversion to the viewer's local timezone is performed.
+The "commit by hour of day" chart uses **UTC** (`jsDate.getUTCHours()` in `src/aggregate.js:187`). No conversion to the viewer's local timezone is performed.
