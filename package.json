@@ -5,7 +5,7 @@
   "type": "module",
   "license": "GPL-3.0",
   "bin": {
-    "repodash": "./bin/repodash.js"
+    "repodash": "bin/repodash.js"
   },
   "scripts": {
     "start": "node bin/repodash.js",
