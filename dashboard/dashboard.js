@@ -1470,13 +1470,37 @@ function renderContributionGraph(d) {
 
   var totalCommitsInRange = 0;
 
-  // Compute wrapper width without day label column
+  // Compute wrapper width for responsive sizing
   var wrapper = document.querySelector('#contribgraph-card .contribgraph-wrapper');
   var wrapperWidth = wrapper ? wrapper.clientWidth : 580;
-  var gapSize = 2;
   var numWeeks = weeks.length;
-  var cellSize = 15;
-  var gap = window.innerWidth > 560 ? '2px' : '1px';
+
+  var maxCellSize = 25;
+  var maxGapSize = 4;
+  var minCellSize = 10;
+  var minGapSize = 2;
+
+  var cellSize = maxCellSize;
+  var gapSize = maxGapSize;
+
+  if (numWeeks > 1) {
+    var totalWidth = numWeeks * cellSize + (numWeeks - 1) * gapSize;
+    if (totalWidth > wrapperWidth) {
+      cellSize = Math.max(
+        minCellSize,
+        Math.floor((wrapperWidth - (numWeeks - 1) * maxGapSize) / numWeeks)
+      );
+      totalWidth = numWeeks * cellSize + (numWeeks - 1) * maxGapSize;
+      if (totalWidth > wrapperWidth) {
+        gapSize = Math.max(
+          minGapSize,
+          Math.floor((wrapperWidth - numWeeks * cellSize) / (numWeeks - 1))
+        );
+      }
+    }
+  }
+
+  var gap = gapSize + 'px';
 
   const monthNames = [
     'Jan',
@@ -2078,6 +2102,7 @@ function setupExportPdf() {
 
 function setupContributionGraph() {
   var authorSelect = document.getElementById('contribgraph-author');
+  var contribGrid = document.getElementById('contribgraph-grid');
 
   function redraw() {
     var cache = state.contribGraphCache;
@@ -2093,6 +2118,26 @@ function setupContributionGraph() {
       state.contribGraphAuthor = authorSelect.value;
       redraw();
     });
+  }
+
+  // ResizeObserver to re-render contribution graph when wrapper width changes
+  if (contribGrid && globalThis.ResizeObserver) {
+    var wrapper = contribGrid.closest('.contribgraph-wrapper');
+    if (wrapper) {
+      var lastWidth = wrapper.clientWidth;
+      var resizeTimer = null;
+      var ro = new ResizeObserver(function () {
+        var newWidth = wrapper.clientWidth;
+        if (newWidth === lastWidth) return;
+        lastWidth = newWidth;
+        if (resizeTimer) clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function () {
+          resizeTimer = null;
+          redraw();
+        }, 100);
+      });
+      ro.observe(wrapper);
+    }
   }
 }
 

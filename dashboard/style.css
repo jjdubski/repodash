@@ -734,6 +734,8 @@ th.active .sort-indicator {
 .contribgraph-wrapper {
   width: 100%;
   overflow-x: auto;
+  display: flex;
+  justify-content: safe center;
   padding-bottom: 8px;
 }
 
