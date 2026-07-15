@@ -2,7 +2,10 @@
 
 Generate a GitHub-style interactive insights dashboard for **any** git repository (local or remote) — no server, no sign-up, no uploads. Runs entirely on your machine.
 
-<!-- ![screenshot](https://github.com/user-attachments/assets/placeholder) -->
+<img width="1895" height="958" alt="image" src="https://github.com/user-attachments/assets/555bac15-3217-451e-94fa-64ed95f98214" />
+<img width="1886" height="671" alt="image" src="https://github.com/user-attachments/assets/8d7694d0-6538-4f23-ab52-3a2390a05e39" />
+<img width="987" height="827" alt="image" src="https://github.com/user-attachments/assets/a91b547f-9f98-4241-b208-3da494d7997a" />
+
 
 ---
 
