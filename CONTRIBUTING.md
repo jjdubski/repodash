@@ -46,7 +46,7 @@ repo path ──→ git log --all --numstat ──→ aggregate() ──→ 5 JS
 - **Aggregate** (`src/aggregate.js`) — pure function with no I/O. Takes raw commits in, returns structured datasets out. Processes commits in parallel by splitting history into quarter-year slices, farming each slice to a concurrency pool, then merging results. Trivially testable.
 - **Server** (`src/server.js`) — writes JSON data files to `{os.tmpdir()}/repodash-XXXXX/data/`, serves them alongside the static `dashboard/` files. Path-traversal protected. CSP headers included.
 - **Dashboard** — vanilla HTML/CSS/JS with Chart.js 4 loaded from CDN. No framework, no build step. Uses a Web Worker for background data filtering. Client-side PDF export via html2canvas + jsPDF.
-- **Timezone note** — all time-based aggregation (hour of day, day of week) uses **UTC** via `jsDate.getUTCHours()` / `jsDate.getUTCDay()` in `src/aggregate.js`.
+- **Timezone note** — all time-based aggregation (hour of day, day of week) uses the **author's local time** as recorded by git's `%ai` format. The `src/aggregate.js` extracts the hour directly from the ISO date string and derives day-of-week from the author's local date.
 
 ## Contributor deduplication
 

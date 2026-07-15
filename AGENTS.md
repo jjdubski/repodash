@@ -171,4 +171,4 @@ Per-day contributions (`contributionsMap`) track authors by **email**, not by di
 
 ## Timezone note
 
-The "commit by hour of day" chart uses **UTC** (`jsDate.getUTCHours()` in `src/aggregate.js:187`). No conversion to the viewer's local timezone is performed.
+The "commit by hour of day" chart uses the **author's local time** as recorded by git's `%ai` format (which includes the author's timezone offset). The `src/aggregate.js` function `processSingleCommit` extracts the hour directly from the ISO date string at positions 11-12, and derives day-of-week from the author's local date. No conversion to the viewer's timezone is performed; the chart shows the hour each author committed at in their own timezone.

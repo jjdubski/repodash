@@ -165,11 +165,11 @@ function createEmptyResult(branchCount) {
  *
  * @param {Map<string, DayEntry>} contributionsMap - Map of day entries by date
  * @param {string} dateKey - Date key in YYYY-MM-DD format
- * @param {Date} jsDate - JavaScript date object
+ * @param {number} authorLocalHour - Author's local hour (0-23) from the ISO date string
  * @param {object} commit - The parsed commit object
  * @returns {DayEntry} The updated day entry
  */
-function initOrUpdateDayEntry(contributionsMap, dateKey, jsDate, commit) {
+function initOrUpdateDayEntry(contributionsMap, dateKey, authorLocalHour, commit) {
   const { name, email } = commit.author;
 
   let dayEntry = contributionsMap.get(dateKey);
@@ -184,7 +184,7 @@ function initOrUpdateDayEntry(contributionsMap, dateKey, jsDate, commit) {
     contributionsMap.set(dateKey, dayEntry);
   }
   dayEntry.count++;
-  dayEntry.byHour[jsDate.getUTCHours()]++;
+  dayEntry.byHour[authorLocalHour]++;
   const prev = dayEntry.authors.get(email) ?? { name, count: 0, additions: 0, deletions: 0 };
   dayEntry.authors.set(email, {
     name,
@@ -258,7 +258,14 @@ function processSingleCommit(commit, state) {
   if (state.lastCommit === null || jsDate > new Date(state.lastCommit))
     state.lastCommit = commit.date;
 
-  const dayEntry = initOrUpdateDayEntry(state.contributionsMap, dateKey, jsDate, commit);
+  // Author's local hour and day-of-week from the raw ISO string (%ai format).
+  // Git's %ai always produces YYYY-MM-DDTHH:MM:SS±TTTT so the hour is at
+  // chars 11-12 and the date part (chars 0-10) is already the author's local date.
+  const authorLocalHour = parseInt(commit.date.slice(11, 13), 10);
+  const [y, m, d] = dateKey.split('-').map(Number);
+  const localDate = new Date(y, m - 1, d);
+
+  const dayEntry = initOrUpdateDayEntry(state.contributionsMap, dateKey, authorLocalHour, commit);
 
   let freq = state.frequencyMap.get(dateKey);
   if (!freq) {
@@ -270,8 +277,8 @@ function processSingleCommit(commit, state) {
 
   initOrUpdateContributor(state.contributorsMap, commit);
 
-  state.dayOfWeekCounts[mapDayOfWeek(jsDate.getUTCDay())]++;
-  state.hourCounts[jsDate.getUTCHours()]++;
+  state.dayOfWeekCounts[mapDayOfWeek(localDate.getDay())]++;
+  state.hourCounts[authorLocalHour]++;
 
   for (const file of commit.files ?? []) {
     state.fileChangesMap.set(file, (state.fileChangesMap.get(file) ?? 0) + 1);
