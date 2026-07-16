@@ -1,6 +1,6 @@
 {
   "name": "repodash",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Generate an interactive GitHub-style insights dashboard for any local git repository",
   "type": "module",
   "license": "GPL-3.0",
@@ -35,7 +35,8 @@
   "files": [
     "bin/",
     "src/",
-    "dashboard/"
+    "dashboard/",
+    "README.md"
   ],
   "engines": {
     "node": ">=18"
@@ -46,7 +47,7 @@
     "dashboard",
     "cli"
   ],
-  "author": "",
+  "author": "jjdubski",
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.4.1",
