@@ -71,7 +71,7 @@ jobs:
         run: |
           PR_NUMBER="${{ steps.pr-number.outputs.number }}"
           echo "sha=$(gh api repos/${{ github.repository }}/pulls/$PR_NUMBER --jq '.base.sha')" >> "$GITHUB_OUTPUT"
-      - uses: fallow-rs/fallow@v2
+      - uses: fallow-rs/fallow@v3
         with:
           command: ${{ github.event_name != 'push' && 'audit' || '' }}
           format: sarif
