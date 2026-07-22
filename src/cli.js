@@ -21,6 +21,7 @@ Options:
   --contributors        Include contributors dataset
   --frequency           Include frequency dataset
   --activity            Include activity dataset
+  --csv <path>          Generate a CSV report at the specified path
   --pdf <path>          Generate a PDF report at the specified path
                         Requires Playwright — run "npx playwright install chromium"
 
@@ -28,7 +29,7 @@ Options:
 If none of --summary/--contributions/--contributors/--frequency/--activity
 are specified, all datasets are included.
 
---json and --file are mutually exclusive.
+--json, --file, --csv, and --pdf are mutually exclusive.
 `);
 }
 
@@ -96,6 +97,7 @@ export function parseAndValidate(argv) {
       contributors: { type: 'boolean' },
       frequency: { type: 'boolean' },
       activity: { type: 'boolean' },
+      csv: { type: 'string' },
       pdf: { type: 'string' },
       timing: { type: 'boolean' },
       'no-merges': { type: 'boolean' },
@@ -146,14 +148,35 @@ export function parseAndValidate(argv) {
     process.exit(1);
   }
 
+  if (values.csv !== undefined) {
+    const csvCount = filteredArgs.filter(
+      (arg) => arg === '--csv' || arg.startsWith('--csv=')
+    ).length;
+    if (csvCount > 1) {
+      console.error(chalk.red('duplicate --csv flag.\n'));
+      printUsage();
+      process.exit(1);
+    }
+    if (values.csv === '') {
+      console.error(chalk.red('--csv value cannot be empty.\n'));
+      printUsage();
+      process.exit(1);
+    }
+    if (values.json || values.file || values.pdf) {
+      console.error(chalk.red('--csv cannot be combined with --json, --file, or --pdf.\n'));
+      printUsage();
+      process.exit(1);
+    }
+  }
+
   if (values.pdf !== undefined) {
     if (values.pdf === '') {
       console.error(chalk.red('--pdf value cannot be empty.\n'));
       printUsage();
       process.exit(1);
     }
-    if (values.json || values.file) {
-      console.error(chalk.red('--pdf cannot be combined with --json or --file.\n'));
+    if (values.json || values.file || values.csv) {
+      console.error(chalk.red('--pdf cannot be combined with --json, --file, or --csv.\n'));
       printUsage();
       process.exit(1);
     }

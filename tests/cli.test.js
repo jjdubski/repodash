@@ -302,4 +302,49 @@ describe('parseAndValidate', () => {
       (err) => err instanceof ExitError && err.code === 1
     );
   });
+
+  // -----------------------------------------------------------------------
+  // --csv flag tests
+  // -----------------------------------------------------------------------
+
+  it('should parse --csv flag as a string', () => {
+    const result = parseAndValidate(['--csv', 'report.csv', '/path/to/repo']);
+    assert.strictEqual(result.repoPath, '/path/to/repo');
+    assert.strictEqual(result.values.csv, 'report.csv');
+  });
+
+  it('should exit with code 1 when --csv value is empty', () => {
+    assert.throws(
+      () => parseAndValidate(['--csv', '', '/path/to/repo']),
+      (err) => err instanceof ExitError && err.code === 1
+    );
+  });
+
+  it('should exit with code 1 when --csv is combined with --json', () => {
+    assert.throws(
+      () => parseAndValidate(['--csv', 'report.csv', '--json', '/path/to/repo']),
+      (err) => err instanceof ExitError && err.code === 1
+    );
+  });
+
+  it('should exit with code 1 when --csv is combined with --file', () => {
+    assert.throws(
+      () => parseAndValidate(['--csv', 'report.csv', '--file', 'out.json', '/path/to/repo']),
+      (err) => err instanceof ExitError && err.code === 1
+    );
+  });
+
+  it('should exit with code 1 when --csv is combined with --pdf', () => {
+    assert.throws(
+      () => parseAndValidate(['--csv', 'report.csv', '--pdf', 'report.pdf', '/path/to/repo']),
+      (err) => err instanceof ExitError && err.code === 1
+    );
+  });
+
+  it('should exit with code 1 when --pdf is combined with --csv', () => {
+    assert.throws(
+      () => parseAndValidate(['--pdf', 'report.pdf', '--csv', 'report.csv', '/path/to/repo']),
+      (err) => err instanceof ExitError && err.code === 1
+    );
+  });
 });

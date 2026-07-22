@@ -7,6 +7,7 @@ import open from 'open';
 import { getLocalBranchCount, cloneRemoteRepo } from './git.js';
 import { aggregateStreamParallel } from './aggregate.js';
 import { serveDashboard } from './server.js';
+import { toCSV } from './csv.js';
 import { tmpdir } from 'node:os';
 
 /** @type {string[]} */
@@ -80,6 +81,7 @@ export function setupShutdownHandlers(cleanupFn) {
  * @param {boolean} [options.timing] - If true, show timing information
  * @param {boolean} [options.json] - If true, output JSON to stdout instead of starting server
  * @param {string|boolean} [options.file] - If provided, write JSON to file (or current directory if true)
+ * @param {string} [options.csv] - If provided, generate CSV report to this file path
  * @param {string} [options.pdf] - If provided, generate PDF report to this file path
  * @param {Function|false} [options.openBrowser] - Custom browser-open function (defaults to the 'open' package). Pass false to suppress automatic browser opening.
  * @returns {Promise<void>} Promise that resolves when the process completes
@@ -150,6 +152,15 @@ export async function main(repoPath, options = {}) {
     }
     await writeFile(filePath, JSON.stringify(filtered, null, 2));
     console.error(chalk.green(`✓ Written to ${filePath}`));
+  } else if (options.csv) {
+    const csvPath = options.csv;
+    if (dirname(csvPath) && !existsSync(dirname(csvPath))) {
+      throw new Error(`parent directory does not exist: ${dirname(csvPath)}`);
+    }
+    const filtered = filterDatasets(result, options);
+    const csvContent = toCSV(filtered);
+    await writeFile(csvPath, csvContent, 'utf-8');
+    console.error(chalk.green(`✓ Written to ${csvPath}`));
   } else if (options.pdf) {
     if (dirname(options.pdf) && !existsSync(dirname(options.pdf))) {
       throw new Error(`parent directory does not exist: ${dirname(options.pdf)}`);
