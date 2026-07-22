@@ -2049,11 +2049,11 @@ function setupExportPdf() {
     if (btnText) btnText.textContent = 'Generating\u2026';
 
     const titleEl = document.querySelector('.header-title');
-    const originalTitle = titleEl ? titleEl.textContent : 'Insights';
+    const originalTitle = titleEl ? titleEl.textContent : 'Repodash';
 
     const dateLabel = getDateRangeLabel(filtered);
     const repoName = state.data.summary?.repoName || '';
-    const printTitle = repoName ? repoName + ' Insights: ' + dateLabel : 'Insights: ' + dateLabel;
+    const printTitle = repoName ? repoName + ': ' + dateLabel : dateLabel;
     if (titleEl) titleEl.textContent = printTitle;
     const originalDocTitle = document.title;
     document.title = printTitle;

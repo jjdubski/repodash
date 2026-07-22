@@ -1,5 +1,5 @@
 /* ═════════════════════════════════════════════════════════════════════
-   Insights Dashboard — End-to-End Tests
+   Repodash Dashboard — End-to-End Tests
    ═════════════════════════════════════════════════════════════════════ */
 
 import { describe, it, before, after } from 'node:test';
@@ -207,7 +207,7 @@ describe('Dashboard E2E', () => {
 
   it('should display the dashboard title', async () => {
     const title = await page.textContent('.header-title');
-    assert.equal(title, 'Insights');
+    assert.equal(title, 'Repodash');
   });
 
   // ── 2. Timing flag output ───────────────────────────────────────────────

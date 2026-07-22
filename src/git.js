@@ -427,3 +427,14 @@ export async function findActiveYears(repoPath, firstYear, lastYear) {
 
   return activeYears;
 }
+
+export async function getRemoteUrl(repoPath) {
+  validateRepoPath(repoPath);
+
+  try {
+    const { stdout } = await spawnGit(['remote', 'get-url', 'origin'], repoPath);
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { existsSync, rmSync, statSync, mkdtempSync, readdirSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 import open from 'open';
-import { getLocalBranchCount, cloneRemoteRepo } from './git.js';
+import { getLocalBranchCount, cloneRemoteRepo, getRemoteUrl } from './git.js';
 import { fetchUserRepos } from './github.js';
 import { aggregateStreamParallel } from './aggregate.js';
 import { serveDashboard } from './server.js';
@@ -85,6 +85,20 @@ function stripRepoData(result) {
 }
 
 /**
+ * Resolves a repo name from a local path, falling back to git remote origin.
+ *
+ * @param {string} repoPath - Path to the git repository
+ * @returns {Promise<string|null>} The resolved repo name or null
+ */
+async function getRepoName(repoPath) {
+  const name = extractRepoName(repoPath);
+  if (name && name !== '.') return name;
+  const remoteUrl = await getRemoteUrl(repoPath).catch(() => null);
+  if (remoteUrl) return extractRepoName(remoteUrl);
+  return null;
+}
+
+/**
  * Extracts a human-readable repo name from a git URL or local path.
  *
  * @param {string} urlOrPath - A git URL (https://, git@, etc.) or local path
@@ -127,7 +141,7 @@ async function aggregateSingleRepo(repoPath, options, timings, explicitName) {
     { noMerges: options['no-merges'], concurrency: options.concurrency }
   );
 
-  const repoName = explicitName ?? extractRepoName(repoPath);
+  const repoName = explicitName ?? (await getRepoName(repoPath));
   result.summary.repoName = repoName;
   return { result, repoName };
 }
@@ -449,6 +463,12 @@ export async function main(repoPath, options = {}) {
 
   let dashboardUrl;
 
+  function dateSuffix() {
+    const raw = result?.summary;
+    if (!raw?.firstCommit || !raw?.lastCommit) return new Date().toISOString().slice(0, 10);
+    return `${raw.firstCommit.slice(0, 10)}--${raw.lastCommit.slice(0, 10)}`;
+  }
+
   if (options.json) {
     const filtered = filterDatasets(result, options);
     console.log(JSON.stringify(filtered, null, 2));
@@ -467,17 +487,24 @@ export async function main(repoPath, options = {}) {
     await writeFile(filePath, JSON.stringify(filtered, null, 2));
     console.error(chalk.green(`✓ Written to ${filePath}`));
   } else if (options.csv) {
-    const csvPath = options.csv;
+    let csvPath = options.csv;
     if (dirname(csvPath) && !existsSync(dirname(csvPath))) {
       throw new Error(`parent directory does not exist: ${dirname(csvPath)}`);
+    }
+    if (existsSync(csvPath) && statSync(csvPath).isDirectory()) {
+      csvPath = join(csvPath, `repodash-${dateSuffix()}.csv`);
     }
     const filtered = filterDatasets(result, options);
     const csvContent = toCSV(filtered);
     await writeFile(csvPath, csvContent, 'utf-8');
     console.error(chalk.green(`✓ Written to ${csvPath}`));
   } else if (options.pdf) {
-    if (dirname(options.pdf) && !existsSync(dirname(options.pdf))) {
-      throw new Error(`parent directory does not exist: ${dirname(options.pdf)}`);
+    let pdfPath = options.pdf;
+    if (dirname(pdfPath) && !existsSync(dirname(pdfPath))) {
+      throw new Error(`parent directory does not exist: ${dirname(pdfPath)}`);
+    }
+    if (existsSync(pdfPath) && statSync(pdfPath).isDirectory()) {
+      pdfPath = join(pdfPath, `repodash-${dateSuffix()}.pdf`);
     }
 
     let chromium;
@@ -516,9 +543,9 @@ export async function main(repoPath, options = {}) {
       const browser = await chromium.launch({ args: ['--no-sandbox'] });
       const page = await browser.newPage();
       await page.goto(addr, { waitUntil: 'networkidle' });
-      await page.pdf({ path: options.pdf, format: 'A4' });
+      await page.pdf({ path: pdfPath, format: 'A4' });
       await browser.close();
-      console.error(chalk.green(`✓ Written to ${options.pdf}`));
+      console.error(chalk.green(`✓ Written to ${pdfPath}`));
     } catch (err) {
       throw new Error(`failed to generate pdf: ${err.message}`, { cause: err });
     } finally {
