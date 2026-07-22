@@ -15,7 +15,8 @@ Options:
   --timing              Show timing breakdown for each step
   --no-merges           Exclude merge commits (faster for large repos)
   --concurrency <n>     Number of parallel workers (default: CPU count, max: 8)
-  --token <token>       GitHub personal access token for remote repos
+  --token <token>       GitHub personal access token for remote/private repos
+  --user <username>     Fetch and analyze all repos for a GitHub user
   --summary             Include summary dataset
   --contributions       Include contributions dataset
   --contributors        Include contributors dataset
@@ -76,12 +77,20 @@ function determineRepoPath(values, positionals) {
     process.exit(1);
   } else if (positionals.length > 0) {
     repoPath = positionals[0];
-  } else {
+  } else if (!values.user) {
     console.error(chalk.red('no repository path provided.\n'));
     printUsage();
     process.exit(1);
   }
   return repoPath;
+}
+
+function validateUserAndPath(values, positionals) {
+  if (values.user && positionals.length > 0) {
+    console.error(chalk.red('--user and a repository path are mutually exclusive.\n'));
+    printUsage();
+    process.exit(1);
+  }
 }
 
 export function parseAndValidate(argv) {
@@ -102,7 +111,8 @@ export function parseAndValidate(argv) {
       timing: { type: 'boolean' },
       'no-merges': { type: 'boolean' },
       concurrency: { type: 'string' },
-      token: { type: 'string' }
+      token: { type: 'string' },
+      user: { type: 'string' }
     },
     strict: false,
     allowPositionals: true,
@@ -139,6 +149,8 @@ export function parseAndValidate(argv) {
     }
     values.concurrency = n;
   }
+
+  validateUserAndPath(values, positionals);
 
   const repoPath = determineRepoPath(values, positionals);
 

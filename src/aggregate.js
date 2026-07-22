@@ -802,7 +802,7 @@ function mergeMap(sourceA, sourceB, init, merge) {
  * @param {ProcessingState} b - Second processing state object
  * @returns {ProcessingState} Merged processing state object
  */
-function mergeProcessingState(a, b) {
+export function mergeProcessingState(a, b) {
   const contributionsMap = mergeMap(
     a.contributionsMap,
     b.contributionsMap,

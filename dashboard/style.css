@@ -237,6 +237,32 @@ body {
   display: block;
 }
 
+/* ── Repo filter ───────────────────────────────────────────────────── */
+.repo-filter {
+  display: flex;
+  justify-content: center;
+  padding: 0 24px 8px;
+  margin-top: 20px;
+}
+.repo-filter.hidden {
+  display: none;
+}
+.repo-select {
+  padding: 6px 16px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.repo-select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ── Time filter pills ──────────────────────────────────────────────── */
 .time-filter {
   display: flex;

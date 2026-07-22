@@ -101,6 +101,14 @@
       </div>
     </header>
 
+    <!-- ── Repo filter (hidden by default, shown when multi-repo) ── -->
+    <nav class="repo-filter hidden" aria-label="Repository filter" id="repo-filter">
+      <label for="repo-select" class="sr-only">Repository:</label>
+      <select id="repo-select" class="repo-select" aria-label="Filter by repository">
+        <option value="all" selected>All Repositories</option>
+      </select>
+    </nav>
+
     <!-- ── Time filter ── -->
     <nav class="time-filter" aria-label="Time filter" role="radiogroup">
       <button class="pill" data-filter="allTime" type="button" role="radio" aria-checked="false">All Time</button>

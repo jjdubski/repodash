@@ -43,6 +43,7 @@ const state = {
   data: null,
   activeTab: 'overview',
   timeFilter: 'last3months',
+  selectedRepo: 'all',
   theme: 'light',
   charts: {},
   customStartDate: null,
@@ -404,14 +405,26 @@ function initWorker() {
       renderCurrentTab();
     });
 
+    var initData = {
+      contributions: state.data.contributions,
+      contributors: state.data.contributors,
+      frequency: state.data.frequency,
+      summary: state.data.summary
+    };
+
+    if (state.selectedRepo !== 'all' && state.data.perRepo) {
+      var repoData = state.data.perRepo[state.selectedRepo];
+      if (repoData) {
+        initData.contributions = repoData.contributions || initData.contributions;
+        initData.contributors = repoData.contributors || initData.contributors;
+        initData.frequency = repoData.frequency || initData.frequency;
+        initData.summary = repoData.summary || initData.summary;
+      }
+    }
+
     state.worker.postMessage({
       type: 'init',
-      data: {
-        contributions: state.data.contributions,
-        contributors: state.data.contributors,
-        frequency: state.data.frequency,
-        summary: state.data.summary
-      }
+      data: initData
     });
   } catch (err) {
     console.error('Failed to create worker:', err);
@@ -435,7 +448,7 @@ async function loadData() {
     document.getElementById('metric-additions').textContent = formatNumber(summary.totalAdditions);
     document.getElementById('metric-deletions').textContent = formatNumber(summary.totalDeletions);
 
-    const [contributions, contributors, frequency, languages] = await Promise.all([
+    const [contributions, contributors, frequency, languages, repos, repoData] = await Promise.all([
       fetch('/data/contributions.json').then(function (r) {
         return r.json();
       }),
@@ -447,6 +460,12 @@ async function loadData() {
       }),
       fetch('/data/languages.json').then(function (r) {
         return r.json();
+      }),
+      fetch('/data/repos.json').then(function (r) {
+        return r.json();
+      }),
+      fetch('/data/repoData.json').then(function (r) {
+        return r.json();
       })
     ]);
 
@@ -454,6 +473,52 @@ async function loadData() {
     state.data.contributors = contributors;
     state.data.frequency = frequency;
     state.data.languages = languages;
+    state.data.repos = repos;
+    state.data.perRepo = repoData || {};
+
+    // Populate repo filter dropdown if multi-repo
+    var repoFilter = document.getElementById('repo-filter');
+    var repoSelect = document.getElementById('repo-select');
+    if (repoFilter && repoSelect && repos && repos.length > 0) {
+      repoSelect.innerHTML = '<option value="all" selected>All Repositories</option>';
+      repos.forEach(function (r) {
+        var opt = document.createElement('option');
+        opt.value = r.name;
+        opt.textContent = r.fullName || r.name;
+        repoSelect.appendChild(opt);
+      });
+      if (repos.length > 1) {
+        repoFilter.classList.remove('hidden');
+      }
+      repoSelect.addEventListener('change', function () {
+        state.selectedRepo = repoSelect.value;
+        state._filterCacheKey = null;
+        state._filterCache = null;
+        state.contributorsPage = 1;
+
+        // Re-init worker with the selected repo's data
+        if (state.worker && state.workerReady) {
+          var initData = {
+            contributions: state.data.contributions,
+            contributors: state.data.contributors,
+            frequency: state.data.frequency,
+            summary: state.data.summary
+          };
+          if (state.selectedRepo !== 'all' && state.data.perRepo) {
+            var repoData = state.data.perRepo[state.selectedRepo];
+            if (repoData) {
+              initData.contributions = repoData.contributions || initData.contributions;
+              initData.contributors = repoData.contributors || initData.contributors;
+              initData.frequency = repoData.frequency || initData.frequency;
+              initData.summary = repoData.summary || initData.summary;
+            }
+          }
+          state.worker.postMessage({ type: 'init', data: initData });
+        }
+
+        renderCurrentTab();
+      });
+    }
 
     TABS.forEach(function (t) {
       clearStates(t);
@@ -592,7 +657,9 @@ function getFilteredData(allTabs) {
     '|' +
     state.contributorsSortBy +
     '|' +
-    state.contributorsSortOrder;
+    state.contributorsSortOrder +
+    '|' +
+    state.selectedRepo;
 
   if (!allTabs) {
     if (state._filterCacheKey === key && state._filterCache) {
@@ -632,7 +699,8 @@ function getFilteredData(allTabs) {
           customEndDate: state.customEndDate,
           activeTab: state.activeTab,
           sortBy: state.contributorsSortBy,
-          sortOrder: state.contributorsSortOrder
+          sortOrder: state.contributorsSortOrder,
+          selectedRepo: state.selectedRepo
         });
       });
       promise._key = key;
@@ -642,9 +710,16 @@ function getFilteredData(allTabs) {
     }
   }
 
+  // Resolve data source: when a specific repo is selected, use perRepo data
+  var dataSource = state.data;
+  if (state.selectedRepo !== 'all' && state.data.perRepo) {
+    var perRepoData = state.data.perRepo[state.selectedRepo];
+    if (perRepoData) dataSource = perRepoData;
+  }
+
   const bounds = getCutoffDate(state.timeFilter, state.customStartDate, state.customEndDate);
-  const filteredContributions = filterByDate(state.data.contributions, bounds);
-  const filteredFrequency = filterByDate(state.data.frequency, bounds);
+  const filteredContributions = filterByDate(dataSource.contributions || [], bounds);
+  const filteredFrequency = filterByDate(dataSource.frequency || [], bounds);
 
   const result = {};
   result.contributions = downsampleData(filteredContributions, MAX_CHART_POINTS);
@@ -654,7 +729,7 @@ function getFilteredData(allTabs) {
     result.frequency = downsampleData(filteredFrequency, MAX_CHART_POINTS);
     result.contributors = computeFilteredContributors(
       filteredContributions,
-      state.data.contributors
+      dataSource.contributors
     );
     result.activity = computeFilteredActivity(filteredContributions);
     result.fullContributions = filteredContributions;
@@ -662,12 +737,12 @@ function getFilteredData(allTabs) {
     result.summary = computeFilteredSummary(filteredContributions, filteredFrequency);
     result.contributors = computeFilteredContributors(
       filteredContributions,
-      state.data.contributors
+      dataSource.contributors
     );
     result.frequency = downsampleData(filteredFrequency, MAX_CHART_POINTS);
   } else if (state.activeTab === 'contributors') {
     result.contributors = sortContributors(
-      computeFilteredContributors(filteredContributions, state.data.contributors),
+      computeFilteredContributors(filteredContributions, dataSource.contributors),
       state.contributorsSortBy,
       state.contributorsSortOrder
     );
@@ -675,7 +750,7 @@ function getFilteredData(allTabs) {
     result.activity = computeFilteredActivity(filteredContributions);
     result.contributors = computeFilteredContributors(
       filteredContributions,
-      state.data.contributors
+      dataSource.contributors
     );
     result.fullContributions = filteredContributions;
   }
@@ -756,7 +831,12 @@ function renderOverview(d) {
   renderContributionChart(d.contributions, state.contributionMode, d.contributors);
   renderTopContributorsChart(d.contributors, state.topContributorsMode);
   renderFrequencyOverviewChart(d.frequency);
-  renderLanguageChart(state.data.languages);
+  var langData = state.data.languages;
+  if (state.selectedRepo !== 'all' && state.data.perRepo) {
+    var perRepoData = state.data.perRepo[state.selectedRepo];
+    if (perRepoData && perRepoData.languages) langData = perRepoData.languages;
+  }
+  renderLanguageChart(langData);
 }
 
 // -- Contribution chart (multi-mode) -----------------------------------

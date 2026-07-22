@@ -110,11 +110,17 @@ function validateRepoPath(repoPath) {
  *
  * @param {string[]} args - Git command arguments
  * @param {string} cwd - Working directory for the git command
+ * @param {object} [options] - Additional options
+ * @param {object} [options.env] - Extra environment variables to pass to the git process
  * @returns {Promise<{stdout: string, stderr: string}>} Promise resolving to the command output
  */
-function spawnGit(args, cwd) {
+function spawnGit(args, cwd, options = {}) {
   return new Promise((resolve, reject) => {
-    const child = spawn('git', args, { cwd });
+    const spawnOptions = { cwd };
+    if (options.env) {
+      spawnOptions.env = { ...process.env, ...options.env };
+    }
+    const child = spawn('git', args, spawnOptions);
     let stdout = '';
     let stderr = '';
 
@@ -321,8 +327,24 @@ export async function* getAllCommits(repoPath, options = {}) {
  * @returns {Promise<string>} Promise resolving to the target directory path
  */
 export async function cloneRemoteRepo(url, token, targetDir) {
-  const remoteUrl = token ? `https://${token}@${url.replace(/^https?:\/\//, '')}` : url;
-  await spawnGit(['clone', remoteUrl, targetDir]);
+  if (token) {
+    // Use credential.helper to supply the token without embedding it in the URL.
+    // This prevents the token from leaking via `ps`, `proc`, or Activity Monitor.
+    await spawnGit(
+      [
+        '-c',
+        'credential.helper=',
+        '-c',
+        `credential.helper=!f() { echo "password=${token}"; }; f`,
+        'clone',
+        url,
+        targetDir
+      ],
+      null
+    );
+  } else {
+    await spawnGit(['clone', url, targetDir]);
+  }
   return targetDir;
 }
 

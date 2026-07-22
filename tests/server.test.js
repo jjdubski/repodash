@@ -55,7 +55,10 @@ before(() => {
       byDayOfWeek: [{ day: 'Mon', count: 10 }],
       byHour: [{ hour: 9, count: 5 }],
       topFiles: [{ path: 'src/index.js', changes: 20 }]
-    }
+    },
+    languages: [{ language: 'JavaScript', files: 10, linesChanged: 500 }],
+    repos: [{ name: 'test-repo', fullName: 'test/test-repo', pushedAt: null }],
+    repoData: {}
   };
 });
 
@@ -104,13 +107,16 @@ describe('serveDashboard', () => {
 
   // ----- 3. Data JSON files are written ------------------------------------
 
-  it('should write all 4 JSON data files to tmpDir/data/', () => {
+  it('should write all JSON data files to tmpDir/data/', () => {
     const dataDir = join(handle.tmpDir, 'data');
     const expectedFiles = [
       'summary.json',
       'contributions.json',
       'contributors.json',
-      'frequency.json'
+      'frequency.json',
+      'languages.json',
+      'repos.json',
+      'repoData.json'
     ];
 
     for (const file of expectedFiles) {
