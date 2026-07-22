@@ -1,5 +1,6 @@
 import { parseArgs } from 'node:util';
 import { createRequire } from 'node:module';
+import { cpus } from 'node:os';
 import chalk from 'chalk';
 
 const require = createRequire(import.meta.url);
@@ -14,7 +15,7 @@ Options:
   --file [path]         Write datasets as JSON to a file (default: repo dir)
   --timing              Show timing breakdown for each step
   --no-merges           Exclude merge commits (faster for large repos)
-  --concurrency <n>     Number of parallel workers (default: CPU count, max: 8)
+  --concurrency <n>     Number of parallel workers (default: CPU count, max: 2x CPU count)
   --token <token>       GitHub personal access token for remote/private repos
   --user <username>     Fetch and analyze all repos for a GitHub user
   --summary             Include summary dataset
@@ -143,11 +144,15 @@ export function parseAndValidate(argv) {
       printUsage();
       process.exit(1);
     }
-    if (n > 8) {
-      console.log(chalk.yellow('Warning: --concurrency cannot exceed 8, setting to 8.\n'));
-      values.concurrency = 8;
+    const cpuCount = cpus().length || 1;
+    if (n > cpuCount * 2) {
+      console.log(
+        chalk.yellow('Warning: --concurrency limited to ' + cpuCount * 2 + ' (2x CPU count).\n')
+      );
+      values.concurrency = cpuCount * 2;
+    } else {
+      values.concurrency = n;
     }
-    values.concurrency = n;
   }
 
   validateUserAndPath(values, positionals);

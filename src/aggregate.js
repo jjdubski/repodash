@@ -1053,7 +1053,7 @@ export async function aggregateStreamParallel(
   });
 
   const concurrency = options.concurrency ?? (cpus().length || 1);
-  const states = await concurrencyPool(tasks, Math.min(concurrency, 8));
+  const states = await concurrencyPool(tasks, concurrency);
 
   let t = performance.now();
   const processed = mergeAllStates(states);
