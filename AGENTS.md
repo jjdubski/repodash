@@ -10,7 +10,9 @@ src/
   cli.js                    — argument parsing & validation
   index.js                  — orchestrator (main function)
   git.js                    — git command runner + streaming parser + remote clone
+  github.js                 — GitHub API client (fetchUserRepos)
   aggregate.js              — pure function: raw commits → 5 datasets (parallel)
+  csv.js                    — CSV generation with formula-injection sanitization
   server.js                 — HTTP server, writes JSON to temp dir, opens browser
 dashboard/
   index.html                — SPA shell
@@ -26,9 +28,9 @@ dashboard/
 
 - `aggregate.js` is the pure core — no I/O, trivially testable. The primary entry point is `aggregateStreamParallel()` which splits history into quarter-year slices and farms them to a concurrency pool.
 - Git parser streams `git log --all --numstat` line-by-line, flushing on a `---COMMIT---` delimiter to handle large repos without loading everything into memory.
-- CLI parsing in `src/cli.js` uses `node:util.parseArgs` — handles all flags (`--json`, `--file`, `--pdf`, `--timing`, `--no-merges`, `--concurrency`, `--token`, dataset filters).
-- Output modes: dashboard (HTTP server + browser open), JSON to stdout (`--json`), JSON to file (`--file`), PDF report (`--pdf`, requires Playwright).
-- Supports remote repository URLs (clones to temp dir, auto-cleans on exit). Can use `--token ghp_xxx` for private repos.
+- CLI parsing in `src/cli.js` uses `node:util.parseArgs` — handles all flags (`--json`, `--file`, `--csv`, `--pdf`, `--timing`, `--no-merges`, `--concurrency`, `--token`, `--user`, dataset filters).
+- Output modes: dashboard (HTTP server + browser open), JSON to stdout (`--json`), JSON to file (`--file`), CSV report (`--csv`), PDF report (`--pdf`, requires Playwright).
+- Supports remote repository URLs (clones to temp dir, auto-cleans on exit). Can use `--token ghp_xxx` for private repos. Multi-repo analysis via `--user` (fetches repos via GitHub API).
 - Data JSON files generated at runtime in `{os.tmpdir()}/repodash-XXXXX/data/`. Stale temp dirs from crashed runs cleaned up on next startup (older than 5 minutes).
 - Path traversal protection in `server.js` with CSP headers. Browser auto-open suppressible via `REPODASH_DISABLE_OPEN` env var or `openBrowser: false` option.
 - No native dependencies — zero npm install is needed for `npx repodash` usage.
@@ -37,11 +39,11 @@ dashboard/
 
 Three tabbed panels rendered client-side with Chart.js 4 (CDN-loaded):
 
-| Tab              | Charts & content                                                                                                                                                                                             |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Overview**     | Metric cards (commits, contributors, additions, deletions), contribution graph (by author/commits with mode toggle), top contributors bar (by commits/additions/deletions), additions & deletions line chart |
-| **Contributors** | Sortable + paginated table (name, commits, additions, deletions, first/last commit), commit distribution bar chart, pagination (50–1000 per page)                                                            |
-| **Activity**     | Commits by day-of-week bar, commits by hour-of-day bar, top changed files table                                                                                                                              |
+| Tab              | Charts & content                                                                                                                                                                                                                                |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overview**     | Metric cards (commits, contributors, additions, deletions), contribution graph (by author/commits with mode toggle), top contributors bar (by commits/additions/deletions), additions & deletions line chart, language breakdown doughnut chart |
+| **Contributors** | Sortable + paginated table (name, commits, additions, deletions, first/last commit), commit distribution bar chart, pagination (50–1000 per page)                                                                                               |
+| **Activity**     | Commits by day-of-week bar, commits by hour-of-day bar, top changed files table                                                                                                                                                                 |
 
 Filtering/downsampling offloaded to a **Web Worker** (`worker.js`) for smooth UI. Data filtering recomputes summary stats per time range. Time filter pills: All Time / Past Year / Last 3 Months / This Week / Custom date range. Dark/light theme persisted to localStorage.
 
@@ -52,6 +54,8 @@ repo path
   │
   ▼
 src/cli.js (parse flags)
+  │
+  ├── --user → src/github.js (fetchUserRepos → clone each via src/git.js)
   │
   ▼
 src/git.js (spawn git log --all --numstat, stream commits)
@@ -67,32 +71,35 @@ Output (chosen by flags):
   ├─ src/server.js → HTTP + browser open (dashboard mode)
   ├─ --json → stdout JSON
   ├─ --file [path] → file dump
+  ├─ --csv [path] → src/csv.js → file dump
   └─ --pdf [path] → Headless Playwright → PDF export
 ```
 
 ## Key exported APIs
 
-| Module                | Key exports                                                                                                                       | Purpose                                                        |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| `src/cli.js`          | `parseAndValidate(argv)`                                                                                                          | Returns `{ repoPath, values }` with parsed flags               |
-| `src/index.js`        | `main(repoPath, options)`, `setupShutdownHandlers(fn)`                                                                            | Orchestrator, signal/cleanup registration                      |
-| `src/git.js`          | `getAllCommits()`, `cloneRemoteRepo()`, `getLocalBranchCount()`, `getCommitYearRange()`, `findActiveYears()`, `cleanAuthorName()` | Git interaction                                                |
-| `src/aggregate.js`    | `aggregate()`, `aggregateStream()`, `aggregateStreamParallel()`, `createYearSlices()`, `concurrencyPool()`                        | Data processing                                                |
-| `src/server.js`       | `serveDashboard(data, dashboardDir, port)`                                                                                        | HTTP server                                                    |
-| `dashboard/filter.js` | `formatNumber`, `formatDate`, `filterByDate`, `downsampleData`, `computeFiltered*`, `sortContributors`                            | Shared pure functions (imported by dashboard.js and worker.js) |
+| Module                | Key exports                                                                                                                                         | Purpose                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| `src/cli.js`          | `parseAndValidate(argv)`                                                                                                                            | Returns `{ repoPath, values }` with parsed flags               |
+| `src/index.js`        | `main(repoPath, options)`, `setupShutdownHandlers(fn)`                                                                                              | Orchestrator, signal/cleanup registration                      |
+| `src/git.js`          | `getAllCommits()`, `cloneRemoteRepo()`, `getRemoteUrl()`, `getLocalBranchCount()`, `getCommitYearRange()`, `findActiveYears()`, `cleanAuthorName()` | Git interaction                                                |
+| `src/github.js`       | `fetchUserRepos(username, token)`                                                                                                                   | GitHub API — paginated repo list for a user                    |
+| `src/aggregate.js`    | `aggregate()`, `aggregateStream()`, `aggregateStreamParallel()`, `createYearSlices()`, `concurrencyPool()`                                          | Data processing                                                |
+| `src/csv.js`          | `generateCsvReport(data, outPath)`, `csvField(value)`                                                                                               | CSV export with CWE-1236 protection                            |
+| `src/server.js`       | `serveDashboard(data, dashboardDir, port)`                                                                                                          | HTTP server                                                    |
+| `dashboard/filter.js` | `formatNumber`, `formatDate`, `filterByDate`, `downsampleData`, `computeFiltered*`, `sortContributors`                                              | Shared pure functions (imported by dashboard.js and worker.js) |
 
 ## Commands
 
-| Command                               | Notes                                                                                    |
-| ------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `npm start`                           | Runs `node bin/repodash.js` (no args → shows usage)                                      |
-| `npm test`                            | Runs all tests matching `tests/**/*.test.js` and `tests/**/*.e2e.js` (13 suites + 1 E2E) |
-| `npm run test:e2e`                    | Runs only the Playwright E2E test suite                                                  |
-| `node --test tests/aggregate.test.js` | Single test file                                                                         |
-| `npm run format`                      | Prettier auto-format                                                                     |
-| `npm run format:check`                | Prettier check only                                                                      |
-| `node bin/repodash.js /path/to/repo`  | Generate dashboard for a specific repo                                                   |
-| `node bin/repodash.js --help`         | Show all available flags                                                                 |
+| Command                               | Notes                                                                                          |
+| ------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `npm start`                           | Runs `node bin/repodash.js` (no args → shows usage)                                            |
+| `npm test`                            | Runs all tests matching `tests/**/*.test.js` and `tests/e2e/*.e2e.js` (16 test suites + 1 E2E) |
+| `npm run test:e2e`                    | Runs only the Playwright E2E test suite (`tests/e2e/dashboard.e2e.js`)                         |
+| `node --test tests/aggregate.test.js` | Single test file                                                                               |
+| `npm run format`                      | Prettier auto-format                                                                           |
+| `npm run format:check`                | Prettier check only                                                                            |
+| `node bin/repodash.js /path/to/repo`  | Generate dashboard for a specific repo                                                         |
+| `node bin/repodash.js --help`         | Show all available flags                                                                       |
 
 ## Linting & reviewdog
 
@@ -133,7 +140,7 @@ reviewdog -reporter=local -conf=.reviewdog.yml  # all runners
 ## Testing quirks
 
 - Framework: built-in `node:test` + `node:assert` (no Jest, no Vitest).
-- `npm test` runs all test files matching `tests/**/*.test.js` and `tests/**/*.e2e.js` (13 test suites + 1 E2E).
+- `npm test` runs all test files matching `tests/**/*.test.js` and `tests/e2e/*.e2e.js` (16 test suites + 1 E2E).
 - `npm run test:e2e` runs only the Playwright E2E test suite.
 - `git.test.js` creates real temp git repos (needs actual git on PATH).
 - `aggregate.test.js` has performance assertions (<500ms for 5000 commits).
