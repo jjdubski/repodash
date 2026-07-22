@@ -1019,6 +1019,10 @@ body.printing .chart-card {
   padding: 16px;
 }
 
+body.printing .chart-row {
+  grid-template-columns: 1fr;
+}
+
 /* ═════════════════════════════════════════════════════════════════════
    Print / PDF export styles
    ═════════════════════════════════════════════════════════════════════ */
@@ -1137,7 +1141,7 @@ body.printing .chart-card {
 
   .chart-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 16px;
     margin-bottom: 16px;
   }
