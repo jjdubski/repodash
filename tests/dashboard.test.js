@@ -24,6 +24,9 @@ import {
   formatDate,
   getCutoffDate,
   filterByDate,
+  downsampleData,
+  computeFilteredSummary,
+  sortContributors,
   computeFilteredContributors,
   computeFilteredActivity,
   clampDate,
@@ -1288,6 +1291,22 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
     it('should return em-dash for Number.NaN', () => {
       assert.strictEqual(formatNumber(Number.NaN), '\u2014');
     });
+
+    it('should handle Infinity as a large number', () => {
+      const result = formatNumber(Infinity);
+      assert.ok(result.includes('Infinity'), 'Infinity should be formatted as "InfinityM"');
+    });
+
+    it('should handle -Infinity as a large negative number', () => {
+      assert.ok(formatNumber(-Infinity).includes('-Infinity'));
+    });
+
+    it('should handle Number.MAX_SAFE_INTEGER as K/M format', () => {
+      assert.ok(
+        formatNumber(Number.MAX_SAFE_INTEGER).endsWith('K') ||
+          formatNumber(Number.MAX_SAFE_INTEGER).endsWith('M')
+      );
+    });
   });
 
   // ── formatDate ───────────────────────────────────────────────────────────
@@ -1427,6 +1446,385 @@ describe('Dashboard — dashboard.js (pure functions)', () => {
       const d = [{ date: '2023-01-01' }, { date: '2024-06-01' }];
       const result = filterByDate(d, { start: '2024-01-01', end: null });
       assert.strictEqual(result.length, 1);
+    });
+
+    it('should filter with both start and end bounds (edge case same date)', () => {
+      const d = [
+        { date: '2024-06-01', val: 1 },
+        { date: '2024-06-15', val: 2 },
+        { date: '2024-06-30', val: 3 }
+      ];
+      const result = filterByDate(d, { start: '2024-06-01', end: '2024-06-15' });
+      assert.strictEqual(result.length, 2);
+      assert.strictEqual(result[0].val, 1);
+      assert.strictEqual(result[1].val, 2);
+    });
+  });
+
+  // ── downsampleData ─────────────────────────────────────────────────────────
+
+  describe('downsampleData', () => {
+    it('should return the same array if length <= maxPoints', () => {
+      const arr = [1, 2, 3];
+      assert.strictEqual(downsampleData(arr, 10), arr);
+    });
+
+    it('should return the same array when length equals maxPoints', () => {
+      const arr = [1, 2, 3, 4, 5];
+      assert.strictEqual(downsampleData(arr, 5), arr);
+    });
+
+    it('should downsample evenly to maxPoints', () => {
+      const arr = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+      const result = downsampleData(arr, 5);
+      assert.strictEqual(result.length, 5);
+      assert.strictEqual(result[0], 0);
+      assert.strictEqual(result[result.length - 1], 9);
+    });
+
+    it('should handle maxPoints = 1', () => {
+      const arr = [10, 20, 30, 40, 50];
+      const result = downsampleData(arr, 1);
+      assert.strictEqual(result.length, 1);
+      assert.strictEqual(result[0], 10);
+    });
+
+    it('should return empty array for empty input', () => {
+      const arr = [];
+      const result = downsampleData(arr, 10);
+      assert.strictEqual(result, arr);
+    });
+
+    it('should not mutate the original array', () => {
+      const arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+      const copy = [...arr];
+      const result = downsampleData(arr, 3);
+      assert.deepStrictEqual(arr, copy);
+      assert.notStrictEqual(result, arr);
+    });
+
+    it('should handle undefined input gracefully', () => {
+      assert.strictEqual(downsampleData(undefined, 10), undefined);
+    });
+
+    it('should handle null input gracefully', () => {
+      assert.strictEqual(downsampleData(null, 10), null);
+    });
+
+    it('should return first element when maxPoints is 0 or less', () => {
+      const result = downsampleData([1, 2, 3], 0);
+      assert.deepStrictEqual(result, [1]);
+    });
+
+    it('should downsample 1000 items to 50', () => {
+      const arr = Array.from({ length: 1000 }, function (_, i) {
+        return i;
+      });
+      const result = downsampleData(arr, 50);
+      assert.strictEqual(result.length, 50);
+      assert.strictEqual(result[0], 0);
+      assert.strictEqual(result[49], 999);
+    });
+  });
+
+  // ── computeFilteredSummary ─────────────────────────────────────────────────
+
+  describe('computeFilteredSummary', () => {
+    it('should return zeros with null dates for empty contributions', () => {
+      const result = computeFilteredSummary([], []);
+      assert.strictEqual(result.totalCommits, 0);
+      assert.strictEqual(result.totalContributors, 0);
+      assert.strictEqual(result.totalAdditions, 0);
+      assert.strictEqual(result.totalDeletions, 0);
+      assert.strictEqual(result.firstCommit, null);
+      assert.strictEqual(result.lastCommit, null);
+    });
+
+    it('should compute totals for a single contribution day', () => {
+      const contributions = [
+        {
+          date: '2024-06-15',
+          count: 5,
+          authorDetails: [
+            { author: 'Alice', email: 'alice@test.com', count: 3 },
+            { author: 'Bob', email: 'bob@test.com', count: 2 }
+          ]
+        }
+      ];
+      const frequency = [{ date: '2024-06-15', additions: 100, deletions: 30 }];
+      const result = computeFilteredSummary(contributions, frequency);
+      assert.strictEqual(result.totalCommits, 5);
+      assert.strictEqual(result.totalContributors, 2);
+      assert.strictEqual(result.totalAdditions, 100);
+      assert.strictEqual(result.totalDeletions, 30);
+      assert.strictEqual(result.firstCommit, '2024-06-15');
+      assert.strictEqual(result.lastCommit, '2024-06-15');
+    });
+
+    it('should sum multiple contributions across days', () => {
+      const contributions = [
+        {
+          date: '2024-01-01',
+          count: 3,
+          authorDetails: [{ author: 'Alice', email: 'alice@test.com', count: 3 }]
+        },
+        {
+          date: '2024-06-15',
+          count: 7,
+          authorDetails: [
+            { author: 'Alice', email: 'alice@test.com', count: 4 },
+            { author: 'Bob', email: 'bob@test.com', count: 3 }
+          ]
+        },
+        {
+          date: '2024-12-31',
+          count: 2,
+          authorDetails: [{ author: 'Bob', email: 'bob@test.com', count: 2 }]
+        }
+      ];
+      const frequency = [
+        { date: '2024-01-01', additions: 30, deletions: 5 },
+        { date: '2024-06-15', additions: 70, deletions: 20 },
+        { date: '2024-12-31', additions: 15, deletions: 3 }
+      ];
+      const result = computeFilteredSummary(contributions, frequency);
+      assert.strictEqual(result.totalCommits, 12);
+      assert.strictEqual(result.totalContributors, 2);
+      assert.strictEqual(result.totalAdditions, 115);
+      assert.strictEqual(result.totalDeletions, 28);
+      assert.strictEqual(result.firstCommit, '2024-01-01');
+      assert.strictEqual(result.lastCommit, '2024-12-31');
+    });
+
+    it('should deduplicate contributors by email', () => {
+      const contributions = [
+        {
+          date: '2024-06-15',
+          count: 5,
+          authorDetails: [
+            { author: 'Alice', email: 'alice@test.com', count: 3 },
+            { author: 'Alice', email: 'alice@test.com', count: 2 }
+          ]
+        }
+      ];
+      const result = computeFilteredSummary(contributions, []);
+      assert.strictEqual(result.totalContributors, 1);
+    });
+
+    it('should fall back to author name when email is missing', () => {
+      const contributions = [
+        {
+          date: '2024-06-15',
+          count: 2,
+          authorDetails: [{ author: 'Alice', count: 2 }]
+        }
+      ];
+      const result = computeFilteredSummary(contributions, []);
+      assert.strictEqual(result.totalContributors, 1);
+    });
+
+    it('should handle missing authorDetails gracefully', () => {
+      const contributions = [{ date: '2024-06-15', count: 5 }];
+      const result = computeFilteredSummary(contributions, []);
+      assert.strictEqual(result.totalContributors, 0);
+      assert.strictEqual(result.totalCommits, 5);
+    });
+
+    it('should handle contributions with no date field', () => {
+      const contributions = [
+        { count: 3, authorDetails: [{ author: 'A', email: 'a@t.com', count: 3 }] }
+      ];
+      const result = computeFilteredSummary(contributions, []);
+      assert.strictEqual(result.totalCommits, 3);
+      assert.strictEqual(result.totalContributors, 1);
+      assert.strictEqual(result.firstCommit, null);
+      assert.strictEqual(result.lastCommit, null);
+    });
+
+    it('should find correct earliest and latest dates across contributions', () => {
+      const contributions = [
+        {
+          date: '2025-03-01',
+          count: 1,
+          authorDetails: [{ author: 'A', email: 'a@t.com', count: 1 }]
+        },
+        {
+          date: '2024-01-01',
+          count: 1,
+          authorDetails: [{ author: 'A', email: 'a@t.com', count: 1 }]
+        },
+        {
+          date: '2025-06-15',
+          count: 1,
+          authorDetails: [{ author: 'A', email: 'a@t.com', count: 1 }]
+        }
+      ];
+      const result = computeFilteredSummary(contributions, []);
+      assert.strictEqual(result.firstCommit, '2024-01-01');
+      assert.strictEqual(result.lastCommit, '2025-06-15');
+    });
+  });
+
+  // ── sortContributors ────────────────────────────────────────────────────────
+
+  describe('sortContributors', () => {
+    const contributors = [
+      {
+        name: 'Charlie',
+        email: 'charlie@test.com',
+        totalCommits: 5,
+        additions: 200,
+        deletions: 10,
+        firstCommit: '2024-03-01',
+        lastCommit: '2024-12-01'
+      },
+      {
+        name: 'Alice',
+        email: 'alice@test.com',
+        totalCommits: 10,
+        additions: 500,
+        deletions: 20,
+        firstCommit: '2024-01-01',
+        lastCommit: '2024-11-01'
+      },
+      {
+        name: 'Bob',
+        email: 'bob@test.com',
+        totalCommits: 7,
+        additions: 300,
+        deletions: 40,
+        firstCommit: '2024-02-01',
+        lastCommit: '2024-10-01'
+      }
+    ];
+
+    it('should sort by commits descending by default', () => {
+      const result = sortContributors(contributors, 'commits', 'desc');
+      assert.strictEqual(result[0].name, 'Alice');
+      assert.strictEqual(result[1].name, 'Bob');
+      assert.strictEqual(result[2].name, 'Charlie');
+    });
+
+    it('should sort by commits ascending', () => {
+      const result = sortContributors(contributors, 'commits', 'asc');
+      assert.strictEqual(result[0].name, 'Charlie');
+      assert.strictEqual(result[1].name, 'Bob');
+      assert.strictEqual(result[2].name, 'Alice');
+    });
+
+    it('should sort by additions descending', () => {
+      const result = sortContributors(contributors, 'additions', 'desc');
+      assert.strictEqual(result[0].name, 'Alice');
+      assert.strictEqual(result[1].name, 'Bob');
+      assert.strictEqual(result[2].name, 'Charlie');
+    });
+
+    it('should sort by additions ascending', () => {
+      const result = sortContributors(contributors, 'additions', 'asc');
+      assert.strictEqual(result[0].name, 'Charlie');
+      assert.strictEqual(result[1].name, 'Bob');
+      assert.strictEqual(result[2].name, 'Alice');
+    });
+
+    it('should sort by deletions descending', () => {
+      const result = sortContributors(contributors, 'deletions', 'desc');
+      assert.strictEqual(result[0].name, 'Bob');
+      assert.strictEqual(result[1].name, 'Alice');
+      assert.strictEqual(result[2].name, 'Charlie');
+    });
+
+    it('should sort by name ascending', () => {
+      const result = sortContributors(contributors, 'name', 'asc');
+      assert.strictEqual(result[0].name, 'Alice');
+      assert.strictEqual(result[1].name, 'Bob');
+      assert.strictEqual(result[2].name, 'Charlie');
+    });
+
+    it('should sort by name descending', () => {
+      const result = sortContributors(contributors, 'name', 'desc');
+      assert.strictEqual(result[0].name, 'Charlie');
+      assert.strictEqual(result[1].name, 'Bob');
+      assert.strictEqual(result[2].name, 'Alice');
+    });
+
+    it('should sort by firstCommit descending', () => {
+      const result = sortContributors(contributors, 'firstCommit', 'desc');
+      assert.strictEqual(result[0].name, 'Charlie');
+      assert.strictEqual(result[1].name, 'Bob');
+      assert.strictEqual(result[2].name, 'Alice');
+    });
+
+    it('should sort by lastCommit ascending', () => {
+      const result = sortContributors(contributors, 'lastCommit', 'asc');
+      assert.strictEqual(result[0].name, 'Bob');
+      assert.strictEqual(result[1].name, 'Alice');
+      assert.strictEqual(result[2].name, 'Charlie');
+    });
+
+    it('should tie-break by name when sort values are equal', () => {
+      const tied = [
+        { name: 'Bob', email: 'bob@t.com', totalCommits: 5 },
+        { name: 'Alice', email: 'alice@t.com', totalCommits: 5 }
+      ];
+      const resultAsc = sortContributors(tied, 'commits', 'asc');
+      assert.strictEqual(resultAsc[0].name, 'Alice');
+      assert.strictEqual(resultAsc[1].name, 'Bob');
+    });
+
+    it('should reverse name tie-break when sortOrder is descending', () => {
+      const tied = [
+        { name: 'Bob', email: 'bob@t.com', totalCommits: 5 },
+        { name: 'Alice', email: 'alice@t.com', totalCommits: 5 }
+      ];
+      const resultDesc = sortContributors(tied, 'commits', 'desc');
+      assert.strictEqual(resultDesc[0].name, 'Bob');
+      assert.strictEqual(resultDesc[1].name, 'Alice');
+    });
+
+    it('should return a new array (not mutate input)', () => {
+      const result = sortContributors(contributors, 'commits', 'desc');
+      assert.notStrictEqual(result, contributors);
+    });
+
+    it('should return empty array for empty input', () => {
+      const result = sortContributors([], 'commits', 'desc');
+      assert.deepStrictEqual(result, []);
+    });
+
+    it('should return a copy for single contributor', () => {
+      const single = [{ name: 'A', email: 'a@t.com', totalCommits: 1 }];
+      const result = sortContributors(single, 'commits', 'desc');
+      assert.deepStrictEqual(result, single);
+      assert.notStrictEqual(result, single);
+    });
+
+    it('should handle contributors with missing sort fields gracefully', () => {
+      const partial = [
+        { name: 'Bob', email: 'b@t.com', totalCommits: 3 },
+        { name: 'Alice', email: 'a@t.com' }
+      ];
+      const result = sortContributors(partial, 'commits', 'desc');
+      assert.strictEqual(result[0].name, 'Bob');
+      assert.strictEqual(result[1].name, 'Alice');
+    });
+
+    it('should sort by totalCommits via fieldMap alias when sortBy is commits', () => {
+      const custom = [
+        { name: 'X', email: 'x@t.com', totalCommits: 1 },
+        { name: 'Y', email: 'y@t.com', totalCommits: 10 }
+      ];
+      const result = sortContributors(custom, 'commits', 'desc');
+      assert.strictEqual(result[0].name, 'Y');
+    });
+
+    it('should not fall back to name tie-break when sortBy is name', () => {
+      const sameName = [
+        { name: 'Alice', email: 'a@t.com', totalCommits: 5 },
+        { name: 'Alice', email: 'b@t.com', totalCommits: 3 }
+      ];
+      const result = sortContributors(sameName, 'name', 'asc');
+      assert.strictEqual(result[0].email, 'a@t.com');
+      assert.strictEqual(result[1].email, 'b@t.com');
     });
   });
 

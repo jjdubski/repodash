@@ -65,6 +65,7 @@ export function filterByDate(arr, bounds, field = 'date') {
 
 export function downsampleData(arr, maxPoints) {
   if (!arr || arr.length <= maxPoints) return arr;
+  if (maxPoints <= 1) return [arr[0]];
   const step = (arr.length - 1) / (maxPoints - 1);
   const result = [];
   for (let i = 0; i < maxPoints; i++) {
