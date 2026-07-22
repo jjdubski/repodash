@@ -1,17 +1,14 @@
-# TODO list
+# TODO
 
-1. Add a way to paste in a git repo like <https://github.com/pewdiepie-archdaemon/odysseus.git> or pewdiepie-archdaemon/odysseus instead of the path (must be a public repo for this to work)
-2. Add playwright testing
-3. Add a --user flag that will show all commits for that user
-   7.1 We would need to change the dashboard to allow filtering by repository (default show all history across all commits)
-   7.2 This would show all public commits but we should add a --token flag where a user passes in a GitHub token to see all their private repo commits as well
-4. Add a --pdf flag that will just give the user the all time PDF (using the same --file flag for the path otherwise make the PDF in that repo folder with the same timestamp format)
-5. Make sure all the available flags are in the -h output with appropriate descriptions
-6. Find a good npm package name: git-graph, reposcan, repo-scan, repo-vitals, git-vitals
-7. Make `Commit by Day of Week` and `Commit by Hour of Day` share a page in export PDF (stacked vertically preferably)
-8. Perhaps some system information checking to dynamically adjust concurrent from 8 -> 4
-
-| Group                | Items                                                           | Theme                               |
-| -------------------- | --------------------------------------------------------------- | ----------------------------------- |
-| **A — CLI features** | #1 (paste URL), #3 (--user/--token), #4 (--pdf), #5 (-h output) | New CLI flags + remote repo support |
-| **B — Testing**      | #2 (Playwright)                                                 | New test framework                  |
+1. **Language Breakdown** — File-extension distribution analysis (% JS, Python, etc.). Pie chart or bar on Overview tab.
+2. **`--csv` flag** — Same semantics as `--pdf` — writes a CSV report of contributors and frequency data to the given path.
+3. **Comparison tab** — New tab after Activity. Side-by-side charts comparing two time periods. Same pill filters (All Time, Past Year, etc.) for each side independently. Show ▲/▼ percent change in green/red on metric cards.
+4. **Frontend test suite** — Expand `dashboard.test.js` to cover rendering helpers, chart data transformations, edge cases (empty data, single contributor, large datasets). Add snapshot tests for HTML output.
+5. **Inline critical CSS** — Extract above-the-fold CSS from `style.css` and inline it in `<head>` in `index.html`. Load full stylesheet asynchronously.
+6. **`--user` flag** — Show all commits for a given author across all repos on GitHub. Uses public GitHub API; combine with `--token` for private repos.
+7. **Dashboard repo filtering** — Allow filtering the dashboard by repository (default: all history).
+8. **`--token` for private repos** — Show all public commits; `--token` for private repo access.
+9. **`-h` output audit** — Ensure all available flags are listed in `-h` with appropriate descriptions.
+10. **PDF layout — combined day/hour charts** — Make "Commits by Day of Week" and "Commits by Hour of Day" share one PDF page (stacked vertically).
+11. **Dynamic concurrency** — Tune parallel worker count based on system CPU/memory info instead of hard max of 8.
+12. **Playwright E2E tests** — Expand Playwright coverage beyond the single basic smoke test.

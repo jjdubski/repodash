@@ -5,6 +5,82 @@ import chalk from 'chalk';
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const GITHUB_NOREPLY_RE = /^(?:\d+\+)?([^@+]+)@users\.noreply\.github\.com$/;
 
+const EXTENSION_LANGUAGE_MAP = {
+  '.js': 'JavaScript',
+  '.mjs': 'JavaScript',
+  '.cjs': 'JavaScript',
+  '.jsx': 'JavaScript',
+  '.ts': 'TypeScript',
+  '.tsx': 'TypeScript',
+  '.css': 'CSS',
+  '.scss': 'SCSS',
+  '.sass': 'SASS',
+  '.less': 'Less',
+  '.html': 'HTML',
+  '.htm': 'HTML',
+  '.json': 'JSON',
+  '.xml': 'XML',
+  '.svg': 'SVG',
+  '.yaml': 'YAML',
+  '.yml': 'YAML',
+  '.md': 'Markdown',
+  '.py': 'Python',
+  '.rb': 'Ruby',
+  '.java': 'Java',
+  '.kt': 'Kotlin',
+  '.kts': 'Kotlin',
+  '.go': 'Go',
+  '.rs': 'Rust',
+  '.c': 'C',
+  '.cpp': 'C++',
+  '.h': 'C/C++',
+  '.hpp': 'C++',
+  '.cs': 'C#',
+  '.php': 'PHP',
+  '.swift': 'Swift',
+  '.sh': 'Shell',
+  '.bash': 'Shell',
+  '.zsh': 'Shell',
+  '.sql': 'SQL',
+  '.r': 'R',
+  '.lua': 'Lua',
+  '.pl': 'Perl',
+  '.pm': 'Perl',
+  '.dart': 'Dart',
+  '.scala': 'Scala',
+  '.vue': 'Vue',
+  '.svelte': 'Svelte',
+  '.astro': 'Astro',
+  '.toml': 'TOML',
+  '.tf': 'Terraform',
+  '.gradle': 'Gradle',
+  '.graphql': 'GraphQL',
+  '.gql': 'GraphQL',
+  '.ex': 'Elixir',
+  '.exs': 'Elixir',
+  '.erl': 'Erlang',
+  '.hs': 'Haskell',
+  '.clj': 'Clojure',
+  '.nim': 'Nim',
+  '.zig': 'Zig',
+  '.wasm': 'WASM',
+  '.proto': 'Protocol Buffers',
+  '.elm': 'Elm',
+  '.fs': 'F#',
+  '.fsx': 'F#',
+  '.jl': 'Julia',
+  '.nix': 'Nix',
+  '.lock': 'Lockfile',
+  '.txt': 'Text'
+};
+
+function getExtension(filePath) {
+  const basename = filePath.split('/').pop() || filePath;
+  const dotIndex = basename.lastIndexOf('.');
+  if (dotIndex < 0) return '';
+  return basename.slice(dotIndex).toLowerCase();
+}
+
 /**
  * @typedef {Object} ProcessingState
  * @property {number} totalAdditions
@@ -18,6 +94,7 @@ const GITHUB_NOREPLY_RE = /^(?:\d+\+)?([^@+]+)@users\.noreply\.github\.com$/;
  * @property {number[]} dayOfWeekCounts - Index 0=Mon … 6=Sun
  * @property {number[]} hourCounts - Index 0-23
  * @property {Map<string, number>} fileChangesMap - Keyed by file path
+ * @property {Map<string, {files: Set<string>, linesChanged: number}>} languageMap - Keyed by language name
  *
  * @typedef {Object} DayEntry
  * @property {string} date - YYYY-MM-DD
@@ -152,6 +229,7 @@ function createEmptyResult(branchCount) {
     contributions: [],
     contributors: [],
     frequency: [],
+    languages: [],
     activity: {
       byDayOfWeek: DAY_NAMES.map((day) => ({ day, count: 0 })),
       byHour: Array.from({ length: 24 }, (_, i) => ({ hour: i, count: 0 })),
@@ -284,6 +362,28 @@ function processSingleCommit(commit, state) {
     state.fileChangesMap.set(file, (state.fileChangesMap.get(file) ?? 0) + 1);
     dayEntry.files.set(file, (dayEntry.files.get(file) ?? 0) + 1);
   }
+
+  for (const file of commit.files ?? []) {
+    const ext = getExtension(file);
+    const lang = EXTENSION_LANGUAGE_MAP[ext] ?? 'Other';
+    let langEntry = state.languageMap.get(lang);
+    if (!langEntry) {
+      langEntry = { files: new Set(), linesChanged: 0 };
+      state.languageMap.set(lang, langEntry);
+    }
+    langEntry.files.add(file);
+  }
+
+  for (const change of commit.fileChanges ?? []) {
+    const ext = getExtension(change.path);
+    const lang = EXTENSION_LANGUAGE_MAP[ext] ?? 'Other';
+    let langEntry = state.languageMap.get(lang);
+    if (!langEntry) {
+      langEntry = { files: new Set(), linesChanged: 0 };
+      state.languageMap.set(lang, langEntry);
+    }
+    langEntry.linesChanged += change.additions + change.deletions;
+  }
 }
 
 /**
@@ -303,7 +403,8 @@ function createProcessingState() {
     contributorsMap: new Map(),
     dayOfWeekCounts: new Array(7).fill(0),
     hourCounts: new Array(24).fill(0),
-    fileChangesMap: new Map()
+    fileChangesMap: new Map(),
+    languageMap: new Map()
   };
 }
 
@@ -456,6 +557,7 @@ function formatResults(processed, commitCount, branchCount) {
     dayOfWeekCounts,
     hourCounts,
     fileChangesMap,
+    languageMap,
     totalAdditions,
     totalDeletions,
     firstCommit,
@@ -509,6 +611,22 @@ function formatResults(processed, commitCount, branchCount) {
     .sort((a, b) => b.changes - a.changes || a.path.localeCompare(b.path))
     .slice(0, 30);
 
+  const languages = Array.from(languageMap.entries())
+    .map(([language, entry]) => ({
+      language,
+      files: entry.files.size,
+      linesChanged: entry.linesChanged
+    }))
+    .sort(
+      (a, b) =>
+        b.files - a.files || b.linesChanged - a.linesChanged || a.language.localeCompare(b.language)
+    );
+
+  const otherIdx = languages.findIndex((l) => l.language === 'Other');
+  if (otherIdx !== -1) {
+    languages.push(languages.splice(otherIdx, 1)[0]);
+  }
+
   return {
     summary: {
       totalCommits: commitCount,
@@ -522,6 +640,7 @@ function formatResults(processed, commitCount, branchCount) {
     contributions,
     contributors,
     frequency,
+    languages,
     activity: {
       byDayOfWeek: DAY_NAMES.map((day, i) => ({ day, count: dayOfWeekCounts[i] })),
       byHour: Array.from(hourCounts, (count, hour) => ({ hour, count })),
@@ -599,6 +718,30 @@ function mergeFrequencyMaps(aFreqMap, bFreqMap) {
     }
   }
   return frequencyMap;
+}
+
+/**
+ * Merges two language maps together.
+ *
+ * @param {Map<string, {files: Set<string>, linesChanged: number}>} a - First language map
+ * @param {Map<string, {files: Set<string>, linesChanged: number}>} b - Second language map
+ * @returns {Map<string, {files: Set<string>, linesChanged: number}>} Merged language map
+ */
+function mergeLanguageMaps(a, b) {
+  const map = new Map();
+  for (const [lang, entry] of a) {
+    map.set(lang, { files: new Set(entry.files), linesChanged: entry.linesChanged });
+  }
+  for (const [lang, entry] of b) {
+    const existing = map.get(lang);
+    if (existing) {
+      for (const file of entry.files) existing.files.add(file);
+      existing.linesChanged += entry.linesChanged;
+    } else {
+      map.set(lang, { files: new Set(entry.files), linesChanged: entry.linesChanged });
+    }
+  }
+  return map;
 }
 
 /**
@@ -698,7 +841,8 @@ function mergeProcessingState(a, b) {
     contributorsMap,
     dayOfWeekCounts: a.dayOfWeekCounts.map((v, i) => v + b.dayOfWeekCounts[i]),
     hourCounts: a.hourCounts.map((v, i) => v + b.hourCounts[i]),
-    fileChangesMap
+    fileChangesMap,
+    languageMap: mergeLanguageMaps(a.languageMap, b.languageMap)
   };
 }
 

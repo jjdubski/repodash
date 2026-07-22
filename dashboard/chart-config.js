@@ -18,6 +18,8 @@
   Chart.register(
     Chart.BarController,
     Chart.LineController,
+    Chart.DoughnutController,
+    Chart.ArcElement,
     Chart.LineElement,
     Chart.BarElement,
     Chart.PointElement,
@@ -57,6 +59,8 @@
     '#39d2c0',
     '#f778ba'
   ];
+
+  window.COLOR_OTHER = '#8b949e';
 
   // -------------------------------------------------------------------
   // Shared option defaults (these go inside `options: { ... }` of a

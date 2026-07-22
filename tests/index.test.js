@@ -265,7 +265,7 @@ describe('main orchestrator (src/index.js)', () => {
       const parsed = JSON.parse(logs[0]);
       assert.deepStrictEqual(
         Object.keys(parsed).sort((a, b) => a.localeCompare(b)),
-        ['activity', 'contributions', 'contributors', 'frequency', 'summary']
+        ['activity', 'contributions', 'contributors', 'frequency', 'languages', 'summary']
       );
     } finally {
       console.log = originalLog;
@@ -286,7 +286,7 @@ describe('main orchestrator (src/index.js)', () => {
       const parsed = JSON.parse(logs[0]);
       assert.deepStrictEqual(
         Object.keys(parsed).sort((a, b) => a.localeCompare(b)),
-        ['activity', 'contributions', 'contributors', 'frequency', 'summary']
+        ['activity', 'contributions', 'contributors', 'frequency', 'languages', 'summary']
       );
     } finally {
       console.log = originalLog;

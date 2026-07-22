@@ -194,6 +194,7 @@ function parseCommit(lines) {
   let additions = 0;
   let deletions = 0;
   const files = [];
+  const fileChanges = [];
 
   for (const line of statLines) {
     const cols = line.split('\t');
@@ -207,6 +208,7 @@ function parseCommit(lines) {
     additions += added;
     deletions += deleted;
     files.push(cols[2]);
+    fileChanges.push({ path: cols[2], additions: added, deletions: deleted });
   }
 
   return {
@@ -215,7 +217,8 @@ function parseCommit(lines) {
     date,
     message,
     stats: { additions, deletions, files: files.length },
-    files
+    files,
+    fileChanges
   };
 }
 

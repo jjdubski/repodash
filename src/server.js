@@ -185,7 +185,7 @@ function createTempDir() {
   return { tmpDir, dataDir };
 }
 
-const DATA_FILE_KEYS = ['summary', 'contributions', 'contributors', 'frequency'];
+const DATA_FILE_KEYS = ['summary', 'contributions', 'contributors', 'frequency', 'languages'];
 
 async function writeDataFiles(dataDir, data) {
   try {

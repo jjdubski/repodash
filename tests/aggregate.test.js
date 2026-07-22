@@ -19,12 +19,32 @@ function makeCommit(overrides = {}) {
     stats: { additions: 10, deletions: 5, files: 2 },
     files: ['src/file1.js', 'src/file2.js']
   };
-  return {
+  const merged = {
     ...defaults,
     ...overrides,
     author: { ...defaults.author, ...overrides.author },
     stats: { ...defaults.stats, ...overrides.stats }
   };
+
+  if (!('fileChanges' in overrides)) {
+    if (merged.files.length > 0) {
+      const perFileAdd = Math.floor(merged.stats.additions / merged.files.length);
+      const perFileDel = Math.floor(merged.stats.deletions / merged.files.length);
+      const remAdd = merged.stats.additions - perFileAdd * merged.files.length;
+      const remDel = merged.stats.deletions - perFileDel * merged.files.length;
+      merged.fileChanges = merged.files.map(function (path, i) {
+        return {
+          path,
+          additions: perFileAdd + (i < remAdd ? 1 : 0),
+          deletions: perFileDel + (i < remDel ? 1 : 0)
+        };
+      });
+    } else {
+      merged.fileChanges = [];
+    }
+  }
+
+  return merged;
 }
 
 /**
@@ -60,6 +80,9 @@ function assertEmptyResult(result, branchCount) {
     assert.strictEqual(entry.count, 0);
   }
   assert.deepStrictEqual(result.activity.topFiles, []);
+
+  // -- languages --
+  assert.deepStrictEqual(result.languages, []);
 }
 
 function noreplyEmail(username, id = '') {
@@ -1015,16 +1038,238 @@ describe('aggregate (pure function)', () => {
         deletions: 3
       });
     });
+
+    // ----- 11. Language breakdown -----------------------------------------
+
+    describe('language breakdown', () => {
+      it('should map .js to JavaScript and count files and linesChanged', () => {
+        const commits = [
+          makeCommit({
+            hash: 'l1',
+            files: ['src/index.js'],
+            fileChanges: [{ path: 'src/index.js', additions: 10, deletions: 5 }],
+            stats: { additions: 10, deletions: 5, files: 1 }
+          })
+        ];
+        const result = aggregate(commits, 1);
+        assert.ok(Array.isArray(result.languages), 'languages should be an array');
+        const js = result.languages.find(function (l) {
+          return l.language === 'JavaScript';
+        });
+        assert.ok(js, 'JavaScript should be in languages');
+        assert.strictEqual(js.files, 1);
+        assert.strictEqual(js.linesChanged, 15);
+      });
+
+      it('should map .ts and .tsx to TypeScript', () => {
+        const commits = [
+          makeCommit({
+            hash: 't1',
+            files: ['src/app.ts', 'src/components/button.tsx'],
+            fileChanges: [
+              { path: 'src/app.ts', additions: 20, deletions: 3 },
+              { path: 'src/components/button.tsx', additions: 5, deletions: 1 }
+            ],
+            stats: { additions: 25, deletions: 4, files: 2 }
+          })
+        ];
+        const result = aggregate(commits, 1);
+        const ts = result.languages.find(function (l) {
+          return l.language === 'TypeScript';
+        });
+        assert.ok(ts, 'TypeScript should be in languages');
+        assert.strictEqual(ts.files, 2);
+        assert.strictEqual(ts.linesChanged, 29);
+      });
+
+      it('should map multiple extensions to correct language buckets', () => {
+        const commits = [
+          makeCommit({
+            hash: 'b1',
+            files: ['a.js', 'b.py', 'c.css'],
+            fileChanges: [
+              { path: 'a.js', additions: 1, deletions: 0 },
+              { path: 'b.py', additions: 2, deletions: 0 },
+              { path: 'c.css', additions: 3, deletions: 0 }
+            ],
+            stats: { additions: 6, deletions: 0, files: 3 }
+          })
+        ];
+        const result = aggregate(commits, 1);
+        const js = result.languages.find(function (l) {
+          return l.language === 'JavaScript';
+        });
+        const py = result.languages.find(function (l) {
+          return l.language === 'Python';
+        });
+        const css = result.languages.find(function (l) {
+          return l.language === 'CSS';
+        });
+        assert.ok(js);
+        assert.ok(py);
+        assert.ok(css);
+        assert.strictEqual(js.files, 1);
+        assert.strictEqual(py.files, 1);
+        assert.strictEqual(css.files, 1);
+        assert.strictEqual(js.linesChanged, 1);
+        assert.strictEqual(py.linesChanged, 2);
+        assert.strictEqual(css.linesChanged, 3);
+      });
+
+      it('should map files with no extension to Other', () => {
+        const commits = [
+          makeCommit({
+            hash: 'o1',
+            files: ['Dockerfile', 'Makefile'],
+            fileChanges: [
+              { path: 'Dockerfile', additions: 5, deletions: 2 },
+              { path: 'Makefile', additions: 3, deletions: 1 }
+            ],
+            stats: { additions: 8, deletions: 3, files: 2 }
+          })
+        ];
+        const result = aggregate(commits, 1);
+        const other = result.languages.find(function (l) {
+          return l.language === 'Other';
+        });
+        assert.ok(other, 'Other should be in languages');
+        assert.strictEqual(other.files, 2);
+        assert.strictEqual(other.linesChanged, 11);
+      });
+
+      it('should map unknown extensions with dot to Other', () => {
+        const commits = [
+          makeCommit({
+            hash: 'u1',
+            files: ['data.xyz'],
+            fileChanges: [{ path: 'data.xyz', additions: 1, deletions: 1 }],
+            stats: { additions: 1, deletions: 1, files: 1 }
+          })
+        ];
+        const result = aggregate(commits, 1);
+        const other = result.languages.find(function (l) {
+          return l.language === 'Other';
+        });
+        assert.ok(other, 'Other should be in languages for unknown extensions');
+        assert.strictEqual(other.files, 1);
+        assert.strictEqual(other.linesChanged, 2);
+      });
+
+      it('should count unique files per language (not occurrences)', () => {
+        const commits = [
+          makeCommit({
+            hash: 'c1',
+            files: ['src/lib.js'],
+            fileChanges: [{ path: 'src/lib.js', additions: 5, deletions: 2 }],
+            stats: { additions: 5, deletions: 2, files: 1 }
+          }),
+          makeCommit({
+            hash: 'c2',
+            files: ['src/lib.js'],
+            fileChanges: [{ path: 'src/lib.js', additions: 3, deletions: 1 }],
+            stats: { additions: 3, deletions: 1, files: 1 }
+          })
+        ];
+        const result = aggregate(commits, 1);
+        const js = result.languages.find(function (l) {
+          return l.language === 'JavaScript';
+        });
+        assert.ok(js);
+        // Same file modified twice — should be 1 unique file
+        assert.strictEqual(js.files, 1);
+        // Lines changed should sum both commits
+        assert.strictEqual(js.linesChanged, 11);
+      });
+
+      it('should sort languages by files desc, then linesChanged desc, then name asc', () => {
+        const commits = [
+          makeCommit({
+            hash: 's1',
+            files: ['a.js', 'b.js', 'c.py', 'd.py', 'e.css'],
+            fileChanges: [
+              { path: 'a.js', additions: 1, deletions: 0 },
+              { path: 'b.js', additions: 1, deletions: 0 },
+              { path: 'c.py', additions: 1, deletions: 0 },
+              { path: 'd.py', additions: 1, deletions: 0 },
+              { path: 'e.css', additions: 1, deletions: 0 }
+            ],
+            stats: { additions: 5, deletions: 0, files: 5 }
+          })
+        ];
+        const result = aggregate(commits, 1);
+        const names = result.languages.map(function (l) {
+          return l.language;
+        });
+        // JavaScript (2) > Python (2) > CSS (1)
+        // JS & Python have same count — tiebreak by linesChanged (both 2) then name
+        const jsIdx = names.indexOf('JavaScript');
+        const pyIdx = names.indexOf('Python');
+        const cssIdx = names.indexOf('CSS');
+        assert.ok(
+          jsIdx < pyIdx || jsIdx === pyIdx,
+          'JavaScript should come before or at same position as Python'
+        );
+        assert.ok(pyIdx < cssIdx, 'Python should come before CSS');
+      });
+
+      it('should produce empty languages array for no commits', () => {
+        const result = aggregate([], 1);
+        assert.deepStrictEqual(result.languages, []);
+      });
+
+      it('should include languages as a top-level key in the result', () => {
+        const result = aggregate([makeCommit({ hash: 'k1', files: ['f.js'] })], 1);
+        assert.ok(Object.hasOwn(result, 'languages'), 'result should have languages key');
+      });
+
+      it('should produce the same language data when input order is reversed', () => {
+        const commits = [
+          makeCommit({
+            hash: 'r1',
+            files: ['x.js'],
+            fileChanges: [{ path: 'x.js', additions: 1, deletions: 0 }],
+            stats: { additions: 1, deletions: 0, files: 1 }
+          }),
+          makeCommit({
+            hash: 'r2',
+            files: ['y.py'],
+            fileChanges: [{ path: 'y.py', additions: 2, deletions: 1 }],
+            stats: { additions: 2, deletions: 1, files: 1 }
+          })
+        ];
+        const a = aggregate(commits, 1);
+        const b = aggregate([...commits].reverse(), 1);
+        assert.deepStrictEqual(a.languages, b.languages);
+      });
+
+      it('should handle binary files (0 stats) correctly', () => {
+        const commits = [
+          makeCommit({
+            hash: 'bin1',
+            files: ['image.png'],
+            fileChanges: [{ path: 'image.png', additions: 0, deletions: 0 }],
+            stats: { additions: 0, deletions: 0, files: 1 }
+          })
+        ];
+        const result = aggregate(commits, 1);
+        const other = result.languages.find(function (l) {
+          return l.language === 'Other';
+        });
+        assert.ok(other, 'Other should include .png files');
+        assert.strictEqual(other.files, 1);
+        assert.strictEqual(other.linesChanged, 0);
+      });
+    });
   });
 
   // ----- Structural invariants -------------------------------------------
 
   describe('structural invariants', () => {
-    it('should return exactly 5 top-level keys', () => {
+    it('should return exactly 6 top-level keys', () => {
       const result = aggregate([makeCommit({ hash: 'inv1' })], 1);
       assert.deepStrictEqual(
         Object.keys(result).sort((a, b) => a.localeCompare(b)),
-        ['activity', 'contributions', 'contributors', 'frequency', 'summary']
+        ['activity', 'contributions', 'contributors', 'frequency', 'languages', 'summary']
       );
     });
 

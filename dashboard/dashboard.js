@@ -313,6 +313,7 @@ function initEmptyCharts(tab) {
     initEmptyChart('chart-contribution', 'bar');
     initEmptyChart('chart-top-contributors', 'bar');
     initEmptyChart('chart-frequency-overview', 'line');
+    initEmptyChart('chart-languages', 'doughnut');
   } else if (tab === 'contributors') {
     initEmptyChart('chart-contributor-distribution', 'bar');
     const tbody = document.querySelector('#contributors-table tbody');
@@ -431,7 +432,7 @@ async function loadData() {
     document.getElementById('metric-additions').textContent = formatNumber(summary.totalAdditions);
     document.getElementById('metric-deletions').textContent = formatNumber(summary.totalDeletions);
 
-    const [contributions, contributors, frequency] = await Promise.all([
+    const [contributions, contributors, frequency, languages] = await Promise.all([
       fetch('/data/contributions.json').then(function (r) {
         return r.json();
       }),
@@ -440,12 +441,16 @@ async function loadData() {
       }),
       fetch('/data/frequency.json').then(function (r) {
         return r.json();
+      }),
+      fetch('/data/languages.json').then(function (r) {
+        return r.json();
       })
     ]);
 
     state.data.contributions = contributions;
     state.data.contributors = contributors;
     state.data.frequency = frequency;
+    state.data.languages = languages;
 
     TABS.forEach(function (t) {
       clearStates(t);
@@ -740,6 +745,7 @@ function renderOverview(d) {
     destroyChart('chart-contribution');
     destroyChart('chart-top-contributors');
     destroyChart('chart-frequency-overview');
+    destroyChart('chart-languages');
     showEmpty('overview');
     return;
   }
@@ -747,6 +753,7 @@ function renderOverview(d) {
   renderContributionChart(d.contributions, state.contributionMode, d.contributors);
   renderTopContributorsChart(d.contributors, state.topContributorsMode);
   renderFrequencyOverviewChart(d.frequency);
+  renderLanguageChart(state.data.languages);
 }
 
 // -- Contribution chart (multi-mode) -----------------------------------
@@ -1019,6 +1026,102 @@ function renderFrequencyOverviewChart(frequency) {
     frequency && frequency.length < 60 ? 2 : 0,
     4
   );
+}
+
+function renderLanguageChart(languages) {
+  if (!languages?.length) {
+    destroyChart('chart-languages');
+    return;
+  }
+
+  const TOP = 8;
+  const topLangs = languages.slice(0, TOP);
+  const others = languages.slice(TOP);
+  const hasOthers = others.length > 0;
+
+  const labels = topLangs.map(function (l) {
+    return l.language;
+  });
+  const data = topLangs.map(function (l) {
+    return l.files;
+  });
+  const totalFiles = languages.reduce(function (sum, l) {
+    return sum + l.files;
+  }, 0);
+
+  if (hasOthers) {
+    const otherFiles = others.reduce(function (sum, l) {
+      return sum + l.files;
+    }, 0);
+    labels.push('Others');
+    data.push(otherFiles);
+  }
+
+  const colors = labels.map(function (label, i) {
+    if (label === 'Other' || label === 'Others') {
+      return globalThis.window.COLOR_OTHER;
+    }
+    return globalThis.window.COLOR_LIST[i % globalThis.window.COLOR_LIST.length];
+  });
+
+  scheduleChart(
+    'chart-languages',
+    'doughnut',
+    {
+      labels: labels,
+      datasets: [
+        {
+          data: data,
+          backgroundColor: colors,
+          borderWidth: 2,
+          borderColor:
+            getComputedStyle(document.documentElement).getPropertyValue('--card-bg').trim() ||
+            '#ffffff'
+        }
+      ]
+    },
+    {
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { boxWidth: 12, padding: 12 }
+        },
+        tooltip: {
+          callbacks: {
+            label: function (ctx) {
+              const pct = totalFiles > 0 ? ((ctx.parsed / totalFiles) * 100).toFixed(1) : 0;
+              return ctx.label + ': ' + formatNumber(ctx.parsed) + ' files (' + pct + '%)';
+            }
+          }
+        }
+      },
+      cutout: '55%',
+      scales: {
+        x: { display: false },
+        y: { display: false }
+      }
+    }
+  );
+
+  const tbody = document.querySelector('#languages-table tbody');
+  if (tbody) {
+    tbody.innerHTML = '';
+    languages.forEach(function (lang) {
+      const pct = totalFiles > 0 ? ((lang.files / totalFiles) * 100).toFixed(1) : 0;
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td>' +
+        escapeHtml(lang.language) +
+        '</td>' +
+        '<td class="num-col">' +
+        formatNumber(lang.files) +
+        '</td>' +
+        '<td class="num-col">' +
+        pct +
+        '%</td>';
+      tbody.appendChild(tr);
+    });
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════
