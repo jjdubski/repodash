@@ -453,4 +453,124 @@ describe('Dashboard E2E', () => {
 
     await screenshot('theme-toggle');
   });
+
+  // ── 8. Language Breakdown ───────────────────────────────────────────
+
+  it('should display language breakdown doughnut chart on overview', async () => {
+    await page.click('#tab-overview-label');
+    await page.waitForFunction(
+      () => document.getElementById('tab-overview')?.classList.contains('active'),
+      { timeout: 5000 }
+    );
+
+    const canvas = await page.$('#chart-languages');
+    assert.ok(canvas, 'Language doughnut chart canvas should exist');
+  });
+
+  it('should populate language table with rows', async () => {
+    await page.waitForFunction(
+      () => {
+        const tbody = document.querySelector('#languages-table tbody');
+        return tbody && tbody.children.length > 0;
+      },
+      { timeout: 10000 }
+    );
+
+    const rows = await page.evaluate(
+      () => document.querySelectorAll('#languages-table tbody tr').length
+    );
+    assert.ok(rows > 0, 'Language table should have at least one row');
+
+    const tableText = await page.textContent('#languages-table tbody');
+    assert.ok(tableText.length > 0, 'Language table should have content');
+
+    await screenshot('language-breakdown');
+  });
+
+  it('should preserve language chart after tab switch', async () => {
+    await page.click('#tab-contributors-label');
+    await page.waitForFunction(
+      () => document.getElementById('tab-contributors')?.classList.contains('active'),
+      { timeout: 5000 }
+    );
+
+    await page.click('#tab-overview-label');
+    await page.waitForFunction(
+      () => document.getElementById('tab-overview')?.classList.contains('active'),
+      { timeout: 5000 }
+    );
+
+    const canvas = await page.$('#chart-languages');
+    assert.ok(canvas, 'Language chart should still exist after tab switch');
+  });
+
+  // ── 9. Contribution graph on Activity tab ──────────────────────────
+
+  it('should render contribution graph grid on activity tab', async () => {
+    await page.click('#tab-activity-label');
+    await page.waitForFunction(
+      () => document.getElementById('tab-activity')?.classList.contains('active'),
+      { timeout: 5000 }
+    );
+
+    await page.waitForFunction(
+      () => {
+        const grid = document.getElementById('contribgraph-grid');
+        return grid && grid.children.length > 0;
+      },
+      { timeout: 10000 }
+    );
+
+    const grid = await page.$('#contribgraph-grid');
+    assert.ok(grid, 'Contribution graph grid should exist');
+
+    await screenshot('contribution-graph');
+  });
+
+  it('should populate contributor dropdown on activity tab', async () => {
+    await page.waitForFunction(
+      () => {
+        const select = document.getElementById('contribgraph-author');
+        return select && select.options.length > 1;
+      },
+      { timeout: 10000 }
+    );
+
+    const options = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('#contribgraph-author option')).map((el) => el.text)
+    );
+    assert.ok(options.length > 0, 'Contributor dropdown should have options');
+  });
+
+  // ── 10. Dark theme persistence ─────────────────────────────────────
+
+  it('should persist dark theme across page reload', async () => {
+    await page.evaluate(() => localStorage.setItem('repodash-theme', 'dark'));
+    await page.reload({ waitUntil: 'networkidle' });
+
+    const theme = await page.evaluate(() => document.documentElement.dataset.theme);
+    assert.equal(theme, 'dark', 'Theme should be dark after reload when localStorage says dark');
+  });
+
+  // ── 11. Responsive layout ──────────────────────────────────────────
+
+  it('should render metric grid as single column on mobile viewport', async () => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.waitForTimeout(500);
+
+    const columns = await page.evaluate(
+      () => getComputedStyle(document.querySelector('.metric-grid')).gridTemplateColumns
+    );
+    assert.equal(columns, '1fr', 'Metric grid should be single column on mobile');
+  });
+
+  it('should show header on mobile viewport', async () => {
+    const header = await page.$('.header-title');
+    assert.ok(header, 'Header should be visible on mobile');
+
+    const isVisible = await page.evaluate(
+      () => getComputedStyle(document.querySelector('.header')).display !== 'none'
+    );
+    assert.equal(isVisible, true, 'Header should not be hidden on mobile');
+  });
 });
