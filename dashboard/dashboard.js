@@ -2256,11 +2256,16 @@ function setupExportPdf() {
         y = pdf.lastAutoTable.finalY + 10;
       }
 
-      const fileSafeName = dateLabel
-        .replace(/[^a-zA-Z0-9]/g, '-')
-        .replace(/-+/g, '-')
-        .replace(/^-|-$/g, '');
-      pdf.save((repoName || 'repodash') + '-' + fileSafeName + '.pdf');
+      const firstDate = filtered.summary?.firstCommit?.slice(0, 10) || '';
+      const lastDate = filtered.summary?.lastCommit?.slice(0, 10) || '';
+      const dateSuffix =
+        firstDate && lastDate
+          ? firstDate + '--' + lastDate
+          : dateLabel
+              .replace(/[^a-zA-Z0-9]/g, '-')
+              .replace(/-+/g, '-')
+              .replace(/^-|-$/g, '');
+      pdf.save('repodash-' + dateSuffix + '.pdf');
     } catch (err) {
       console.error('PDF generation failed:', err);
       exportBtn.classList.add('export-error');
